@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+
+# Rust / Tauri
+src-tauri/target
+src-tauri/gen
+
+# Local logs & scratch
+.logs
+.home.pid
+.dev.pid
+.dev3000.pid
+.app.pid

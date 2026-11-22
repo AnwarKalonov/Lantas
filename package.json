@@ -6,7 +6,8 @@
   "description": "Lantas — a desktop coding agent with screen awareness and computer control.",
   "scripts": {
     "start": "bash scripts/app-window.sh",
-    "app": "bash scripts/app-window.sh",
+    "app": "open -a Terminal \"$(pwd)/Lantas.command\"",
+    "build:mac": "bash scripts/build-mac.sh",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",

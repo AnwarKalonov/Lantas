@@ -1,0 +1,46 @@
+name: Build macOS app
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    # macos-14 runs on Apple Silicon; use macos-13 for an Intel build.
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build app
+        run: npm run tauri build
+
+      - name: Ad-hoc sign
+        run: |
+          APP="src-tauri/target/release/bundle/macos/Lantas.app"
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --verbose "$APP"
+
+      - name: Package app
+        run: ditto -c -k --keepParent "src-tauri/target/release/bundle/macos/Lantas.app" "Lantas-macOS.zip"
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lantas-macOS
+          path: |
+            Lantas-macOS.zip
+            src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error

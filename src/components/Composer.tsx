@@ -40,7 +40,7 @@ export function Composer({
   const [menu, setMenu] = useState<"agent" | "model" | null>(null);
   const [slashIndex, setSlashIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const chipBarRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
 
   const agentMeta = AGENTS.find((item) => item.id === agent) ?? AGENTS[0];
   const providerMeta = PROVIDERS.find((item) => item.id === provider) ?? PROVIDERS[0];
@@ -68,7 +68,7 @@ export function Composer({
   useEffect(() => {
     if (!menu) return;
     const close = (event: MouseEvent) => {
-      if (!chipBarRef.current?.contains(event.target as Node)) setMenu(null);
+      if (!barRef.current?.contains(event.target as Node)) setMenu(null);
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
@@ -78,7 +78,7 @@ export function Composer({
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
   }, [text]);
 
   const submit = () => {
@@ -107,11 +107,7 @@ export function Composer({
           spellCheck={false}
           autoComplete="off"
           aria-label="Message Lantas"
-          placeholder={
-            variant === "home"
-              ? "Ask anything, or describe a task"
-              : "Reply, or press / for commands"
-          }
+          placeholder={variant === "home" ? "Ask anything, or describe a task" : "Follow up…"}
           value={text}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
@@ -164,45 +160,60 @@ export function Composer({
           </div>
         )}
 
-        <div className="composer-bar" ref={chipBarRef}>
-          <div className="composer-chips">
+        <div className="composer-bar" ref={barRef}>
+          <div className="composer-tools">
             <button
               type="button"
-              className={cx("chip", menu === "agent" && "is-open")}
-              onClick={() => setMenu(menu === "agent" ? null : "agent")}
+              className="bar-icon"
+              onClick={() => {
+                setText("/");
+                textareaRef.current?.focus();
+              }}
+              title="Slash commands"
+              aria-label="Slash commands"
             >
+              <Icon name="plus" size={15} />
+            </button>
+
+            <button
+              type="button"
+              className={cx("bar-pill", menu === "agent" && "is-open")}
+              onClick={() => setMenu(menu === "agent" ? null : "agent")}
+              title="Agent"
+            >
+              <span className={cx("bar-dot", connected ? "is-live" : "is-demo")} />
               {agentMeta.name}
               <Icon name="chevronDown" size={12} />
             </button>
 
             <button
               type="button"
-              className={cx("chip chip-model", menu === "model" && "is-open")}
+              className={cx("bar-pill", menu === "model" && "is-open")}
               onClick={() => setMenu(menu === "model" ? null : "model")}
+              title={`${providerMeta.name} · ${prettyModel(model)}`}
             >
               {prettyModel(model)}
-              <span className="chip-provider">{providerMeta.name}</span>
               <Icon name="chevronDown" size={12} />
             </button>
 
-            <span className="chip-divider" />
+            <span className="bar-divider" />
 
             <button
               type="button"
-              className={cx("chip chip-toggle", state.settings.screenAccess && "is-on")}
+              className={cx("bar-icon", state.settings.screenAccess && "is-on")}
               aria-pressed={state.settings.screenAccess}
               onClick={() => {
                 setSettings({ screenAccess: !state.settings.screenAccess });
                 notify(state.settings.screenAccess ? "Screen access off" : "Screen access on");
               }}
               title="Read the frontmost window"
+              aria-label="Screen access"
             >
-              <Icon name="screen" size={13} />
-              Screen
+              <Icon name="screen" size={14} />
             </button>
             <button
               type="button"
-              className={cx("chip chip-toggle", state.settings.computerControl && "is-on")}
+              className={cx("bar-icon", state.settings.computerControl && "is-on")}
               aria-pressed={state.settings.computerControl}
               onClick={() => {
                 setSettings({ computerControl: !state.settings.computerControl });
@@ -213,9 +224,9 @@ export function Composer({
                 );
               }}
               title="Pointer and keyboard control"
+              aria-label="Computer control"
             >
-              <Icon name="cursor" size={13} />
-              Control
+              <Icon name="cursor" size={14} />
             </button>
           </div>
 
@@ -331,28 +342,11 @@ export function Composer({
         </div>
       </div>
 
-      <div className="composer-hints">
-        <span>
-          <kbd>↵</kbd> send
-        </span>
-        <span>
-          <kbd>⇧↵</kbd> newline
-        </span>
-        <span>
-          <kbd>/</kbd> commands
-        </span>
-        {variant === "session" && (
-          <span className="hints-right">
-            <kbd>esc</kbd> stop
-          </span>
-        )}
-      </div>
-
       {!connected && (
         <div className="composer-note">
-          <span>Demo runtime. Replies are simulated until a provider is connected.</span>
+          <span>Demo runtime — connect a provider for live replies.</span>
           <button type="button" className="text-button" onClick={onOpenProviders}>
-            Connect a provider
+            Connect
           </button>
         </div>
       )}

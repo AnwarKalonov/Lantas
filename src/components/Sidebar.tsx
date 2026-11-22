@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../lib/store";
-import { AGENTS } from "../lib/data";
-import { isConfigured, prettyModel } from "../lib/providers";
-import { cx, groupSessions, timeAgo } from "../lib/util";
-import { Wordmark } from "./Brand";
+import { isConfigured } from "../lib/providers";
+import type { Session } from "../lib/types";
+import { cx, timeAgo } from "../lib/util";
+import { MarkGlyph, Wordmark } from "./Brand";
 import { Icon, type IconName } from "./Icons";
 
 interface RowMenu {
@@ -12,11 +12,19 @@ interface RowMenu {
   y: number;
 }
 
+const USER_NAME = "Anwar";
+
 const NAV: Array<{ id: "chats" | "skills" | "integrations"; label: string; icon: IconName }> = [
-  { id: "chats", label: "Chats", icon: "message" },
+  { id: "chats", label: "Threads", icon: "message" },
   { id: "skills", label: "Skills", icon: "book" },
   { id: "integrations", label: "Integrations", icon: "plug" },
 ];
+
+function projectName(cwd: string) {
+  const parts = cwd.split("/").filter((part) => part && part !== "~" && part !== ".");
+  const last = parts[parts.length - 1] ?? "Workspace";
+  return last.charAt(0).toUpperCase() + last.slice(1);
+}
 
 export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const {
@@ -31,11 +39,23 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [menu, setMenu] = useState<RowMenu | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  const groups = useMemo(() => groupSessions(state.sessions), [state.sessions]);
-  const skillsOn = state.skills.filter((skill) => skill.enabled).length;
-  const mcpOn = state.mcpServers.filter((server) => server.enabled).length;
+  const projects = useMemo(() => {
+    const map = new Map<string, Session[]>();
+    state.sessions.forEach((session) => {
+      const key = session.cwd || "~/dev/lantas";
+      map.set(key, [...(map.get(key) ?? []), session]);
+    });
+    return Array.from(map.entries())
+      .map(([cwd, items]) => ({
+        cwd,
+        label: projectName(cwd),
+        items: [...items].sort((a, b) => b.updated - a.updated),
+      }))
+      .sort((a, b) => (b.items[0]?.updated ?? 0) - (a.items[0]?.updated ?? 0));
+  }, [state.sessions]);
 
   useEffect(() => {
     if (!menu) return;
@@ -64,7 +84,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const commitRename = () => {
     if (renaming && draft.trim()) {
       renameSession(renaming, draft);
-      notify("Session renamed");
+      notify("Thread renamed");
     }
     setRenaming(null);
   };
@@ -75,126 +95,196 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   };
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-head">
-        <div className="brand">
-          <Wordmark cell={2} />
-          <span className="brand-version">0.1.0</span>
-        </div>
-
-        <button className="button-primary new-session" onClick={() => createSession()} type="button">
-          <Icon name="plus" size={14} />
-          New session
-          <kbd>⌘N</kbd>
+    <aside className="sidebar shell-nav">
+      <div className="rail">
+        <button
+          type="button"
+          className="rail-brand"
+          onClick={() => setView("chats")}
+          aria-label="Lantas home"
+          title="Lantas"
+        >
+          <MarkGlyph size={21} />
         </button>
 
-        <nav className="sidebar-nav">
+        <button
+          type="button"
+          className="rail-button"
+          onClick={() => createSession()}
+          title="New thread (⌘N)"
+          aria-label="New thread"
+        >
+          <Icon name="plus" size={17} />
+        </button>
+
+        <div className="rail-group">
           {NAV.map((item) => (
             <button
               key={item.id}
               type="button"
-              className={cx("nav-row", state.view === item.id && "is-active")}
+              className={cx("rail-button", state.view === item.id && "is-active")}
               onClick={() => setView(item.id)}
+              title={item.label}
+              aria-label={item.label}
             >
-              <Icon name={item.icon} size={15} />
-              <span>{item.label}</span>
-              {item.id === "skills" && <span className="nav-count">{skillsOn}</span>}
-              {item.id === "integrations" && <span className="nav-count">{mcpOn}</span>}
+              <Icon name={item.icon} size={17} />
             </button>
           ))}
-        </nav>
-      </div>
+        </div>
 
-      <div className="sidebar-scroll">
-        {groups.map((group) => (
-          <section className="session-group" key={group.label}>
-            <div className="group-label">
-              <span>{group.label}</span>
-              <span className="group-count">{group.items.length}</span>
-            </div>
-            <div className="group-rows">
-              {group.items.map((session) => {
-                const agent = AGENTS.find((item) => item.id === session.agent);
-                const available = isConfigured(session.provider, state.settings.providers[session.provider]);
-                return (
-                  <div
-                    key={session.id}
-                    className={cx(
-                      "session-row",
-                      session.id === state.activeId && state.view === "chats" && "is-active",
-                    )}
-                    onClick={() => openSession(session.id)}
-                    onDoubleClick={() => startRename(session.id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") openSession(session.id);
-                    }}
-                  >
-                    <div className="session-row-main">
-                      {renaming === session.id ? (
-                        <input
-                          className="rename-input"
-                          value={draft}
-                          autoFocus
-                          onChange={(event) => setDraft(event.target.value)}
-                          onBlur={commitRename}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") commitRename();
-                            if (event.key === "Escape") setRenaming(null);
-                          }}
-                          onClick={(event) => event.stopPropagation()}
-                        />
-                      ) : (
-                        <div className="session-title">{session.title}</div>
-                      )}
-                      <div className="session-meta">
-                        <span>{prettyModel(session.model)}</span>
-                        <span className="meta-dot">·</span>
-                        <span>{agent?.name}</span>
-                        <span className="meta-dot">·</span>
-                        <span>{timeAgo(session.updated)}</span>
-                        {!available && <span className="session-flag">demo</span>}
-                      </div>
-                    </div>
-                    <button
-                      className="row-menu-button"
-                      aria-label="Session actions"
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        const rect = event.currentTarget.getBoundingClientRect();
-                        setMenu({ sessionId: session.id, x: rect.right, y: rect.bottom + 4 });
-                      }}
-                    >
-                      <Icon name="more" size={14} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+        <span className="rail-spacer" />
 
-        {state.sessions.length === 0 && (
-          <div className="sidebar-empty">
-            <p>No sessions yet</p>
-            <button className="text-button" onClick={() => createSession()} type="button">
-              Start one
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="sidebar-foot">
-        <button className="foot-row" type="button" onClick={onOpenSettings}>
-          <Icon name="settings" size={15} />
-          <span>Settings</span>
-          <kbd>⌘,</kbd>
+        <button
+          type="button"
+          className="rail-button"
+          onClick={() => setView("skills")}
+          title="Skills"
+          aria-label="Skills"
+        >
+          <Icon name="sparkle" size={16} />
         </button>
-        <div className="foot-meta">
-          <span>{state.sessions.length} sessions</span>
-          <span>Local workspace</span>
+        <button
+          type="button"
+          className="rail-button"
+          onClick={onOpenSettings}
+          title="Settings (⌘,)"
+          aria-label="Settings"
+        >
+          <Icon name="settings" size={17} />
+        </button>
+      </div>
+
+      <div className="nav-panel">
+        <div className="nav-panel-head">
+          <Wordmark cell={3} className="nav-wordmark" />
+          <h1 className="nav-welcome">
+            Welcome
+            <br />
+            back, {USER_NAME}
+          </h1>
+        </div>
+
+        <div className="nav-scroll">
+          {projects.map((project) => {
+            const open = !collapsed[project.cwd];
+            return (
+              <section className="project" key={project.cwd}>
+                <button
+                  type="button"
+                  className="project-head"
+                  onClick={() =>
+                    setCollapsed((prev) => ({ ...prev, [project.cwd]: open }))
+                  }
+                >
+                  <Icon name="folder" size={14} />
+                  <span className="project-name">{project.label}</span>
+                  <Icon
+                    name="chevronDown"
+                    size={13}
+                    className={cx("project-caret", !open && "is-closed")}
+                  />
+                </button>
+
+                {open && (
+                  <div className="project-body">
+                    <button
+                      type="button"
+                      className="new-thread"
+                      onClick={() => createSession()}
+                    >
+                      <Icon name="plus" size={13} />
+                      New thread
+                    </button>
+
+                    <div className="thread-rows">
+                      {project.items.map((session) => {
+                        const available = isConfigured(
+                          session.provider,
+                          state.settings.providers[session.provider],
+                        );
+                        const active =
+                          session.id === state.activeId && state.view === "chats";
+                        return (
+                          <div
+                            key={session.id}
+                            className={cx(
+                              "thread-row",
+                              active && "is-active",
+                              renaming === session.id && "is-editing",
+                            )}
+                            onClick={() => openSession(session.id)}
+                            onDoubleClick={() => startRename(session.id)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") openSession(session.id);
+                            }}
+                          >
+                            <span className="thread-mark" aria-hidden="true">
+                              <Icon name="message" size={13} />
+                            </span>
+                            {renaming === session.id ? (
+                              <input
+                                className="thread-rename"
+                                value={draft}
+                                autoFocus
+                                onChange={(event) => setDraft(event.target.value)}
+                                onBlur={commitRename}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") commitRename();
+                                  if (event.key === "Escape") setRenaming(null);
+                                }}
+                                onClick={(event) => event.stopPropagation()}
+                              />
+                            ) : (
+                              <>
+                                <span className="thread-title">{session.title}</span>
+                                {!available && <span className="thread-dot" title="Demo runtime" />}
+                                <span className="thread-time">{timeAgo(session.updated)}</span>
+                                <button
+                                  type="button"
+                                  className="thread-menu"
+                                  aria-label="Thread actions"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    const rect = event.currentTarget.getBoundingClientRect();
+                                    setMenu({
+                                      sessionId: session.id,
+                                      x: rect.right,
+                                      y: rect.bottom + 6,
+                                    });
+                                  }}
+                                >
+                                  <Icon name="more" size={14} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </section>
+            );
+          })}
+
+          {state.sessions.length === 0 && (
+            <div className="nav-empty">
+              <p>No threads yet</p>
+              <button className="text-button" onClick={() => createSession()} type="button">
+                Start one
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="nav-panel-foot">
+          <button className="nav-foot-row" type="button" onClick={onOpenSettings}>
+            <Icon name="settings" size={15} />
+            <span>Settings</span>
+            <kbd>⌘,</kbd>
+          </button>
         </div>
       </div>
 
@@ -221,7 +311,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
             onClick={() => {
               const session = state.sessions.find((item) => item.id === menu.sessionId);
               if (session) navigator.clipboard?.writeText(session.id).catch(() => {});
-              notify("Session ID copied");
+              notify("Thread ID copied");
               setMenu(null);
             }}
           >
@@ -234,7 +324,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
             onClick={() => {
               deleteSession(menu.sessionId);
               setMenu(null);
-              notify("Session deleted");
+              notify("Thread deleted");
             }}
           >
             <Icon name="trash" size={14} /> Delete

@@ -1,6 +1,5 @@
 import type { DiffLine, Message, Part, Session } from "../lib/types";
 import { AGENTS } from "../lib/data";
-import { prettyModel } from "../lib/providers";
 import { clock, cx, formatDuration, formatTokens } from "../lib/util";
 import { Icon, type IconName } from "./Icons";
 
@@ -76,11 +75,7 @@ function ToolRow({ part }: { part: Extract<Part, { kind: "tool" }> }) {
   );
 }
 
-function DiffBlock({
-  part,
-}: {
-  part: Extract<Part, { kind: "diff" }>;
-}) {
+function DiffBlock({ part }: { part: Extract<Part, { kind: "diff" }> }) {
   return (
     <div className="diff-block">
       <div className="diff-head">
@@ -106,11 +101,7 @@ function DiffBlock({
   );
 }
 
-function ShellBlock({
-  part,
-}: {
-  part: Extract<Part, { kind: "shell" }>;
-}) {
+function ShellBlock({ part }: { part: Extract<Part, { kind: "shell" }> }) {
   return (
     <div className={cx("shell-block", `state-${part.state}`)}>
       <div className="shell-head">
@@ -176,9 +167,11 @@ function UserMessage({ message }: { message: Message }) {
 
   return (
     <div className="msg msg-user">
-      <div className="user-block">
+      <span className="user-clip" aria-hidden="true">
+        <Icon name="paperclip" size={12} />
+      </span>
+      <div className="user-card">
         <p>{text}</p>
-        <span className="msg-time">{clock(message.created)}</span>
       </div>
     </div>
   );
@@ -187,35 +180,31 @@ function UserMessage({ message }: { message: Message }) {
 function AssistantMessage({ message }: { message: Message }) {
   const agent = AGENTS.find((item) => item.id === message.agent) ?? AGENTS[0];
   const hasParts = message.parts.length > 0;
+  const duration = message.durationMs ? formatDuration(message.durationMs) : null;
 
   return (
     <div className="msg msg-assistant">
+      <div className="assistant-head">
+        <Icon name="clock" size={12} />
+        <span>{clock(message.created)}</span>
+        <span className="assistant-who">{agent.name}</span>
+      </div>
+
       <div className="assistant-block">
         {message.parts.map((part) => (
           <AssistantPart key={part.id} part={part} />
         ))}
         {message.streaming && <span className="stream-caret" aria-hidden="true" />}
-        {!message.streaming && hasParts && (
-          <div className="assistant-foot">
-            <span>{agent.name}</span>
-            <span className="meta-dot">·</span>
-            <span>{prettyModel(message.model ?? "claude-opus-4-5")}</span>
-            {message.durationMs ? (
-              <>
-                <span className="meta-dot">·</span>
-                <span>{formatDuration(message.durationMs)}</span>
-              </>
-            ) : null}
-            {message.tokens ? (
-              <>
-                <span className="meta-dot">·</span>
-                <span>{formatTokens(message.tokens)} tokens</span>
-              </>
-            ) : null}
-            {message.interrupted ? <span className="interrupted">interrupted</span> : null}
-          </div>
-        )}
       </div>
+
+      {!message.streaming && hasParts && (
+        <div className="assistant-foot">
+          <Icon name="wrench" size={12} />
+          <span>{duration ? `Worked for ${duration}` : "Done"}</span>
+          {message.tokens ? <span className="assistant-tokens">{formatTokens(message.tokens)} tokens</span> : null}
+          {message.interrupted ? <span className="interrupted">interrupted</span> : null}
+        </div>
+      )}
     </div>
   );
 }

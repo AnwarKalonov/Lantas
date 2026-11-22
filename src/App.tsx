@@ -358,7 +358,7 @@ export function App() {
           {state.view === "skills" && <SkillsView />}
           {state.view === "integrations" && <IntegrationsView />}
           {state.view === "chats" &&
-            (activeSession ? (
+            (activeSession && activeSession.messages.length > 0 ? (
               <SessionView
                 key={activeSession.id}
                 session={activeSession}

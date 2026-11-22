@@ -10,7 +10,7 @@ import {
 import { useStore } from "../lib/store";
 import type { AgentId, ProviderId, ProviderMeta, ThemeMode } from "../lib/types";
 import { cx } from "../lib/util";
-import { LantasMark, Wordmark } from "./Brand";
+import { Lockup, Wordmark } from "./Brand";
 import { Icon, type IconName } from "./Icons";
 import { McpManager } from "./McpManager";
 
@@ -256,7 +256,7 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
       >
         <aside className="settings-nav">
           <div className="settings-brand">
-            <LantasMark size={20} withFrame={false} />
+            <Wordmark cell={1.7} />
             <span>Settings</span>
           </div>
           {TABS.map((item) => (
@@ -590,8 +590,7 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
           {tab === "about" && (
             <section className="settings-section about">
               <div className="about-lockup">
-                <LantasMark size={84} />
-                <Wordmark cell={2} />
+                <Lockup className="about-lockup" />
               </div>
               <h2>Lantas</h2>
               <p className="settings-lede">

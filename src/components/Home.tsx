@@ -27,8 +27,8 @@ export function Home({ onSend, onOpenSettings }: HomeProps) {
     <div className="home">
       <div className="home-inner">
         <div className="hero">
-          <Lockup />
-          <h1 className="hero-line">Work across your repo, your screen and your machine</h1>
+          <Lockup className="hero-lockup" />
+          <p className="hero-line">Work across your repo, your screen and your machine</p>
         </div>
 
         <Composer
@@ -53,7 +53,7 @@ export function Home({ onSend, onOpenSettings }: HomeProps) {
               onClick={() => onSend(item.prompt)}
             >
               <span className="suggestion-icon">
-                <Icon name={SUGGESTION_ICONS[item.icon]} size={16} />
+                <Icon name={SUGGESTION_ICONS[item.icon]} size={15} />
               </span>
               <span className="suggestion-title">{item.title}</span>
               <span className="suggestion-body">{item.body}</span>
@@ -70,14 +70,13 @@ export function Home({ onSend, onOpenSettings }: HomeProps) {
             <Icon name="branch" size={13} /> main
           </span>
           <span className="home-foot-item">
-            <span
-              className={`status-dot ${configured ? "is-ok" : "is-idle"}`}
-              aria-hidden="true"
-            />
-            {configured ? "Provider connected" : "Demo runtime"}
+            <span className={`status-dot ${configured ? "is-ok" : "is-idle"}`} aria-hidden="true" />
+            {configured ? "Provider configured" : "Demo runtime"}
           </span>
           <span className="home-foot-spacer" />
-          <span className="home-foot-item dim">{state.skills.filter((s) => s.enabled).length} skills on</span>
+          <span className="home-foot-item dim">
+            {state.skills.filter((skill) => skill.enabled).length} skills on
+          </span>
         </div>
       </div>
     </div>

@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { AgentId, ProviderId, Session } from "../lib/types";
-import { AGENTS } from "../lib/data";
-import { getProvider, prettyModel } from "../lib/providers";
 import { useStore } from "../lib/store";
-import { formatTokens } from "../lib/util";
 import { Composer } from "./Composer";
 import { Icon } from "./Icons";
 import { Transcript } from "./Transcript";
@@ -33,9 +30,6 @@ export function SessionView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
 
-  const agent = AGENTS.find((item) => item.id === session.agent) ?? AGENTS[0];
-  const provider = getProvider(session.provider);
-
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -58,7 +52,7 @@ export function SessionView({
   }, [streaming, onStop]);
 
   const commitRename = () => {
-    renameSession(session.id, draft);
+    if (draft.trim()) renameSession(session.id, draft);
     setEditing(false);
   };
 
@@ -82,59 +76,31 @@ export function SessionView({
   };
 
   return (
-    <section className="session">
-      <header className="session-head">
-        <div className="session-head-main">
+    <section className="session chat">
+      <header className="session-head chat-head">
+        <button type="button" className="chat-project" onClick={() => setEditing(true)}>
+          <Icon name="folder" size={14} />
           {editing ? (
             <input
-              className="session-title-input"
+              className="chat-title-input"
               value={draft}
               autoFocus
               onChange={(event) => setDraft(event.target.value)}
               onBlur={commitRename}
+              onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => {
                 if (event.key === "Enter") commitRename();
                 if (event.key === "Escape") setEditing(false);
               }}
             />
           ) : (
-            <h1
-              className="session-title"
-              onDoubleClick={() => {
-                setDraft(session.title);
-                setEditing(true);
-              }}
-              title="Double-click to rename"
-            >
+            <span className="chat-title" title="Click to rename">
               {session.title}
-            </h1>
+            </span>
           )}
-          <div className="session-sub">
-            <span className="sub-item">
-              <Icon name="branch" size={12} />
-              {session.branch}
-            </span>
-            <span className="meta-dot">·</span>
-            <span className="sub-item">{session.cwd}</span>
-            <span className="meta-dot">·</span>
-            <span className="sub-item">
-              {agent.name} · {prettyModel(session.model)}
-            </span>
-            <span className="meta-dot">·</span>
-            <span className="sub-item">{provider.name}</span>
-            {session.files.length > 0 && (
-              <>
-                <span className="meta-dot">·</span>
-                <span className="sub-item">
-                  {session.files.length} file{session.files.length === 1 ? "" : "s"} changed
-                </span>
-              </>
-            )}
-            <span className="meta-dot">·</span>
-            <span className="sub-item">{formatTokens(session.tokens)} tokens</span>
-          </div>
-        </div>
-        <div className="session-actions">
+        </button>
+
+        <div className="session-actions chat-actions">
           <button
             type="button"
             className="icon-button"
@@ -149,10 +115,10 @@ export function SessionView({
             className="icon-button danger-hover"
             onClick={() => {
               deleteSession(session.id);
-              notify("Session deleted");
+              notify("Thread deleted");
             }}
-            title="Delete session"
-            aria-label="Delete session"
+            title="Delete thread"
+            aria-label="Delete thread"
           >
             <Icon name="trash" size={15} />
           </button>

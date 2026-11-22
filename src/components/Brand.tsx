@@ -1,3 +1,11 @@
+/**
+ * The Lantas mark.
+ *
+ * Letterforms follow the logo exactly: a crossbar-less A and a reversed N,
+ * drawn on a 5×7 pixel grid with a hard one-cell shadow. The full lockup adds
+ * the dashed circuit ridge and its faceted enclosure.
+ */
+
 const GLYPHS: Record<string, string[]> = {
   L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
   A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
@@ -10,136 +18,168 @@ const GLYPH_W = 5;
 const GLYPH_H = 7;
 const TRACKING = 1;
 
+function cellsFor(label: string) {
+  const letters = label.split("").filter((letter) => GLYPHS[letter]);
+  const cells: Array<{ x: number; y: number }> = [];
+  letters.forEach((letter, letterIndex) => {
+    GLYPHS[letter].forEach((row, y) => {
+      row.split("").forEach((bit, x) => {
+        if (bit === "1") cells.push({ x: letterIndex * (GLYPH_W + TRACKING) + x, y });
+      });
+    });
+  });
+  return { cells, columns: letters.length * GLYPH_W + Math.max(0, letters.length - 1) * TRACKING };
+}
+
 interface WordmarkProps {
   cell?: number;
   className?: string;
   label?: string;
 }
 
-/**
- * Pixel wordmark from the LANTAS mark: solid letters with a one-cell
- * offset shadow. Ink and shadow come from theme tokens.
- */
+/** The wordmark alone, with its hard offset shadow. */
 export function Wordmark({ cell = 6, className, label = "LANTAS" }: WordmarkProps) {
-  const letters = label.split("").filter((letter) => GLYPHS[letter]);
-  const width = letters.length * GLYPH_W + Math.max(0, letters.length - 1) * TRACKING;
-  const cells: Array<{ x: number; y: number }> = [];
-
-  letters.forEach((letter, letterIndex) => {
-    const glyph = GLYPHS[letter];
-    const offsetX = letterIndex * (GLYPH_W + TRACKING);
-    glyph.forEach((row, y) => {
-      row.split("").forEach((bit, x) => {
-        if (bit === "1") cells.push({ x: offsetX + x, y });
-      });
-    });
-  });
+  const { cells, columns } = cellsFor(label);
+  const shadow = Math.max(1, Math.round(cell * 0.9));
 
   return (
     <svg
       className={className}
-      width={width * cell + cell}
-      height={GLYPH_H * cell + cell}
-      viewBox={`0 0 ${width + 1} ${GLYPH_H + 1}`}
+      width={columns * cell + shadow}
+      height={GLYPH_H * cell + shadow}
+      viewBox={`0 0 ${columns + 1} ${GLYPH_H + 1}`}
       shapeRendering="crispEdges"
       role="img"
       aria-label={label}
     >
-      {cells.map((cellPos, index) => (
-        <rect
-          key={`s${index}`}
-          x={cellPos.x + 1}
-          y={cellPos.y + 1}
-          width={1}
-          height={1}
-          fill="var(--logo-shadow)"
-        />
-      ))}
-      {cells.map((cellPos, index) => (
-        <rect
-          key={`f${index}`}
-          x={cellPos.x}
-          y={cellPos.y}
-          width={1}
-          height={1}
-          fill="var(--logo-ink)"
-        />
-      ))}
+      <g transform={`translate(${shadow / cell}, ${shadow / cell})`} fill="var(--logo-shadow)">
+        {cells.map((pos, index) => (
+          <rect key={`s${index}`} x={pos.x} y={pos.y} width={1} height={1} />
+        ))}
+      </g>
+      <g fill="var(--logo-ink)">
+        {cells.map((pos, index) => (
+          <rect key={`f${index}`} x={pos.x} y={pos.y} width={1} height={1} />
+        ))}
+      </g>
     </svg>
   );
 }
 
-interface MarkProps {
-  size?: number;
-  className?: string;
-  withFrame?: boolean;
-}
+/** Full lockup: wordmark, circuit ridge, faceted dashed enclosure, baseline rules. */
+export function Lockup({ className }: { className?: string }) {
+  const { cells, columns } = cellsFor("LANTAS");
+  const cell = 11;
+  const originX = 290;
+  const originY = 332;
+  const wordRight = originX + columns * cell;
 
-/** The constellation: a dashed angular frame around a stepped ridge. */
-export function LantasMark({ size = 24, className, withFrame = true }: MarkProps) {
   return (
     <svg
       className={className}
-      width={size}
-      height={(size * 180) / 240}
-      viewBox="0 0 240 180"
-      fill="none"
+      viewBox="0 0 1000 540"
       role="img"
       aria-label="Lantas"
+      fill="none"
     >
-      {withFrame && (
-        <>
-          <path
-            d="M46 60 L86 30 L148 27 L196 54 L207 92 L192 132 L152 150 L84 151 L40 128 L31 92 Z"
-            stroke="var(--logo-line)"
-            strokeWidth="1.1"
-            strokeDasharray="2.5 5.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity="0.85"
-          />
-          <path
-            d="M104 44 L120 38 M132 33 L150 31 M166 36 L182 43 M190 62 L198 74"
-            stroke="var(--logo-line)"
-            strokeWidth="1"
-            strokeLinecap="round"
-            opacity="0.6"
-          />
-        </>
-      )}
-
+      {/* enclosure */}
       <path
-        d="M62 128 L92 82 L106 94 L128 60 L152 96 L168 82 L186 128"
-        stroke="var(--logo-ink)"
+        d="M197 306 L236 240 L326 176 L424 122 L500 96 L590 116 L690 166 L790 224 L852 272 L864 330 L800 408 L640 452 L362 452 L250 410 L197 344 Z"
+        stroke="var(--logo-line)"
         strokeWidth="1.6"
-        strokeLinecap="square"
-        strokeLinejoin="miter"
-      />
-      <path
-        d="M44 130 L58 106 L74 130"
-        stroke="var(--logo-line)"
-        strokeWidth="1.1"
-        strokeLinecap="square"
-        strokeLinejoin="miter"
-        opacity="0.75"
-      />
-      <path
-        d="M74 140 L166 140"
-        stroke="var(--logo-line)"
-        strokeWidth="1.1"
+        strokeDasharray="9 12"
         strokeLinecap="round"
-        strokeDasharray="3 6"
+        strokeLinejoin="round"
+      />
+      {/* facets and ticks on the enclosure */}
+      <path
+        d="M236 240 L300 262 M424 122 L470 150 M590 116 L560 148 M790 224 L742 252 M852 272 L806 296 M250 410 L300 372 M640 452 L604 404"
+        stroke="var(--logo-line)"
+        strokeWidth="1.4"
+        strokeDasharray="7 11"
+        strokeLinecap="round"
+        opacity="0.65"
+      />
+
+      {/* ridge */}
+      <path
+        d="M318 318 L414 200 L466 246 L520 152 L592 232 L644 198 L714 318"
+        stroke="var(--logo-ink)"
+        strokeWidth="2.2"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        opacity="0.92"
+      />
+      <path
+        d="M248 318 L300 262 L344 318"
+        stroke="var(--logo-ink)"
+        strokeWidth="1.8"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        opacity="0.7"
+      />
+      <path
+        d="M286 318 L306 292"
+        stroke="var(--logo-line)"
+        strokeWidth="1.4"
+        strokeLinecap="square"
+        opacity="0.7"
+      />
+      <path
+        d="M700 318 L748 268 L796 318"
+        stroke="var(--logo-ink)"
+        strokeWidth="1.8"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
         opacity="0.7"
       />
 
-      <circle cx="128" cy="60" r="1.6" fill="var(--logo-ink)" />
-      <circle cx="207" cy="92" r="1.4" fill="var(--logo-line)" />
-      <circle cx="31" cy="92" r="1.4" fill="var(--logo-line)" />
+      {/* contour dashes inside the peak */}
+      <path
+        d="M486 190 H556 M466 216 H588 M444 242 H616 M420 268 H646"
+        stroke="var(--logo-line)"
+        strokeWidth="1.3"
+        strokeDasharray="10 14"
+        strokeLinecap="round"
+        opacity="0.55"
+      />
+
+      {/* baseline rules flanking the wordmark */}
+      <path
+        d="M214 434 H286 M212 452 H276"
+        stroke="var(--logo-line)"
+        strokeWidth="1.5"
+        strokeDasharray="10 12"
+        strokeLinecap="round"
+        opacity="0.8"
+      />
+      <path
+        d={`M${wordRight + 14} 434 H846 M${wordRight + 30} 452 H812`}
+        stroke="var(--logo-line)"
+        strokeWidth="1.5"
+        strokeDasharray="10 12"
+        strokeLinecap="round"
+        opacity="0.8"
+      />
+
+      {/* wordmark */}
+      <g transform={`translate(${originX}, ${originY}) scale(${cell})`}>
+        <g transform="translate(1, 1)" fill="var(--logo-shadow)">
+          {cells.map((pos, index) => (
+            <rect key={`s${index}`} x={pos.x} y={pos.y} width={1} height={1} />
+          ))}
+        </g>
+        <g fill="var(--logo-ink)">
+          {cells.map((pos, index) => (
+            <rect key={`f${index}`} x={pos.x} y={pos.y} width={1} height={1} />
+          ))}
+        </g>
+      </g>
     </svg>
   );
 }
 
-/** Compact glyph for chrome: the ridge alone, no frame. */
+/** Small ridge glyph for dense chrome. */
 export function MarkGlyph({ size = 18, className }: { size?: number; className?: string }) {
   return (
     <svg
@@ -159,14 +199,5 @@ export function MarkGlyph({ size = 18, className }: { size?: number; className?:
       />
       <path d="M4 21.5 H20" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
     </svg>
-  );
-}
-
-export function Lockup() {
-  return (
-    <div className="lockup">
-      <LantasMark size={240} className="lockup-mark" />
-      <Wordmark cell={6} className="lockup-word" />
-    </div>
   );
 }

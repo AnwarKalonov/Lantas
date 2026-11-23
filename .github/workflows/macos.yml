@@ -33,6 +33,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # A secret pasted from a terminal often carries a trailing newline, and the
+      # bundler base64-decodes the value as-is. Normalise it once for every step.
+      - name: Clean the signing key
+        if: env.TAURI_SIGNING_PRIVATE_KEY != ''
+        run: |
+          KEY="$(printf '%s' "$TAURI_SIGNING_PRIVATE_KEY" | tr -d '[:space:]')"
+          if [ -z "$KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is empty after trimming"
+            exit 1
+          fi
+          echo "TAURI_SIGNING_PRIVATE_KEY=$KEY" >> "$GITHUB_ENV"
+          echo "signing key: ${#KEY} characters, no whitespace"
+
       - name: Check the tag matches the app version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |

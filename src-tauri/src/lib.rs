@@ -40,7 +40,7 @@ fn parse_url(input: &str) -> Result<tauri::Url, String> {
 /// browser engine, so Google and other frame-blocking sites work and the model
 /// can click through the page.
 #[tauri::command]
-async fn el_open(
+fn el_open(
     window: tauri::Window,
     url: String,
     x: f64,
@@ -55,24 +55,26 @@ async fn el_open(
             .map_err(|error| error.to_string())?;
         view.set_size(LogicalSize::new(width, height))
             .map_err(|error| error.to_string())?;
+        view.show().map_err(|error| format!("show: {error}"))?;
         return Ok(());
     }
 
     let builder = tauri::webview::WebviewBuilder::new("el", WebviewUrl::External(parsed))
         .user_agent(BROWSER_AGENT)
         .initialization_script(SEARCH_RECOVERY);
-    window
+    let view = window
         .add_child(
             builder,
             LogicalPosition::new(x, y),
-            LogicalSize::new(width, height),
+            LogicalSize::new(width.max(1.0), height.max(1.0)),
         )
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| format!("create: {error}"))?;
+    view.show().map_err(|error| format!("show: {error}"))?;
     Ok(())
 }
 
 #[tauri::command]
-async fn el_bounds(
+fn el_bounds(
     window: tauri::Window,
     x: f64,
     y: f64,
@@ -89,7 +91,7 @@ async fn el_bounds(
 }
 
 #[tauri::command]
-async fn el_navigate(window: tauri::Window, url: String) -> Result<(), String> {
+fn el_navigate(window: tauri::Window, url: String) -> Result<(), String> {
     let parsed = parse_url(&url)?;
     if let Some(view) = window.get_webview("el") {
         view.navigate(parsed).map_err(|error| error.to_string())?;
@@ -98,7 +100,7 @@ async fn el_navigate(window: tauri::Window, url: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn el_visible(window: tauri::Window, visible: bool) -> Result<(), String> {
+fn el_visible(window: tauri::Window, visible: bool) -> Result<(), String> {
     if let Some(view) = window.get_webview("el") {
         if visible {
             view.show().map_err(|error| error.to_string())?;
@@ -110,7 +112,7 @@ async fn el_visible(window: tauri::Window, visible: bool) -> Result<(), String> 
 }
 
 #[tauri::command]
-async fn el_close(window: tauri::Window) -> Result<(), String> {
+fn el_close(window: tauri::Window) -> Result<(), String> {
     if let Some(view) = window.get_webview("el") {
         view.close().map_err(|error| error.to_string())?;
     }
@@ -118,7 +120,7 @@ async fn el_close(window: tauri::Window) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn el_eval(window: tauri::Window, script: String) -> Result<(), String> {
+fn el_eval(window: tauri::Window, script: String) -> Result<(), String> {
     if let Some(view) = window.get_webview("el") {
         view.eval(&script).map_err(|error| error.to_string())?;
     }
@@ -127,7 +129,7 @@ async fn el_eval(window: tauri::Window, script: String) -> Result<(), String> {
 
 /// Click by CSS selector, or by the visible text of a link/button.
 #[tauri::command]
-async fn el_click(window: tauri::Window, target: String) -> Result<(), String> {
+fn el_click(window: tauri::Window, target: String) -> Result<(), String> {
     let wanted = serde_json::to_string(&target).map_err(|error| error.to_string())?;
     let script = format!(
         r#"(() => {{
@@ -151,7 +153,7 @@ async fn el_click(window: tauri::Window, target: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn el_type(window: tauri::Window, selector: String, text: String) -> Result<(), String> {
+fn el_type(window: tauri::Window, selector: String, text: String) -> Result<(), String> {
     let target = serde_json::to_string(&selector).map_err(|error| error.to_string())?;
     let value = serde_json::to_string(&text).map_err(|error| error.to_string())?;
     let script = format!(
@@ -173,7 +175,7 @@ async fn el_type(window: tauri::Window, selector: String, text: String) -> Resul
 }
 
 #[tauri::command]
-async fn el_history(window: tauri::Window, direction: String) -> Result<(), String> {
+fn el_history(window: tauri::Window, direction: String) -> Result<(), String> {
     if let Some(view) = window.get_webview("el") {
         let script = if direction == "forward" {
             "history.forward()"
@@ -186,10 +188,29 @@ async fn el_history(window: tauri::Window, direction: String) -> Result<(), Stri
 }
 
 #[tauri::command]
-async fn el_reload(window: tauri::Window) -> Result<(), String> {
+fn el_reload(window: tauri::Window) -> Result<(), String> {
     if let Some(view) = window.get_webview("el") {
         view.eval("location.reload()").map_err(|error| error.to_string())?;
     }
+    Ok(())
+}
+
+/// Last-resort fallback: a real browser window when the embedded child
+/// webview cannot be created on this machine.
+#[tauri::command]
+fn el_window(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    let parsed = parse_url(&url)?;
+    if let Some(window) = app.get_webview_window("lantas-browser") {
+        window.navigate(parsed).map_err(|error| error.to_string())?;
+        window.show().map_err(|error| error.to_string())?;
+        window.set_focus().map_err(|error| error.to_string())?;
+        return Ok(());
+    }
+    tauri::WebviewWindowBuilder::new(&app, "lantas-browser", WebviewUrl::External(parsed))
+        .title("Lantas Browser")
+        .inner_size(1180.0, 820.0)
+        .build()
+        .map_err(|error| error.to_string())?;
     Ok(())
 }
 
@@ -212,7 +233,8 @@ pub fn run() {
             el_click,
             el_type,
             el_history,
-            el_reload
+            el_reload,
+            el_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running Lantas");

@@ -7,8 +7,10 @@ import {
   elClose,
   elEval,
   elHistory,
+  elLastError,
   elOpen,
   elReload,
+  elWindow,
   elVisible,
   inTauri,
   openExternal,
@@ -57,6 +59,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
   const [reloadTick, setReloadTick] = useState(0);
   const [nativeReady, setNativeReady] = useState(false);
   const [engineError, setEngineError] = useState("");
+  const [engineTick, setEngineTick] = useState(0);
   const [clickTarget, setClickTarget] = useState("");
   const [controlsOpen, setControlsOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -103,7 +106,9 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
         if (!rect) return;
         void elOpen(active.url, rect).then((ok) => {
           setNativeReady(ok);
-          setEngineError(ok ? "" : "The native browser engine did not start on this build.");
+          setEngineError(
+            ok ? "" : elLastError() || "The native browser engine did not start on this build.",
+          );
         });
       });
       return () => cancelAnimationFrame(frame);
@@ -111,7 +116,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
     setNativeReady(false);
     void elClose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [native, visible, active.url, mode, atHome, data.active]);
+  }, [native, visible, active.url, mode, atHome, data.active, engineTick]);
 
   useEffect(
     () => () => {
@@ -809,13 +814,34 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
                 {engineError ? (
                   <>
                     <span className="el-muted">{engineError}</span>
-                    <button
-                      type="button"
-                      className="button-quiet"
-                      onClick={() => openExternal(active.url)}
-                    >
-                      Open in Safari
-                    </button>
+                    <div className="el-actions">
+                      <button
+                        type="button"
+                        className="button-primary"
+                        onClick={() => {
+                          setEngineError("");
+                          setNativeReady(false);
+                          void elClose();
+                          setEngineTick((tick) => tick + 1);
+                        }}
+                      >
+                        Try again
+                      </button>
+                      <button
+                        type="button"
+                        className="button-quiet"
+                        onClick={() => void elWindow(active.url)}
+                      >
+                        Open in a window
+                      </button>
+                      <button
+                        type="button"
+                        className="button-quiet"
+                        onClick={() => openExternal(active.url)}
+                      >
+                        Open in Safari
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <span className="el-muted">

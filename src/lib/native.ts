@@ -10,12 +10,25 @@ export interface ElBox {
   height: number;
 }
 
+let lastNativeError = "";
+
+/** The reason the last native call failed, for the diagnostics row. */
+export function elLastError(): string {
+  return lastNativeError;
+}
+
 async function command<T>(name: string, args: Record<string, unknown>): Promise<T | null> {
-  if (!inTauri()) return null;
+  if (!inTauri()) {
+    lastNativeError = "This is the web preview, not the desktop build.";
+    return null;
+  }
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    return await invoke<T>(name, args);
-  } catch {
+    const value = await invoke<T>(name, args);
+    lastNativeError = "";
+    return value;
+  } catch (error) {
+    lastNativeError = error instanceof Error ? error.message : String(error);
     return null;
   }
 }
@@ -55,6 +68,11 @@ export async function elType(selector: string, text: string): Promise<boolean> {
 
 export async function elHistory(direction: "back" | "forward"): Promise<void> {
   await command("el_history", { direction });
+}
+
+/** Opens the page in a standalone Lantas Browser window (fallback). */
+export async function elWindow(url: string): Promise<boolean> {
+  return (await command("el_window", { url })) !== null;
 }
 
 export async function elReload(): Promise<void> {

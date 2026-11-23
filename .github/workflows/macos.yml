@@ -44,7 +44,19 @@ jobs:
             exit 1
           fi
           echo "TAURI_SIGNING_PRIVATE_KEY=$KEY" >> "$GITHUB_ENV"
-          echo "signing key: ${#KEY} characters, no whitespace"
+          # Say what arrived. A private key is ~348 chars and its decoded header
+          # is `untrusted comment: rsign encrypted secret key`; a public key is
+          # ~152 and says `minisign public key`.
+          node -e '
+            const key = process.env.TAURI_SIGNING_PRIVATE_KEY || "";
+            const header = Buffer.from(key, "base64").toString("utf8").split("\n")[0] || "";
+            console.log(`signing key: ${key.length} chars`);
+            console.log(`decoded header: ${JSON.stringify(header.slice(0, 44))}`);
+            if (!header.includes("rsign encrypted secret key")) {
+              console.error("::error::TAURI_SIGNING_PRIVATE_KEY is not a Tauri private key. Copy ~/.tauri/lantas.key, not the .pub file.");
+              process.exit(1);
+            }
+          '
 
       # Fail in seconds rather than after a full build when the stored key is
       # stale, password-protected, or belongs to a different keypair.

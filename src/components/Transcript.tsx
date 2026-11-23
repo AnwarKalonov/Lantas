@@ -9,6 +9,7 @@ const TOOL_ICONS: Record<string, IconName> = {
   read: "file",
   grep: "search",
   edit: "wrench",
+  terminal: "terminal",
   plan: "compass",
   web: "compass",
 };

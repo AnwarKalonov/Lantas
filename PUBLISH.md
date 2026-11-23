@@ -10,9 +10,11 @@ repository.
 1. Bump the version in `src-tauri/tauri.conf.json` **and** `APP_VERSION` in
    `src/lib/updates.ts`.
 2. Commit, then push a matching tag: `git tag v1.1.0 && git push origin main --tags`.
-3. CI builds on macOS, ad-hoc signs the app, and runs `scripts/package-release.sh`. That
-   produces `release-assets/`: the dmg, the app zip, the extension zip, `Lantas.app.tar.gz`
-   with its `.sig`, and `latest.json`.
+3. CI builds on macOS, signs the app, and runs `scripts/package-release.sh`. With the
+   Apple secrets below present it is Developer ID signed, notarized and stapled; without
+   them the workflow refuses to publish a tagged release. It produces `release-assets/`:
+   the dmg, the app zip, the extension zip, `Lantas.app.tar.gz` with its `.sig`, and
+   `latest.json`.
 4. CI publishes those files as a release on `Lantas-download` (tag `v1.1.0`).
 5. Every installed app reads
    `…/Lantas-download/releases/latest/download/latest.json` on launch, sees the newer
@@ -65,10 +67,12 @@ hand**. Every release after that updates itself.
 
 An ad-hoc signature is why macOS says it cannot verify Lantas. Only a **Developer ID
 Application** certificate plus notarization removes that warning; a free Apple Developer
-account cannot notarize. The workflow supports both modes:
+account cannot notarize. The workflow supports both modes, but a tagged release is only
+published when the Apple credentials are complete:
 
-- **No Apple secrets** — the build stays ad-hoc signed, exactly as before, and macOS
-  warns on first launch.
+- **No Apple secrets** — the build stays ad-hoc signed and the workflow fails before a
+  tagged release can be published. This prevents shipping a download that every user
+  has to approve in System Settings first.
 - **All six Apple secrets present** — CI imports the certificate, enables the hardened
   runtime, signs with the Developer ID identity, and Tauri notarizes and staples the app.
   Tauri only does this when the credentials below are complete.

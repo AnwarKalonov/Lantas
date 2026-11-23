@@ -3,7 +3,7 @@ import { useStore } from "../lib/store";
 import { isConfigured } from "../lib/providers";
 import type { Session } from "../lib/types";
 import { cx, timeAgo } from "../lib/util";
-import { Wordmark } from "./Brand";
+import { MarkGlyph, Wordmark } from "./Brand";
 import { Icon, type IconName } from "./Icons";
 
 interface RowMenu {
@@ -172,7 +172,10 @@ export function Sidebar({
         aria-hidden={historyCollapsed}
       >
         <div className="nav-panel-head">
-          <Wordmark cell={3} className="nav-wordmark" />
+          <div className="nav-panel-brand">
+            <MarkGlyph size={17} className="nav-panel-mark" />
+            <Wordmark cell={3} className="nav-wordmark" />
+          </div>
           <h1 className="nav-heading-label">Threads</h1>
         </div>
 

@@ -136,6 +136,34 @@ fn el_eval(window: tauri::Window, script: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Runs JavaScript in the child browser and returns its JSON result. This is
+/// what makes browser actions verifiable: a click or type is only reported as
+/// successful after the page itself answers with its new URL and controls.
+#[tauri::command]
+async fn el_run(window: tauri::Window, script: String) -> Result<String, String> {
+    let view = window.get_webview("el").ok_or_else(|| {
+        "Lantas Browser is not open. Open a website in the Browser tab first.".to_string()
+    })?;
+
+    let (sender, receiver) = std::sync::mpsc::channel::<String>();
+    view.eval_with_callback(script, move |value| {
+        let _ = sender.send(value);
+    })
+    .map_err(|error| error.to_string())?;
+
+    match tauri::async_runtime::spawn_blocking(move || {
+        receiver.recv_timeout(std::time::Duration::from_secs(8))
+    })
+    .await
+    {
+        Ok(Ok(value)) => Ok(value),
+        Ok(Err(_)) => Err(
+            "The page did not answer in time. It may still be loading; try again.".to_string(),
+        ),
+        Err(error) => Err(format!("Could not read the browser result: {error}")),
+    }
+}
+
 /// Click by CSS selector, or by the visible text of a link/button.
 #[tauri::command]
 fn el_click(window: tauri::Window, target: String) -> Result<(), String> {
@@ -235,6 +263,50 @@ fn open_external(url: String) -> Result<(), String> {
 #[tauri::command]
 fn open_in_chrome(url: String) -> Result<(), String> {
     open_in_browser(&url, true)
+}
+
+/// Hands the open folder to VS Code. Lantas keeps its own workbench, but the
+/// same files can always be opened in the editor the user already knows.
+#[tauri::command]
+fn open_in_vscode(path: String) -> Result<(), String> {
+    let target = if path.trim().is_empty() {
+        std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .ok_or("Open a folder in Lantas first.".to_string())?
+    } else {
+        PathBuf::from(path)
+    };
+
+    #[cfg(target_os = "macos")]
+    {
+        let target = target.to_string_lossy().to_string();
+        let status = std::process::Command::new("open")
+            .args(["-a", "Visual Studio Code", &target])
+            .status()
+            .map_err(|error| format!("Could not open VS Code: {error}"))?;
+        if status.success() {
+            return Ok(());
+        }
+        return Err("Visual Studio Code was not found. Install it, or use Open Folder.".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "code", &target.to_string_lossy()])
+            .status()
+            .map_err(|error| format!("Could not open VS Code: {error}"))?;
+        return Ok(());
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::process::Command::new("code")
+            .arg(&target)
+            .status()
+            .map_err(|error| format!("Could not open VS Code: {error}"))?;
+        Ok(())
+    }
 }
 
 fn open_in_browser(url: &str, prefer_chrome: bool) -> Result<(), String> {
@@ -389,6 +461,7 @@ pub fn run() {
             el_close,
             el_visible,
             el_eval,
+            el_run,
             el_click,
             el_type,
             el_history,
@@ -400,6 +473,7 @@ pub fn run() {
             chrome_extension_reveal,
             open_external,
             open_in_chrome,
+            open_in_vscode,
             git::git_status,
             git::git_diff,
             git::git_stage,
@@ -416,6 +490,7 @@ pub fn run() {
             workspace::workspace_rename,
             workspace::workspace_delete,
             terminal::terminal_start,
+            terminal::terminal_shell,
             terminal::terminal_cli,
             terminal::terminal_write,
             terminal::terminal_stop,

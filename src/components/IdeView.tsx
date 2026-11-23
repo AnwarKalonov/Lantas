@@ -20,6 +20,7 @@ import {
   renameWorkspacePath,
   writeWorkspaceFile,
 } from "../lib/workspace";
+import { openInVsCode } from "../lib/native";
 import type { ProviderId, Session, WorkspaceFile } from "../lib/types";
 import { cx } from "../lib/util";
 import { GitPanel } from "./GitPanel";
@@ -172,6 +173,7 @@ export function IdeView({
   const [fileMenu, setFileMenu] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [cliTick, setCliTick] = useState(0);
+  const [openingCode, setOpeningCode] = useState(false);
   const quickRef = useRef<HTMLInputElement | null>(null);
   const askRef = useRef<HTMLTextAreaElement | null>(null);
   const entryRef = useRef<HTMLInputElement | null>(null);
@@ -470,6 +472,23 @@ export function IdeView({
     notify("Sent to Lantas");
   };
 
+  const openInCode = async () => {
+    if (!state.workspaceRoot) {
+      notify("Open a folder first, then open it in VS Code", "error");
+      onOpenFolder();
+      return;
+    }
+    setOpeningCode(true);
+    const ok = await openInVsCode(state.workspaceRoot);
+    setOpeningCode(false);
+    notify(
+      ok
+        ? `Opened ${state.workspaceName || "the folder"} in VS Code`
+        : "VS Code was not found. Install it, or use Open Folder in Lantas.",
+      ok ? "default" : "error",
+    );
+  };
+
   const pickModel = (provider: ProviderId, model: string) => {
     if (session) {
       updateSession(session.id, (current) => ({ ...current, provider, model }));
@@ -516,7 +535,7 @@ export function IdeView({
           <button type="button" className="ide-brand" onClick={onExit} title="Back to Lantas">
             <MarkGlyph size={17} />
             <span className="ide-brand-name">Lantas</span>
-            <span className="ide-brand-tag">IDE</span>
+            <span className="ide-brand-tag">studio</span>
           </button>
 
           <div className="ide-menus">
@@ -585,6 +604,18 @@ export function IdeView({
                     >
                       <Icon name="folder" size={13} /> Open Folder…
                     </button>
+                    <span className="ide-menu-rule" />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={!state.workspaceRoot || openingCode}
+                      onClick={() => {
+                        setFileMenu(false);
+                        void openInCode();
+                      }}
+                    >
+                      <Icon name="external" size={13} /> Open in VS Code
+                    </button>
                   </div>
                 </>
               )}
@@ -648,34 +679,27 @@ export function IdeView({
           </button>
           <button
             type="button"
+            className="ide-open-code"
+            onClick={() => void openInCode()}
+            disabled={!state.workspaceRoot || openingCode}
+            title="Open the same folder in VS Code"
+          >
+            <Icon name="external" size={12} />
+            {openingCode ? "Opening…" : "VS Code"}
+          </button>
+          <button
+            type="button"
             className="ide-cli-button"
             onClick={() => {
               setTerminalOpen(true);
               setCliTick((value) => value + 1);
             }}
-            title="Open the bundled Lantas CLI"
+            title="Open the Lantas CLI in the bottom panel"
           >
             <span className="ide-cli-dot" />
             CLI
           </button>
-          <button
-            type="button"
-            className={cx("ide-icon-button", terminalOpen && "is-on")}
-            onClick={() => setTerminalOpen((open) => !open)}
-            title="Terminal"
-            aria-label="Terminal"
-          >
-            <Icon name="terminal" size={15} />
-          </button>
-          <button
-            type="button"
-            className="ide-icon-button"
-            onClick={onOpenSettings}
-            title="Settings"
-            aria-label="Settings"
-          >
-            <Icon name="settings" size={15} />
-          </button>
+
           <button type="button" className="ide-exit" onClick={onExit}>
             Chat
             <Icon name="chevronRight" size={12} />
@@ -980,7 +1004,7 @@ export function IdeView({
           ) : (
             <div className="ide-welcome">
               <div className="ide-welcome-card">
-                <p className="ide-welcome-kicker">Lantas IDE</p>
+                <p className="ide-welcome-kicker">Lantas Studio</p>
                 <h1>Open a folder to start</h1>
                 <p>
                   The editor is VS Code's Monaco, running locally. Files are read from the folder you
@@ -996,6 +1020,15 @@ export function IdeView({
                       Quick open
                     </button>
                   )}
+                  <button
+                    type="button"
+                    className="button-quiet"
+                    onClick={() => void openInCode()}
+                    disabled={!state.workspaceRoot || openingCode}
+                  >
+                    <Icon name="external" size={14} />
+                    {openingCode ? "Opening…" : "Open in VS Code"}
+                  </button>
                 </div>
                 <div className="ide-welcome-keys">
                   <span><kbd>⌘P</kbd> quick open</span>
@@ -1198,7 +1231,7 @@ export function IdeView({
             </>
           )}
           <span className="ide-status-item dim">UTF-8</span>
-          <span className="ide-status-item accent">Lantas IDE</span>
+          <span className="ide-status-item accent">Lantas Studio</span>
         </div>
       </footer>
 

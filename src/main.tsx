@@ -7,6 +7,8 @@ import "./styles-el.css";
 import "./styles-skills.css";
 import "./styles-ide.css";
 import "./styles-workbench.css";
+import "./styles-studio.css";
+import "./styles-activity.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

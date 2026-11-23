@@ -4241,6 +4241,78 @@ html[data-runtime="tauri"] .titlebar {
 
 /* ── logo ─────────────────────────────────────────────────────────────── */
 
+/* The supplied L-and-cloud silhouette, tinted with the surrounding ink. */
+.brand-mark {
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+  background-color: currentColor;
+  -webkit-mask: url("/mark.png") center / contain no-repeat;
+  mask: url("/mark.png") center / contain no-repeat;
+}
+
+.brand-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.brand-hero-mark {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 50% 30%, var(--sel), transparent 64%),
+    var(--raised);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+  color: var(--text);
+}
+
+.brand-hero-word {
+  display: block;
+  color: var(--logo-ink);
+}
+
+.nav-panel-head .brand-mark {
+  flex: none;
+}
+
+.nav-panel-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.nav-panel-brand .nav-wordmark {
+  margin-bottom: 0;
+}
+
+.nav-panel-mark {
+  color: var(--text-3);
+}
+
+.settings-brand .brand-mark {
+  color: var(--text-2);
+}
+
+.about-mark {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--raised);
+  color: var(--text);
+}
+
 .lockup-img {
   width: min(430px, 78%);
   height: auto;

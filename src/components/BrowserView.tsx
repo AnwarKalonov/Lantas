@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useStore } from "../lib/store";
+import { useBrowserActivity } from "../lib/browserActivity";
 import { getGoogleToken, listMail, type MailItem } from "../lib/google";
 import {
   elBounds,
@@ -65,9 +66,12 @@ const SHORTCUTS = [
 
 export function BrowserView({
   visible = true,
+  miniVisible = false,
   onOpenFile,
 }: {
   visible?: boolean;
+  /** Chat is on screen and no modal is covering it. */
+  miniVisible?: boolean;
   onOpenFile?: (path: string, line?: number) => void;
 }) {
   const { state, setBrowserUrl, setSettings, updateSession, notify, togglePanel } = useStore();
@@ -83,7 +87,9 @@ export function BrowserView({
   const [mail, setMail] = useState<MailItem[]>([]);
   const [reloadTick, setReloadTick] = useState(0);
   const [nativeReady, setNativeReady] = useState(false);
+  const [miniRect, setMiniRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [engineError, setEngineError] = useState("");
+  const activity = useBrowserActivity();
   const [engineTick, setEngineTick] = useState(0);
   const [clickTarget, setClickTarget] = useState("");
   const [controlsOpen, setControlsOpen] = useState(false);
@@ -127,6 +133,19 @@ export function BrowserView({
     setDraft(active.url === EL_HOME ? "" : active.url);
   }, [active.url]);
 
+  // The activity dock publishes the exact rectangle of its mini window. The
+  // native child webview moves there while the user is in chat, so the small
+  // screen is the actual page the assistant is on.
+  useEffect(() => {
+    const onMini = (event: Event) => {
+      const detail = (event as CustomEvent<{ x: number; y: number; width: number; height: number } | null>)
+        .detail;
+      setMiniRect(detail && detail.width > 2 && detail.height > 2 ? detail : null);
+    };
+    window.addEventListener("lantas:mini-screen", onMini);
+    return () => window.removeEventListener("lantas:mini-screen", onMini);
+  }, []);
+
   const box = () => {
     const rect = viewportRef.current?.getBoundingClientRect();
     if (!rect) return null;
@@ -142,37 +161,87 @@ export function BrowserView({
       void elClose();
       return;
     }
-    if (!visible) {
-      void elVisible(false);
+    if (atHome) {
+      setNativeReady(false);
+      openedUrl.current = "";
+      void elClose();
       return;
     }
-    if (!atHome) {
-      // Reopening Settings should reveal the page that is already loaded, not
-      // navigate to it again and lose its state.
-      if (nativeReady && openedUrl.current === active.url) {
+
+    // A page the assistant opened from chat still needs a live webview. Keep
+    // it alive just off-screen, then reveal the same page when the user opens
+    // the Browser tab. This is what makes the mini agent view truthful.
+    const visibleBox = box();
+    const wantsMini =
+      !visible && miniVisible && Boolean(miniRect) && activity.steps.length > 0;
+    const targetBox =
+      visible && visibleBox && visibleBox.width > 2 && visibleBox.height > 2
+        ? visibleBox
+        : wantsMini && miniRect
+          ? miniRect
+          : { x: -12000, y: -12000, width: 4, height: 4 };
+
+    if (nativeReady && openedUrl.current === active.url) {
+      if (visible) {
         void elVisible(true);
-        const rect = box();
-        if (rect) void elBounds(rect);
-        return;
+        if (visibleBox) void elBounds(visibleBox);
+      } else if (wantsMini && miniRect) {
+        void elBounds(miniRect);
+        void elVisible(true);
+      } else {
+        void elVisible(false);
       }
-      const frame = requestAnimationFrame(() => {
-        const rect = box();
-        if (!rect) return;
-        void elOpen(active.url, rect).then((ok) => {
-          setNativeReady(ok);
-          if (ok) openedUrl.current = active.url;
-          setEngineError(
-            ok ? "" : elLastError() || "The native browser engine did not start on this build.",
-          );
-        });
-      });
-      return () => cancelAnimationFrame(frame);
+      return;
     }
-    setNativeReady(false);
-    openedUrl.current = "";
-    void elClose();
+
+    const frame = requestAnimationFrame(() => {
+      void elOpen(active.url, targetBox).then((ok) => {
+        setNativeReady(ok);
+        if (ok) openedUrl.current = active.url;
+        if (ok && wantsMini && miniRect) {
+          void elBounds(miniRect);
+          void elVisible(true);
+        } else if (ok && !visible) {
+          void elVisible(false);
+        }
+        setEngineError(
+          ok ? "" : elLastError() || "The native browser engine did not start on this build.",
+        );
+      });
+    });
+    return () => cancelAnimationFrame(frame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [native, visible, active.url, atHome, data.active, engineTick, engine]);
+  }, [
+    native,
+    visible,
+    miniVisible,
+    active.url,
+    atHome,
+    data.active,
+    engineTick,
+    engine,
+    miniRect,
+    activity.steps.length,
+  ]);
+
+  // The assistant reads and tags controls inside the child webview. Mirror the
+  // page title back into the tab strip and the assistant's page context.
+  useEffect(() => {
+    const onPage = (event: Event) => {
+      const detail = (event as CustomEvent<{ page?: ElPage }>).detail;
+      const next = detail?.page;
+      if (!next?.url) return;
+      setPage(next);
+      setData((current) => ({
+        ...current,
+        tabs: current.tabs.map((tab) =>
+          tab.id === current.active ? { ...tab, title: next.title || tab.title, url: next.url } : tab,
+        ),
+      }));
+    };
+    window.addEventListener("lantas:page", onPage);
+    return () => window.removeEventListener("lantas:page", onPage);
+  }, []);
 
   useEffect(
     () => () => {

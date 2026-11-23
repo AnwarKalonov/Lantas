@@ -21,6 +21,12 @@ import {
   type ChromeCatalogProvider,
 } from "./lib/chrome";
 import { runBrowserTurn } from "./lib/browserTurn";
+import {
+  beginBrowserActivity,
+  dismissBrowserActivity,
+  finishBrowserActivity,
+  updateBrowserActivity,
+} from "./lib/browserActivity";
 import { useStore } from "./lib/store";
 import { acquireScreen, captureFrame, currentScreen, releaseScreen } from "./lib/screen";
 import { openWorkspaceFolder, writeWorkspaceFile } from "./lib/workspace";
@@ -38,6 +44,7 @@ import type {
 } from "./lib/types";
 import { cx, titleFrom, uid } from "./lib/util";
 import { BrowserView } from "./components/BrowserView";
+import { BrowserActivityDock } from "./components/BrowserActivityDock";
 import { IdeView } from "./components/IdeView";
 import { CommandPalette } from "./components/CommandPalette";
 import { ContextPanel } from "./components/ContextPanel";
@@ -798,6 +805,9 @@ export function App() {
           let textPartId: string | null = null;
           let inputTokens = 0;
           let outputTokens = 0;
+          let browserStarted = false;
+          let browserToolRan = false;
+          const browserToolIds = new Set<string>();
 
           const images = outgoing
             .filter((file) => file.kind === "image")
@@ -914,10 +924,11 @@ export function App() {
             },
           };
 
-          const toolKind = (name: string): "read" | "grep" | "edit" | "web" | "plan" => {
+          const toolKind = (name: string): "read" | "grep" | "edit" | "terminal" | "web" | "plan" => {
             if (name === "read") return "read";
             if (name === "grep" || name === "glob") return "grep";
             if (name === "edit" || name === "write") return "edit";
+            if (name === "terminal") return "terminal";
             if (name === "browser" || name === "integrations") return "web";
             return "plan";
           };
@@ -954,7 +965,19 @@ export function App() {
             signal: controller.signal,
             approve: (call, resource) => requestApproval(call, resource),
             onText: appendText,
-            onToolStart: (id, call, label) =>
+            onToolStart: (id, call, label) => {
+              if (call.name === "browser") {
+                browserToolRan = true;
+                browserToolIds.add(id);
+                const action = String(call.args.action ?? "browser step");
+                const url = typeof call.args.url === "string" ? call.args.url : "";
+                if (!browserStarted) {
+                  browserStarted = true;
+                  beginBrowserActivity(text, `${action}${url ? ` · ${url}` : ""}`);
+                } else {
+                  updateBrowserActivity({ action, status: label, url });
+                }
+              }
               patch((message) => ({
                 ...message,
                 parts: [
@@ -967,8 +990,18 @@ export function App() {
                     state: "run",
                   },
                 ],
-              })),
-            onToolDone: (id, outcome, stateOfTool) =>
+              }));
+            },
+            onToolDone: (id, outcome, stateOfTool) => {
+              if (browserToolIds.has(id)) {
+                const page = getElContext();
+                updateBrowserActivity({
+                  status: outcome.summary,
+                  url: page?.url,
+                  title: page?.title,
+                  error: !outcome.ok,
+                });
+              }
               patch((message) => ({
                 ...message,
                 parts: message.parts.flatMap((part): Part[] => {
@@ -978,20 +1011,36 @@ export function App() {
                     detail: outcome.summary,
                     state: stateOfTool,
                   };
-                  if (!outcome.diff) return [next];
+                  if (!outcome.diff && !outcome.shell) return [next];
                   return [
                     next,
-                    {
-                      id: uid("part"),
-                      kind: "diff",
-                      path: outcome.diff.path,
-                      added: outcome.diff.added,
-                      removed: outcome.diff.removed,
-                      lines: outcome.diff.lines,
-                    },
+                    ...(outcome.diff
+                      ? [
+                          {
+                            id: uid("part"),
+                            kind: "diff" as const,
+                            path: outcome.diff.path,
+                            added: outcome.diff.added,
+                            removed: outcome.diff.removed,
+                            lines: outcome.diff.lines,
+                          },
+                        ]
+                      : []),
+                    ...(outcome.shell
+                      ? [
+                          {
+                            id: uid("part"),
+                            kind: "shell" as const,
+                            command: outcome.shell.command,
+                            output: outcome.shell.output,
+                            state: outcome.shell.state,
+                          },
+                        ]
+                      : []),
                   ];
                 }),
-              })),
+              }));
+            },
             onNote: (note) =>
               patch((message) => ({
                 ...message,
@@ -1001,6 +1050,8 @@ export function App() {
               inputTokens = usage.input ?? inputTokens;
               outputTokens = usage.output ?? outputTokens;
             },
+          }).finally(() => {
+            if (browserToolRan) finishBrowserActivity("Browser task finished");
           });
 
           const tokens =
@@ -1276,6 +1327,7 @@ export function App() {
             >
               <BrowserView
                 visible={state.mode === "browser" && !overlayOpen}
+                miniVisible={state.mode === "chat" && !overlayOpen}
                 onOpenFile={openFile}
               />
             </div>
@@ -1321,6 +1373,16 @@ export function App() {
             />
           )}
         </div>
+      )}
+
+      {state.mode === "chat" && (
+        <BrowserActivityDock
+          onOpen={(url) => {
+            if (url) setBrowserUrl(url);
+            setMode("browser");
+            dismissBrowserActivity();
+          }}
+        />
       )}
 
       {screenStream && (

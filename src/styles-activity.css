@@ -1,0 +1,379 @@
+/* ==========================================================================
+   Browser activity dock
+   The small live window above the chat composer. The page itself stays in the
+   hidden native webview; this is the verified trace of what the agent did.
+   ========================================================================== */
+
+.browser-dock {
+  position: fixed;
+  left: 50%;
+  bottom: 94px;
+  z-index: 70;
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  width: min(760px, calc(100vw - 40px));
+  padding: 10px 34px 10px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--overlay) 94%, transparent);
+  box-shadow: var(--shadow-float);
+  backdrop-filter: blur(22px) saturate(1.1);
+  transform: translateX(-50%);
+  animation: browser-dock-in 220ms ease-out both;
+}
+
+@keyframes browser-dock-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.browser-dock.is-live {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--line-strong));
+}
+
+.browser-dock-screen {
+  display: flex;
+  flex: 0 0 232px;
+  flex-direction: column;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.browser-dock-window {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--raised);
+}
+
+.browser-dock-chrome {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 23px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--raised-2);
+}
+
+.browser-dock-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.browser-dock-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-4);
+}
+
+.browser-dock-host {
+  overflow: hidden;
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-dock-live {
+  margin-left: auto;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.browser-dock-page {
+  position: relative;
+  display: flex;
+  height: 88px;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+  padding: 12px;
+  background:
+    radial-gradient(circle at 82% 8%, var(--accent-soft), transparent 52%),
+    linear-gradient(135deg, var(--raised), var(--surface));
+}
+
+.browser-dock-mark {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  margin-bottom: 2px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--overlay);
+  color: var(--accent);
+}
+
+.browser-dock-title {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 540;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-dock-url {
+  overflow: hidden;
+  max-width: 185px;
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-dock-scan {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.65;
+  animation: browser-scan 3.2s ease-in-out infinite;
+}
+
+@keyframes browser-scan {
+  0%,
+  100% {
+    transform: translateY(-86px);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.7;
+  }
+  70% {
+    opacity: 0.45;
+  }
+  90% {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+}
+
+.browser-dock-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: 2px;
+  color: var(--text-3);
+  font-size: 9.5px;
+}
+
+.browser-dock-screen:hover .browser-dock-open {
+  color: var(--text);
+}
+
+.browser-dock-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+}
+
+.browser-dock-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.browser-dock-kicker {
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.browser-dock-spinner {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: browser-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes browser-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 var(--accent-soft);
+  }
+  50% {
+    opacity: 0.5;
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+
+.browser-dock-status {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-dock-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.browser-dock-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-dock-step-dot {
+  flex: 0 0 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-4);
+}
+
+.browser-dock-step.is-run .browser-dock-step-dot {
+  background: var(--accent);
+}
+
+.browser-dock-step.is-error {
+  color: var(--err);
+}
+
+.browser-dock-step.is-error .browser-dock-step-dot {
+  background: var(--err);
+}
+
+.browser-dock-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: var(--text-4);
+}
+
+.browser-dock-close:hover {
+  background: var(--sel);
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  .browser-dock {
+    bottom: 84px;
+    gap: 10px;
+  }
+  .browser-dock-screen {
+    flex-basis: 160px;
+  }
+  .browser-dock-page {
+    height: 76px;
+  }
+  .browser-dock-title {
+    font-size: 10.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .browser-dock,
+  .browser-dock-scan,
+  .browser-dock-spinner {
+    animation: none;
+  }
+}
+
+/* ==========================================================================
+   Settings details used by the editor/appearance controls.
+   ========================================================================== */
+
+.settings-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.settings-muted {
+  overflow: hidden;
+  color: var(--text-4);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-divider {
+  height: 1px;
+  margin: 18px 0;
+  background: var(--line);
+}
+
+.settings-subhead {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 550;
+}
+
+.settings-lede.compact {
+  margin-bottom: 14px;
+}
+
+.settings-range {
+  flex: 1;
+  max-width: 230px;
+  accent-color: var(--accent);
+}
+
+.settings-mono-value {
+  min-width: 42px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: right;
+}
+
+.settings-select {
+  width: 100%;
+  max-width: 330px;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--raised);
+  color: var(--text);
+  font-size: 12px;
+}

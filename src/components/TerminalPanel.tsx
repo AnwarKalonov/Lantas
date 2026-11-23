@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { inTauri } from "../lib/native";
 import {
   onTerminalExit,
   onTerminalOutput,
   stripAnsi,
   terminalCli,
-  terminalStart,
+  terminalShell,
   terminalStop,
   terminalWrite,
 } from "../lib/terminal";
@@ -20,7 +20,7 @@ interface Line {
 
 const WELCOME = [
   "Lantas terminal",
-  "Commands run in the open workspace. Type a command and press Enter.",
+  "Runs in the open workspace. The assistant uses the same shell with its terminal tool.",
 ];
 
 export function TerminalPanel({
@@ -38,7 +38,8 @@ export function TerminalPanel({
     WELCOME.map((text) => ({ id: uid("line"), tone: "meta", text })),
   );
   const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [shellReady, setShellReady] = useState(false);
+  const [shellStarting, setShellStarting] = useState(false);
   const [cliId, setCliId] = useState<string | null>(null);
   const [cliStarted, setCliStarted] = useState(false);
   const cliIdRef = useRef<string | null>(null);
@@ -47,13 +48,13 @@ export function TerminalPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const native = inTauri();
 
-  const append = (tone: Line["tone"], text: string) => {
+  const append = useCallback((tone: Line["tone"], text: string) => {
     if (!text.trim()) return;
     setLines((current) => [
       ...current.slice(-500),
       { id: uid("line"), tone, text: stripAnsi(text) },
     ]);
-  };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -73,8 +74,10 @@ export function TerminalPanel({
         cliIdRef.current = null;
         setCliId(null);
       }
-      if (event.id === shellIdRef.current) shellIdRef.current = null;
-      setBusy(false);
+      if (event.id === shellIdRef.current) {
+        shellIdRef.current = null;
+        setShellReady(false);
+      }
     }).then((unlisten) => {
       if (alive) cleanups.push(unlisten);
       else unlisten();
@@ -87,47 +90,50 @@ export function TerminalPanel({
       cliIdRef.current = null;
       shellIdRef.current = null;
     };
-  }, []);
+  }, [append]);
 
   useEffect(() => {
     const node = scrollRef.current;
     if (node) node.scrollTop = node.scrollHeight;
   }, [lines]);
 
-  useEffect(() => {
-    if (!cliRequest) return;
-    setTab("cli");
-    void startCli();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cliRequest]);
-
-  const runShell = async () => {
-    const command = input.trim();
-    if (!command) return;
+  const startShell = useCallback(async (): Promise<string | null> => {
     if (!native) {
       append("err", "The terminal needs the desktop app. This is the web preview.");
-      return;
+      return null;
     }
-    if (command === "clear") {
-      setLines([]);
-      setInput("");
-      return;
-    }
-    append("meta", `$ ${command}`);
-    setInput("");
-    setBusy(true);
-    const id = uid("term");
+    if (shellIdRef.current) return shellIdRef.current;
+    if (shellStarting) return null;
+    setShellStarting(true);
+    const id = uid("shell");
     shellIdRef.current = id;
     idsRef.current.add(id);
     try {
-      await terminalStart(id, cwd, command);
+      await terminalShell(id, cwd);
+      setShellReady(true);
+      append("meta", "Shell ready. Type a command and press Enter.");
+      return id;
     } catch (error) {
-      append("err", error instanceof Error ? error.message : String(error));
-      setBusy(false);
+      idsRef.current.delete(id);
+      shellIdRef.current = null;
+      setShellReady(false);
+      append(
+        "err",
+        `Could not start the shell. ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    } finally {
+      setShellStarting(false);
     }
-  };
+  }, [append, cwd, native, shellStarting]);
 
-  const startCli = async () => {
+  useEffect(() => {
+    if (native) void startShell();
+    // Start once for this panel, not on every keystroke or cwd change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [native]);
+
+  const startCli = useCallback(async () => {
     if (!native) {
       append("err", "The Lantas CLI needs the desktop app.");
       return;
@@ -139,12 +145,42 @@ export function TerminalPanel({
     setCliId(id);
     setCliStarted(true);
     append("meta", "Starting the bundled Lantas CLI…");
+    append(
+      "meta",
+      "If it exits immediately, install Node.js 18 or newer. The desktop terminal works without it.",
+    );
     try {
       await terminalCli(id, cwd);
     } catch (error) {
       append("err", error instanceof Error ? error.message : String(error));
+      idsRef.current.delete(id);
       cliIdRef.current = null;
       setCliId(null);
+    }
+  }, [append, cwd, native]);
+
+  useEffect(() => {
+    if (!cliRequest) return;
+    setTab("cli");
+    void startCli();
+  }, [cliRequest, startCli]);
+
+  const runShell = async () => {
+    const command = input.trim();
+    if (!command) return;
+    if (command === "clear") {
+      setLines([]);
+      setInput("");
+      return;
+    }
+    append("meta", `$ ${command}`);
+    setInput("");
+    const id = await startShell();
+    if (!id) return;
+    try {
+      await terminalWrite(id, `${command}\n`);
+    } catch (error) {
+      append("err", error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -173,9 +209,11 @@ export function TerminalPanel({
         cliIdRef.current = null;
         setCliId(null);
       }
-      if (id === shellIdRef.current) shellIdRef.current = null;
+      if (id === shellIdRef.current) {
+        shellIdRef.current = null;
+        setShellReady(false);
+      }
     }
-    setBusy(false);
     append("meta", "Stopped.");
   };
 
@@ -192,6 +230,7 @@ export function TerminalPanel({
           >
             <Icon name="terminal" size={12} />
             Terminal
+            {shellReady && <span className="ide-terminal-ready">live</span>}
           </button>
           <button
             type="button"
@@ -208,12 +247,21 @@ export function TerminalPanel({
           </button>
         </div>
         <div className="ide-terminal-actions">
+          {!shellReady && tab === "shell" && (
+            <button
+              type="button"
+              className="ide-terminal-action"
+              onClick={() => void startShell()}
+              disabled={shellStarting}
+            >
+              {shellStarting ? "Starting…" : "Start shell"}
+            </button>
+          )}
           {tab === "cli" && !cliId && (
             <button type="button" className="ide-terminal-action" onClick={() => void startCli()}>
               Start
             </button>
           )}
-          {busy && <span className="ide-terminal-busy">running</span>}
           <button
             type="button"
             className="ide-terminal-action"
@@ -265,7 +313,9 @@ export function TerminalPanel({
               ? cliId
                 ? "Type a task or a CLI command"
                 : "Start the CLI to begin"
-              : "Run a command in this folder"
+              : shellReady
+                ? "Run a command in this folder"
+                : "Starting the shell…"
           }
           spellCheck={false}
           disabled={tab === "cli" && !cliId}

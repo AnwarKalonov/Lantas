@@ -69,6 +69,7 @@ export function defaultRules(mode: "auto" | "ask", buildAgent: boolean): Permiss
     rules.push(
       { tool: "write", pattern: "*", effect: "deny" },
       { tool: "edit", pattern: "*", effect: "deny" },
+      { tool: "terminal", pattern: "*", effect: "deny" },
       { tool: "browser", pattern: "click*", effect: "deny" },
       { tool: "browser", pattern: "type*", effect: "deny" },
       { tool: "browser", pattern: "press*", effect: "deny" },
@@ -82,6 +83,9 @@ export function defaultRules(mode: "auto" | "ask", buildAgent: boolean): Permiss
   rules.push(
     { tool: "write", pattern: "*", effect: write },
     { tool: "edit", pattern: "*", effect: write },
+    // A command can touch anything the app can reach, so it follows the same
+    // approval mode as writes rather than silently running on Auto.
+    { tool: "terminal", pattern: "*", effect: mode === "auto" ? "allow" : "ask" },
     // Broad rule first, then the read-only exceptions, because the last
     // matching rule wins.
     { tool: "browser", pattern: "*", effect: mode === "auto" ? "allow" : "ask" },
@@ -101,6 +105,8 @@ export function describeAction(tool: string, resource: string): string {
       return `Create or overwrite ${resource}`;
     case "edit":
       return `Edit ${resource}`;
+    case "terminal":
+      return `Run in the terminal: ${resource}`;
     case "browser":
       return `Browser: ${resource}`;
     case "integrations":

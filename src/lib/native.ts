@@ -11,6 +11,7 @@ export interface ElBox {
 }
 
 let lastNativeError = "";
+let lastNativeOk = false;
 
 /** The reason the last native call failed, for the diagnostics row. */
 export function elLastError(): string {
@@ -18,6 +19,7 @@ export function elLastError(): string {
 }
 
 async function command<T>(name: string, args: Record<string, unknown>): Promise<T | null> {
+  lastNativeOk = false;
   if (!inTauri()) {
     lastNativeError = "This is the web preview, not the desktop build.";
     return null;
@@ -26,6 +28,7 @@ async function command<T>(name: string, args: Record<string, unknown>): Promise<
     const { invoke } = await import("@tauri-apps/api/core");
     const value = await invoke<T>(name, args);
     lastNativeError = "";
+    lastNativeOk = true;
     return value;
   } catch (error) {
     lastNativeError = error instanceof Error ? error.message : String(error);
@@ -35,7 +38,8 @@ async function command<T>(name: string, args: Record<string, unknown>): Promise<
 
 /** Opens or reuses the Lantas Browser webview (a real browser engine). */
 export async function elOpen(url: string, box: ElBox): Promise<boolean> {
-  return (await command("el_open", { url, ...box })) !== null;
+  await command("el_open", { url, ...box });
+  return lastNativeOk;
 }
 
 export async function elBounds(box: ElBox): Promise<void> {
@@ -56,6 +60,35 @@ export async function elClose(): Promise<void> {
 
 export async function elEval(script: string): Promise<void> {
   await command("el_eval", { script });
+}
+
+/**
+ * Runs a small expression inside the child webview and gets its value back.
+ * Tauri evaluates JavaScript with a callback, so the browser tool can finally
+ * read the page it just acted on instead of assuming the action landed.
+ */
+export async function runInPage<T>(body: string): Promise<T | null> {
+  const script = `(() => { try { const value = (() => { ${body} })(); return JSON.stringify(value); } catch (error) { return JSON.stringify({ ok: false, error: String(error && error.message ? error.message : error) }); } })()`;
+  const raw = await command<string>("el_run", { script });
+  if (raw == null) return null;
+  const unwrap = (value: unknown): unknown => {
+    if (typeof value !== "string") return value;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  };
+  let parsed = unwrap(raw);
+  // Some platforms serialize the returned JSON string once more.
+  if (typeof parsed === "string") parsed = unwrap(parsed);
+  return (parsed ?? null) as T | null;
+}
+
+/** Opens the current workspace in the real VS Code, when it is installed. */
+export async function openInVsCode(path: string): Promise<boolean> {
+  await command("open_in_vscode", { path });
+  return lastNativeOk;
 }
 
 export async function elClick(target: string): Promise<boolean> {

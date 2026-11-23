@@ -14,6 +14,7 @@ import {
   describeSnapshot,
 } from "./browserAgent";
 import { aiDriving } from "./el";
+import { runTerminalCommand } from "./terminal";
 import {
   activeToolkits,
   executeTool,
@@ -58,6 +59,8 @@ export interface ToolOutcome {
   diff?: { path: string; added: number; removed: number; lines: DiffLine[] };
   /** New file text after a successful write/edit, for the live workspace. */
   changed?: { path: string; text: string };
+  /** A command the assistant ran, with the output the user should see. */
+  shell?: { command: string; output: string[]; state: "done" | "error" };
   /** Resource the permission engine should check. */
   resource: string;
 }
@@ -69,6 +72,7 @@ export const TOOL_NAMES = [
   "write",
   "edit",
   "skill",
+  "terminal",
   "browser",
   "integrations",
 ] as const;
@@ -83,6 +87,7 @@ export const TOOL_LABELS: Record<string, string> = {
   write: "Write file",
   edit: "Edit file",
   skill: "Load skill",
+  terminal: "Terminal",
   browser: "Browser",
   integrations: "Connected apps",
 };
@@ -104,6 +109,7 @@ export function toolLabel(call: ToolCall): string {
               call.args.name ??
               call.args.url ??
               call.args.query ??
+              call.args.command ??
               "",
           );
   return target ? `${base} · ${String(target).slice(0, 90)}` : base;
@@ -115,6 +121,9 @@ export function toolResource(call: ToolCall): string {
     const action = String(call.args.action ?? "");
     const extra = call.args.url ?? call.args.target ?? call.args.key ?? "";
     return extra ? `${action} ${String(extra)}` : action;
+  }
+  if (call.name === "terminal") {
+    return String(call.args.command ?? "command").slice(0, 180);
   }
   if (call.name === "integrations") {
     const action = String(call.args.action ?? "");
@@ -425,6 +434,9 @@ export async function runTool(
         };
       }
 
+      case "terminal":
+        return await runTerminalTool(call.args, context);
+
       case "browser":
         return await runBrowserTool(call.args, context.drive);
 
@@ -445,6 +457,57 @@ export async function runTool(
       summary: error instanceof Error ? error.message : String(error),
       content: `Tool failed: ${error instanceof Error ? error.message : String(error)}`,
       resource: toolResource(call),
+    };
+  }
+}
+
+async function runTerminalTool(
+  args: Record<string, unknown>,
+  context: ToolContext,
+): Promise<ToolOutcome> {
+  const command = String(args.command ?? "").trim();
+  const resource = command.slice(0, 180);
+  if (!command) {
+    return { ok: false, summary: "A command is required", content: "Pass command, for example {\"command\":\"npm test\"}.", resource };
+  }
+  if (context.agent !== "build") {
+    return {
+      ok: false,
+      summary: "Read-only agent",
+      content: "This agent is read-only. Switch to Build to run commands.",
+      resource,
+    };
+  }
+
+  const timeoutMs = Math.min(
+    180_000,
+    Math.max(5_000, Number(args.timeoutMs ?? 120_000) || 120_000),
+  );
+  try {
+    const result = await runTerminalCommand(context.root, command, timeoutMs);
+    const output = result.output.slice(-240);
+    const body = [
+      `$ ${command}`,
+      ...output,
+      result.timedOut
+        ? `Stopped after ${Math.round(timeoutMs / 1000)}s; the command may still be running.`
+        : `Exit code: ${result.code === null ? "unknown" : result.code}`,
+    ].join("\n");
+    return {
+      ok: !result.timedOut && result.code === 0,
+      summary: result.timedOut
+        ? "Command timed out"
+        : `Ran \`${command}\` · exit ${result.code === null ? "?" : result.code}`,
+      content: truncate(body, 20_000),
+      shell: { command, output, state: !result.timedOut && result.code === 0 ? "done" : "error" },
+      resource,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      summary: "Terminal is unavailable",
+      content: error instanceof Error ? error.message : String(error),
+      resource,
     };
   }
 }
@@ -483,10 +546,14 @@ async function runBrowserTool(
         .slice(0, 80)
         .map((el) => `${el.i}. [${el.kind}] ${el.label}`)
         .join("\n");
+      const verifiedState = snapshot.page.text
+        .split("\n")
+        .find((line) => line.startsWith("Graph expressions:"));
       return [
         base,
         `Now at: ${snapshot.page.url}`,
         `Title: ${snapshot.page.title}`,
+        verifiedState ? `Page state: ${verifiedState.slice(0, 800)}` : "",
         controls ? `Controls:\n${controls}` : "",
       ]
         .filter(Boolean)
@@ -528,7 +595,7 @@ async function runBrowserTool(
               content: await afterAction(`Clicked element ${args.ref}.`),
               resource,
             }
-          : fail("Element references need Chrome. Use target text or a CSS selector in Lantas Browser.");
+          : fail("That element ref is stale. Take a fresh snapshot and use its new ref.");
       }
       const target = String(args.target ?? args.selector ?? "");
       if (!target) return fail("A target or ref is required to click.");
@@ -558,7 +625,7 @@ async function runBrowserTool(
             content: await afterAction("Typed into the page."),
             resource,
           }
-        : fail("That field was not found. Snapshot the page and use its selector.");
+        : fail("No editable field was found. Click the field or expression row first, then type.");
     }
 
     case "press": {
@@ -769,7 +836,10 @@ export const TOOL_MANUAL = [
   '- write {"path","content"} — create or replace a whole file.',
   '- edit {"path","oldString","newString","replaceAll?"} — exact replacement; oldString must be unique.',
   '- skill {"name"} — load the full instructions of an enabled skill when the task matches it.',
+  '- terminal {"command","timeoutMs?"} — run a command in the open workspace and return its real stdout and stderr. Use this for tests, builds, git and shell commands. Never claim a command ran without a terminal result.',
   '- browser {"action",...} — actions: snapshot, extract, click {"target"|"ref"}, type {"text","selector?","submit?"}, press {"key"}, scroll {"dy"}, navigate {"url"}, back, forward, reload.',
+  "",
+  "Browser workflow: when the user asks you to open, graph, fill, search, click or otherwise use a website, do it with the browser tool. Start with navigate, then snapshot. Click a control by its ref from that snapshot; type with no selector to use the focused field. After every action, read the returned URL, title and controls and verify the result before claiming it worked. For a graphing calculator, open the calculator, snapshot, click the expression row, type the equation, then snapshot again and look for the equation in the controls.",
   '- integrations {"action",...} — apps, tools {"toolkit"}, inbox {"limit","query"}, search_email {"query","limit"}, run {"slug","arguments"}.',
   "",
   "Rules:",

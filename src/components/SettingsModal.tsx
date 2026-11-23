@@ -10,10 +10,10 @@ import {
 } from "../lib/providers";
 import { useStore } from "../lib/store";
 import { APP_VERSION, checkForUpdate, checkNativeUpdate } from "../lib/updates";
-import { openExternal } from "../lib/native";
+import { openExternal, openInVsCode } from "../lib/native";
 import type { AgentId, ProviderId, ProviderMeta, ThemeMode } from "../lib/types";
 import { cx, uid } from "../lib/util";
-import { Lockup, Wordmark } from "./Brand";
+import { MarkGlyph, Wordmark } from "./Brand";
 import { Icon, type IconName } from "./Icons";
 import { McpManager } from "./McpManager";
 
@@ -247,6 +247,18 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const settings = state.settings;
 
+  const openWorkspaceInCode = async () => {
+    if (!state.workspaceRoot) {
+      notify("Open a folder in Lantas first", "error");
+      return;
+    }
+    const ok = await openInVsCode(state.workspaceRoot);
+    notify(
+      ok ? "Opening the workspace in VS Code" : "VS Code was not found on this Mac",
+      ok ? "default" : "error",
+    );
+  };
+
   useEffect(() => {
     if (open) setTab(initialTab);
   }, [open, initialTab]);
@@ -331,6 +343,7 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
       >
         <aside className="settings-nav">
           <div className="settings-brand">
+            <MarkGlyph size={17} />
             <Wordmark cell={1.7} />
             <span>Settings</span>
           </div>
@@ -391,6 +404,24 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
                       {agent.charAt(0).toUpperCase() + agent.slice(1)}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              <div className="settings-field">
+                <span className="field-label">Workspace</span>
+                <div className="settings-inline">
+                  <span className="settings-muted mono">
+                    {state.workspaceRoot || "No folder open"}
+                  </span>
+                  <button
+                    type="button"
+                    className="button-quiet"
+                    onClick={() => void openWorkspaceInCode()}
+                    disabled={!state.workspaceRoot}
+                  >
+                    <Icon name="external" size={13} />
+                    Open in VS Code
+                  </button>
                 </div>
               </div>
             </section>
@@ -835,6 +866,95 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
                 checked={settings.reduceMotion}
                 onChange={(next) => setSettings({ reduceMotion: next })}
               />
+
+              <div className="settings-divider" />
+              <h3 className="settings-subhead">Editor</h3>
+              <p className="settings-lede compact">
+                These apply to the Lantas editor now and stay with the workspace when you open it
+                in VS Code.
+              </p>
+
+              <div className="settings-field">
+                <span className="field-label">Font size</span>
+                <div className="settings-inline">
+                  <input
+                    className="settings-range"
+                    type="range"
+                    min={11}
+                    max={20}
+                    step={1}
+                    value={settings.editor.fontSize}
+                    onChange={(event) =>
+                      setSettings({
+                        editor: { ...settings.editor, fontSize: Number(event.target.value) },
+                      })
+                    }
+                    aria-label="Editor font size"
+                  />
+                  <span className="settings-mono-value">{settings.editor.fontSize}px</span>
+                </div>
+              </div>
+
+              <div className="settings-field">
+                <span className="field-label">Tab size</span>
+                <div className="segmented">
+                  {[2, 4, 8].map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      className={cx(settings.editor.tabSize === size && "is-active")}
+                      onClick={() =>
+                        setSettings({ editor: { ...settings.editor, tabSize: size } })
+                      }
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="settings-field">
+                <span className="field-label">Font</span>
+                <select
+                  className="settings-select mono"
+                  value={settings.editor.fontFamily}
+                  onChange={(event) =>
+                    setSettings({
+                      editor: { ...settings.editor, fontFamily: event.target.value },
+                    })
+                  }
+                >
+                  <option value={'"SF Mono", ui-monospace, Menlo, monospace'}>
+                    SF Mono / system mono
+                  </option>
+                  <option value={'"JetBrains Mono", ui-monospace, monospace'}>
+                    JetBrains Mono
+                  </option>
+                  <option value={'"IBM Plex Mono", ui-monospace, monospace'}>
+                    IBM Plex Mono
+                  </option>
+                  <option value={'Menlo, Monaco, monospace'}>Menlo</option>
+                </select>
+              </div>
+
+              <Toggle
+                label="Word wrap"
+                description="Wrap long lines instead of scrolling sideways."
+                checked={settings.editor.wordWrap === "on"}
+                onChange={(next) =>
+                  setSettings({
+                    editor: { ...settings.editor, wordWrap: next ? "on" : "off" },
+                  })
+                }
+              />
+              <Toggle
+                label="Minimap"
+                description="Show the overview map on the right edge."
+                checked={settings.editor.minimap}
+                onChange={(next) =>
+                  setSettings({ editor: { ...settings.editor, minimap: next } })
+                }
+              />
             </section>
           )}
 
@@ -855,8 +975,8 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
 
           {tab === "about" && (
             <section className="settings-section about">
-              <div className="about-lockup">
-                <Lockup className="about-lockup" />
+              <div className="about-mark">
+                <MarkGlyph size={48} />
               </div>
               <h2>Lantas</h2>
               <p className="settings-lede">

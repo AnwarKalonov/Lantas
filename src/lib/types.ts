@@ -52,7 +52,7 @@ export interface WorkspaceFile {
   dir?: boolean;
 }
 
-export type ToolKind = "read" | "grep" | "edit" | "plan" | "web";
+export type ToolKind = "read" | "grep" | "edit" | "terminal" | "plan" | "web";
 export type ToolState = "run" | "done" | "error";
 
 export interface DiffLine {

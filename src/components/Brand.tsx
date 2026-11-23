@@ -191,25 +191,18 @@ export function LockupVector({ className }: { className?: string }) {
   );
 }
 
-/** Small ridge glyph for dense chrome. */
+/**
+ * The small L-and-cloud mark, used everywhere chrome needs a glyph.
+ * The supplied art is a transparent silhouette, so a CSS mask lets it inherit
+ * the surrounding ink colour in both themes and at every size.
+ */
 export function MarkGlyph({ size = 18, className }: { size?: number; className?: string }) {
   return (
-    <svg
-      className={className}
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d="M3 19 L9 7.5 L12.5 13 L15.5 9 L21 19"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="square"
-        strokeLinejoin="miter"
-      />
-      <path d="M4 21.5 H20" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
-    </svg>
+    <span
+      className={`brand-mark ${className ?? ""}`.trim()}
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label="Lantas"
+    />
   );
 }

@@ -1,0 +1,25 @@
+name: Package the site
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package Website/site
+        run: |
+          set -euo pipefail
+          find Website/site -maxdepth 2 -type f -printf '%P  %s bytes\n' | sort
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Lantas-site
+          path: Website/site/
+          if-no-files-found: error
+          retention-days: 1

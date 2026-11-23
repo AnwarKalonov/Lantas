@@ -1,11 +1,18 @@
 /**
  * Update checks.
  *
- * The app reads the public release list from the download repository on GitHub:
- * free, anonymous, no server of ours and no token. Nothing about the machine or
- * the user is sent with the request, and the answer is only used to show a
- * notice — installing a new version is always a download the person starts.
+ * Two paths, both free and anonymous:
+ *
+ * - the desktop build asks the Tauri updater, which reads `latest.json` from the
+ *   newest public release, verifies the bundle against the public key compiled
+ *   into the app, and can install it in place;
+ * - a browser tab has no shell, so it reads the GitHub release list and links to
+ *   the download instead.
+ *
+ * Nothing about the machine or the user is sent either way.
  */
+
+import { inTauri } from "./native";
 
 /** The version compiled into this build. Keep in step with src-tauri/tauri.conf.json. */
 export const APP_VERSION = "0.1.0";
@@ -110,4 +117,62 @@ export async function checkForUpdate(
     notes: firstLine(latest.body || ""),
     published: latest.published_at || "",
   };
+}
+
+export interface DownloadProgress {
+  downloaded: number;
+  total: number;
+}
+
+export interface NativeUpdate {
+  version: string;
+  notes: string;
+  /** Downloads the bundle, verifies its signature and installs it in place. */
+  install: (onProgress: (progress: DownloadProgress) => void) => Promise<void>;
+  /** Quits and reopens on the new build. */
+  restart: () => Promise<void>;
+}
+
+/**
+ * The signed update the desktop shell has waiting, if any.
+ *
+ * Returns null on the web, when there is no newer release, or when the manifest
+ * cannot be read — the caller then falls back to the release link.
+ */
+export async function checkNativeUpdate(): Promise<NativeUpdate | null> {
+  if (!inTauri()) return null;
+  try {
+    const { check } = await import("@tauri-apps/plugin-updater");
+    const update = await check();
+    if (!update) return null;
+
+    const version = update.version.replace(/^v/i, "");
+    if (dismissedVersion() === version) return null;
+
+    return {
+      version,
+      notes: firstLine(update.body || ""),
+      install: async (onProgress) => {
+        let total = 0;
+        let downloaded = 0;
+        await update.downloadAndInstall((event) => {
+          if (event.event === "Started") {
+            total = event.data.contentLength ?? 0;
+            onProgress({ downloaded: 0, total });
+          } else if (event.event === "Progress") {
+            downloaded += event.data.chunkLength;
+            onProgress({ downloaded, total });
+          } else {
+            onProgress({ downloaded: total || downloaded, total });
+          }
+        });
+      },
+      restart: async () => {
+        const { relaunch } = await import("@tauri-apps/plugin-process");
+        await relaunch();
+      },
+    };
+  } catch {
+    return null;
+  }
 }

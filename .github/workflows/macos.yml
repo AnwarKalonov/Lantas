@@ -8,6 +8,15 @@ on:
 permissions:
   contents: read
 
+env:
+  RELEASES_REPO: AnwarKalonov/Lantas-download
+  # Set these under Settings → Secrets and variables → Actions.
+  # Without the signing key the app still builds; it just cannot update itself.
+  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+  # Classic PAT with `contents: write` on RELEASES_REPO, to publish the release.
+  LANTAS_RELEASE_TOKEN: ${{ secrets.LANTAS_RELEASE_TOKEN }}
+
 jobs:
   macos:
     # macos-14 runs on Apple Silicon; use macos-13 for an Intel build.
@@ -24,8 +33,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check the tag matches the app version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          if [ "v$VERSION" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match the version in src-tauri/tauri.conf.json (${VERSION})"
+            exit 1
+          fi
+
       - name: Build app
-        run: npm run tauri build
+        run: |
+          if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            # The overlay adds bundle.createUpdaterArtifacts, so the build emits
+            # the .app.tar.gz and its signature.
+            npm run tauri build -- --config src-tauri/tauri.updater.json
+          else
+            npm run tauri build
+          fi
 
       - name: Bundle Chrome extension
         run: |
@@ -40,14 +65,37 @@ jobs:
           codesign --force --deep --sign - "$APP"
           codesign --verify --verbose "$APP"
 
-      - name: Package app
-        run: ditto -c -k --keepParent "src-tauri/target/release/bundle/macos/Lantas.app" "Lantas-macOS.zip"
+      - name: Package release assets
+        run: bash scripts/package-release.sh
 
-      - name: Upload
+      - name: Upload build
         uses: actions/upload-artifact@v4
         with:
           name: Lantas-macOS
-          path: |
-            Lantas-macOS.zip
-            src-tauri/target/release/bundle/dmg/*.dmg
+          path: release-assets/*
           if-no-files-found: error
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v') && env.LANTAS_RELEASE_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ secrets.LANTAS_RELEASE_TOKEN }}
+        run: |
+          VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          FILES=(release-assets/*)
+          NOTES=(--notes "Lantas ${VERSION}")
+          if [ -f RELEASE_NOTES.md ]; then NOTES=(--notes-file RELEASE_NOTES.md); fi
+
+          if gh release view "$GITHUB_REF_NAME" --repo "$RELEASES_REPO" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${FILES[@]}" --repo "$RELEASES_REPO" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${FILES[@]}" \
+              --repo "$RELEASES_REPO" \
+              --title "Lantas ${VERSION}" \
+              "${NOTES[@]}" \
+              --latest
+          fi
+
+      - name: Say how to finish by hand
+        if: startsWith(github.ref, 'refs/tags/v') && env.LANTAS_RELEASE_TOKEN == ''
+        run: |
+          echo "::notice title=Release not published::Add LANTAS_RELEASE_TOKEN to publish automatically, or download the Lantas-macOS artifact and attach its files to a release tagged $GITHUB_REF_NAME in $RELEASES_REPO."

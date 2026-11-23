@@ -343,6 +343,39 @@ code {
   background: var(--sel);
 }
 
+.update-pill-main:disabled {
+  cursor: progress;
+  color: var(--text-3);
+}
+
+.update-pill.is-error {
+  border-color: var(--err);
+}
+
+.update-pill.is-error .update-pill-main {
+  color: var(--err);
+}
+
+.update-dot.is-busy {
+  animation: update-pulse 1.1s ease-in-out infinite;
+}
+
+.update-dot.is-error {
+  background: var(--err);
+}
+
+@keyframes update-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
+}
+
 .titlebar-search {
   position: absolute;
   left: 50%;

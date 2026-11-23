@@ -334,6 +334,10 @@ pub fn run() {
         // Native folder picker and file reads for the Code tab.
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        // In-app updates: the manifest is `latest.json` on the newest public
+        // release, and every bundle is checked against the key in tauri.conf.json.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         // Loopback WebSocket the Lantas Chrome extension connects to.
         .setup(|_app| {
             bridge::start();

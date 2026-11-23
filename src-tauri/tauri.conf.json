@@ -47,5 +47,13 @@
     "category": "DeveloperTool",
     "shortDescription": "A coding agent with screen awareness and computer control",
     "longDescription": "Lantas is a desktop coding agent that reads your workspace, watches your screen, and can act on your computer."
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_YOUR_PUBLIC_KEY",
+      "endpoints": [
+        "https://github.com/AnwarKalonov/Lantas-download/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

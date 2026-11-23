@@ -33,6 +33,26 @@ If `tauri` reports `failed to run 'cargo metadata'`, Rust is missing from
 `PATH` — open a new terminal. On Linux, `tauri dev` also needs
 `libwebkit2gtk-4.1` and `libgtk-3` development packages.
 
+## Updates
+
+The installed app updates itself. On launch it reads `latest.json` from the newest
+public release, and when that version is newer it downloads `Lantas.app.tar.gz`,
+verifies the signature against the public key compiled in from
+`src-tauri/tauri.conf.json`, installs it, and offers **Restart to update** in the
+title bar. A browser tab has no shell to install into, so there it links to the
+release instead.
+
+Signing the bundles needs the updater key once:
+
+```bash
+npm run tauri signer generate -- -w ~/.tauri/lantas.key
+```
+
+Paste the printed **public** key into `plugins.updater.pubkey`, keep the
+private key out of the repository (it becomes the `TAURI_SIGNING_PRIVATE_KEY`
+secret), and install one build by hand — the app that is already on the Mac
+predates the updater. `PUBLISH.md` has the full release flow.
+
 ## Providers
 
 Settings → Providers. Supported: Anthropic, OpenAI, OpenRouter, Groq, Google,

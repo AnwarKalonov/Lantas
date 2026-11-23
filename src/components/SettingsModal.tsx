@@ -9,7 +9,7 @@ import {
   testProvider,
 } from "../lib/providers";
 import { useStore } from "../lib/store";
-import { APP_VERSION, checkForUpdate } from "../lib/updates";
+import { APP_VERSION, checkForUpdate, checkNativeUpdate } from "../lib/updates";
 import { openExternal } from "../lib/native";
 import type { AgentId, ProviderId, ProviderMeta, ThemeMode } from "../lib/types";
 import { cx, uid } from "../lib/util";
@@ -265,6 +265,11 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
   const checkUpdates = async () => {
     setCheckingUpdate(true);
     try {
+      const native = await checkNativeUpdate();
+      if (native) {
+        notify(`Lantas ${native.version} is available — install it from the title bar`);
+        return;
+      }
       const next = await checkForUpdate(APP_VERSION, { ignoreDismissed: true });
       if (next) {
         notify(`Lantas ${next.version} is available — opening the release`);

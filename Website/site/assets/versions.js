@@ -70,10 +70,12 @@ function buildsOf(release) {
       size: sizeLabel(asset.size),
     };
 
-  const armDmg = find((name) => name.includes("arm64") && name.endsWith(".dmg"));
-  const intelDmg = find((name) => (name.includes("x64") || name.includes("intel")) && name.endsWith(".dmg"));
-  const armZip = find((name) => name.includes("arm64") && name.endsWith(".zip") && !name.includes("extension"));
-  const intelZip = find((name) => (name.includes("x64") || name.includes("intel")) && name.endsWith(".zip"));
+  const arm = (name) => name.includes("arm64") || name.includes("aarch64");
+  const intel = (name) => name.includes("x64") || name.includes("x86_64") || name.includes("intel");
+  const armDmg = find((name) => arm(name) && name.endsWith(".dmg"));
+  const intelDmg = find((name) => intel(name) && name.endsWith(".dmg"));
+  const armZip = find((name) => arm(name) && name.endsWith(".zip") && !name.includes("extension"));
+  const intelZip = find((name) => intel(name) && name.endsWith(".zip") && !name.includes("extension"));
   const extension = find((name) => name.includes("extension") && name.endsWith(".zip"));
 
   return [

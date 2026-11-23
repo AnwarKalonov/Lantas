@@ -1,9 +1,8 @@
 import { useStore } from "../lib/store";
 import type { Mode } from "../lib/types";
-import type { AvailableUpdate } from "../lib/updates";
 import { cx } from "../lib/util";
-import { openExternal } from "../lib/native";
 import { Icon } from "./Icons";
+import { UpdatePill } from "./UpdatePill";
 
 interface TitleBarProps {
   title: string;
@@ -11,8 +10,6 @@ interface TitleBarProps {
   onModeChange: (mode: Mode) => void;
   onOpenPalette: () => void;
   onOpenSettings: () => void;
-  update?: AvailableUpdate | null;
-  onDismissUpdate?: () => void;
 }
 
 export function TitleBar({
@@ -21,8 +18,6 @@ export function TitleBar({
   onModeChange,
   onOpenPalette,
   onOpenSettings,
-  update,
-  onDismissUpdate,
 }: TitleBarProps) {
   const { state, toggleSidebar, togglePanel, setSettings } = useStore();
   const nextTheme = state.settings.theme === "light" ? "dark" : "light";
@@ -31,27 +26,7 @@ export function TitleBar({
     <header className="titlebar" data-tauri-drag-region>
       <div className="titlebar-left" data-tauri-drag-region>
         <span className="crumb-current">{title}</span>
-        {update && (
-          <div className="update-pill" title={update.notes || `Lantas ${update.version} is available`}>
-            <button
-              type="button"
-              className="update-pill-main"
-              onClick={() => openExternal(update.url)}
-            >
-              <span className="update-dot" aria-hidden="true" />
-              {update.version} available
-            </button>
-            <button
-              type="button"
-              className="update-pill-x"
-              onClick={onDismissUpdate}
-              aria-label="Dismiss the update notice"
-              title="Dismiss"
-            >
-              ×
-            </button>
-          </div>
-        )}
+        <UpdatePill />
       </div>
 
       <div className="mode-tabs" role="tablist" aria-label="Workspace mode">

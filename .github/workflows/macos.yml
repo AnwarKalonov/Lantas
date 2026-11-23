@@ -86,18 +86,15 @@ jobs:
             npm run tauri build
           fi
 
-      - name: Bundle Chrome extension
+      # The extension is a bundle resource and the app is ad-hoc signed by the
+      # bundler (signingIdentity in tauri.conf.json), so the copy inside the dmg
+      # is signed too. Editing the app after this point would break that seal.
+      - name: Check the app is signed
         run: |
           APP="src-tauri/target/release/bundle/macos/Lantas.app"
-          mkdir -p "$APP/Contents/Resources"
-          rm -rf "$APP/Contents/Resources/chrome-extension"
-          cp -R chrome-extension "$APP/Contents/Resources/chrome-extension"
-
-      - name: Ad-hoc sign
-        run: |
-          APP="src-tauri/target/release/bundle/macos/Lantas.app"
-          codesign --force --deep --sign - "$APP"
-          codesign --verify --verbose "$APP"
+          codesign --verify --verbose=2 "$APP"
+          codesign -dv "$APP" 2>&1 | grep -E "Signature|Identifier"
+          test -f "$APP/Contents/Resources/chrome-extension/manifest.json"
 
       - name: Package release assets
         run: bash scripts/package-release.sh

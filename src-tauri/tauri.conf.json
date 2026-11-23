@@ -46,7 +46,22 @@
     ],
     "category": "DeveloperTool",
     "shortDescription": "A coding agent with screen awareness and computer control",
-    "longDescription": "Lantas is a desktop coding agent that reads your workspace, watches your screen, and can act on your computer."
+    "longDescription": "Lantas is a desktop coding agent that reads your workspace, watches your screen, and can act on your computer.",
+    "resources": {
+      "../chrome-extension/": "chrome-extension/"
+    },
+    "macOS": {
+      "signingIdentity": "-",
+      "hardenedRuntime": false,
+      "minimumSystemVersion": "11.0",
+      "dmg": {
+        "background": "dmg/background.png",
+        "windowSize": { "width": 660, "height": 420 },
+        "windowPosition": { "x": 240, "y": 180 },
+        "appPosition": { "x": 185, "y": 204 },
+        "applicationFolderPosition": { "x": 475, "y": 204 }
+      }
+    }
   },
   "plugins": {
     "updater": {

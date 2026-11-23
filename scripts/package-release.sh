@@ -45,13 +45,11 @@ if [ -d chrome-extension ]; then
   echo "ext      chrome-extension.zip"
 fi
 
-if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
-  # Rebuilt here on purpose: the archive must contain the ad-hoc signed app, and
-  # the signature must cover the bytes we upload.
-  COPYFILE_DISABLE=1 tar -czf "$OUT/Lantas.app.tar.gz" -C "$BUNDLE/macos" Lantas.app
-  # --app-version binds the signature to this version, which lets the updater be
-  # configured to reject a replayed older bundle later on.
-  npx tauri signer sign --app-version "$VERSION" "$OUT/Lantas.app.tar.gz"
+if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ] && [ -f "$BUNDLE/macos/Lantas.app.tar.gz" ]; then
+  # Produced by the bundler itself, after it signed the app, so the archive and
+  # its signature describe exactly the app that ships in the dmg.
+  cp "$BUNDLE/macos/Lantas.app.tar.gz" "$OUT/Lantas.app.tar.gz"
+  cp "$BUNDLE/macos/Lantas.app.tar.gz.sig" "$OUT/Lantas.app.tar.gz.sig"
   echo "updater  Lantas.app.tar.gz + .sig"
 
   LANTAS_NOTES="${LANTAS_NOTES:-Lantas $VERSION}" node scripts/latest-json.mjs "$OUT/latest.json"

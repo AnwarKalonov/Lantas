@@ -45,12 +45,8 @@ if [ ! -d "$APP" ]; then
   exit 1
 fi
 
-# Ship the Chrome extension inside the app so "Load unpacked" has a real folder.
-if [ -d "chrome-extension" ]; then
-  mkdir -p "$APP/Contents/Resources"
-  rm -rf "$APP/Contents/Resources/chrome-extension"
-  cp -R "chrome-extension" "$APP/Contents/Resources/chrome-extension"
-fi
+# The extension is a bundle resource (tauri.conf.json), so it is already inside
+# the signed app. Copying it here would break the signature.
 
 say "Installing to /Applications..."
 rm -rf "/Applications/Lantas.app"

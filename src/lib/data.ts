@@ -79,6 +79,26 @@ export const PROVIDERS: ProviderMeta[] = [
     docs: "aistudio.google.com/apikey",
   },
   {
+    id: "nvidia",
+    name: "NVIDIA NIM",
+    description: "Hosted models via build.nvidia.com",
+    kind: "openai",
+    baseUrl: "https://integrate.api.nvidia.com/v1",
+    needsKey: true,
+    local: false,
+    // Chat-capable rows from the live NIM catalog. The picker replaces these
+    // with this key's own /models list as soon as the provider is tested.
+    models: [
+      "minimaxai/minimax-m3.1-flash",
+      "moonshotai/kimi-k3.1-pro",
+      "z-ai/glm-5.3-flash",
+      "mistralai/mistral-large-4-1t-a52b",
+      "google/gemma-4-31b-it",
+      "nvidia/nemotron-3.5-lightning-30b-a3b",
+    ],
+    docs: "build.nvidia.com/settings/api-keys",
+  },
+  {
     id: "ollama",
     name: "Ollama",
     description: "Models running on this machine",

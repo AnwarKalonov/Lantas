@@ -3,13 +3,15 @@ import {
   chromeCommand,
   type BrowserEngine,
   type ChromeElement,
+  type ChromeEvent,
   type ChromePage,
 } from "./chrome";
-import { getElContext, setElContext, type ElPage } from "./el";
+import { getElContext, normalizeUrl, setElContext, type ElPage } from "./el";
 import {
   elClick,
   elHistory,
   elNavigate,
+  elOpen,
   elReload,
   elVisible,
   inTauri,
@@ -29,6 +31,41 @@ import {
 
 const looksLikeSelector = (value: string) =>
   /^[#.]/.test(value) || /^\w+\[/.test(value) || /^[a-z][\w-]*\s*>/.test(value);
+
+/** Short names a model is likely to pass on its own, with their real front door. */
+const SITE_URLS: Record<string, string> = {
+  desmos: "https://www.desmos.com/calculator",
+  "desmos calculator": "https://www.desmos.com/calculator",
+  "desmos graphing calculator": "https://www.desmos.com/calculator",
+};
+
+/**
+ * `desmos` means the calculator; `desmos website` is a literal search, because
+ * the user asked for the search rather than for the app. Everything else uses
+ * the same address rules as the browser's own address bar.
+ */
+export function resolveBrowserAddress(raw: string): string {
+  const value = raw.trim();
+  const known = SITE_URLS[value.toLowerCase()];
+  if (known) return known;
+  return normalizeUrl(value);
+}
+
+/**
+ * The short browser manual shared by the coding agent and the Chrome panel.
+ * It teaches a workflow, not a hidden shortcut: named apps get their real
+ * front door, canvas editors get one deliberate click and keystroke at a time,
+ * and every step is checked against the page that comes back.
+ */
+export const BROWSER_GUIDE = [
+  "Browser playbook (follow this instead of guessing):",
+  "- A named app or product (Desmos, GitHub, Gmail) means its real site. Desmos is https://www.desmos.com/calculator. A phrase like `the Desmos website` or `search for …` is literal: navigate to the search page and use its results.",
+  "- After navigate, snapshot. Controls come from the live page; use a ref or an exact label, never coordinates you invented.",
+  "- To graph on Desmos: navigate to the calculator, snapshot, click the `Expression 1` row, type the equation exactly as math (`y=2x+4`), then snapshot again. The result includes a `Graph expressions:` line. Success means the equation is there, not merely that the tool returned.",
+  "- Canvas and math editors often ignore a value assignment. Click into the editor first, then type or press keys. If the page exposes a documented API, `evaluate` may call it, but read the expression back to verify it.",
+  "- `click_at` and `evaluate` exist for canvas apps and site APIs. Use them only for the user's task, not to read private storage or change unrelated settings.",
+  "- If a page does not open, try the canonical address once, then a search. Do not repeat an identical failing call.",
+].join("\n");
 
 let engineOverride: BrowserEngine | null = null;
 
@@ -379,6 +416,35 @@ export async function agentType(
   const result = await runInPage<{ ok: boolean; detail?: string; error?: string }>(`
     const text = ${JSON.stringify(text)};
     const wanted = ${JSON.stringify(selector ?? "")};
+    const onDesmosPage = location.hostname.indexOf("desmos.") >= 0;
+    const desmosCalc = window.Calc;
+
+    // The canvas editor can be focused or not; when the user is on Desmos and
+    // asks to type an equation, the calculator's own API is the honest target.
+    // Read it back before falling through to ordinary keyboard input.
+    if (onDesmosPage && desmosCalc && typeof desmosCalc.setExpression === "function") {
+      try {
+        const rows = Array.from(document.querySelectorAll(".dcg-expressionitem"));
+        const selectedRow = document.querySelector(".dcg-expressionitem.dcg-selected");
+        const row = selectedRow || rows[0] || null;
+        const all = typeof desmosCalc.getExpressions === "function" ? desmosCalc.getExpressions() : [];
+        const id =
+          (row && row.getAttribute("expr-id")) ||
+          desmosCalc.selectedExpressionId ||
+          (all[0] && all[0].id) ||
+          "1";
+        desmosCalc.setExpression({ id: String(id), latex: text });
+        const latest = typeof desmosCalc.getExpressions === "function" ? desmosCalc.getExpressions() : all;
+        const compact = (value) => String(value || "").replace(/\\s+/g, "");
+        const stored = latest.some(
+          (item) => item.id === String(id) && compact(item.latex) === compact(text),
+        );
+        if (stored) return { ok: true, detail: "Desmos expression " + id };
+      } catch (_) {
+        /* fall through to the field */
+      }
+    }
+
     const visible = (el) => {
       const rect = el.getBoundingClientRect();
       if (rect.width < 2 || rect.height < 2) return false;
@@ -403,20 +469,25 @@ export async function agentType(
     const calc = window.Calc;
     const desmosRow = el.closest ? el.closest(".dcg-expressionitem") : null;
     const onDesmos = location.hostname.indexOf("desmos.") >= 0;
-    if (
-      onDesmos &&
-      calc &&
-      typeof calc.setExpression === "function" &&
-      (desmosRow || (el.tagName === "TEXTAREA" && Boolean(document.querySelector(".dcg-expressionitem.dcg-selected"))))
-    ) {
+    if (onDesmos && calc && typeof calc.setExpression === "function") {
       try {
-        const first = typeof calc.getExpressions === "function" ? calc.getExpressions()[0] : null;
-        const id = (desmosRow && desmosRow.getAttribute("expr-id")) || calc.selectedExpressionId || (first && first.id) || "1";
+        const all = typeof calc.getExpressions === "function" ? calc.getExpressions() : [];
+        const selected = document.querySelector(".dcg-expressionitem.dcg-selected");
+        const id =
+          (desmosRow && desmosRow.getAttribute("expr-id")) ||
+          (selected && selected.getAttribute("expr-id")) ||
+          calc.selectedExpressionId ||
+          (all[0] && all[0].id) ||
+          "1";
         calc.setExpression({ id: String(id), latex: text });
-        const stored = typeof calc.getExpressions === "function"
-          ? calc.getExpressions().some((item) => item.id === String(id) && item.latex === text)
-          : false;
-        return { ok: stored, detail: "Desmos expression " + id };
+        const compact = (value) => String(value || "").replace(/\\s+/g, "");
+        const latest = typeof calc.getExpressions === "function" ? calc.getExpressions() : all;
+        const stored = latest.some(
+          (item) => item.id === String(id) && compact(item.latex) === compact(text),
+        );
+        return stored
+          ? { ok: true, detail: "Desmos expression " + id }
+          : { ok: false, error: "Desmos did not keep the expression; try clicking the row again." };
       } catch (error) {
         return { ok: false, error: String(error) };
       }
@@ -519,24 +590,49 @@ export async function agentScroll(pixels: number): Promise<boolean> {
   return Boolean(result?.ok);
 }
 
+async function navigateNative(raw: string): Promise<boolean> {
+  const url = resolveBrowserAddress(raw);
+  const before = getElContext()?.url ?? "";
+
+  // BrowserView owns the address bar, tab title, history and the native
+  // webview. Even when the user is in chat, it can create the child webview
+  // off-screen so the agent can work before "Open browser" is pressed. The
+  // App-level listener also switches to the Browser tab when this starts from
+  // Code mode, where BrowserView is not mounted.
+  window.dispatchEvent(new CustomEvent("lantas:navigate", { detail: { url } }));
+  await sleep(350);
+  await elNavigate(url);
+
+  let landed: NativeRead | null = null;
+  for (let attempt = 0; attempt < 18; attempt += 1) {
+    landed = await readNative();
+    const current = landed?.page?.url ?? "";
+    if (/^https?:/i.test(current) && (samePage(current, url) || current !== before)) break;
+    await sleep(attempt < 4 ? 250 : 450);
+  }
+
+  // A code-mode turn has no mounted BrowserView to create the child webview.
+  // Open it directly off-screen, then let the Browser tab adopt the same page.
+  if (!landed?.page?.url || !/^https?:/i.test(landed.page.url)) {
+    await elOpen(url, { x: -12000, y: -12000, width: 1280, height: 900 });
+    await sleep(450);
+    await elVisible(false);
+    landed = await waitForNativePage(url, 20);
+  }
+
+  return Boolean(landed?.page?.url && /^https?:/i.test(landed.page.url));
+}
+
 export async function agentNavigate(url: string): Promise<boolean> {
   if (activeEngine() === "chrome") {
     try {
-      await chromeCommand("navigate", { url });
+      await chromeCommand("navigate", { url: resolveBrowserAddress(url) });
       return true;
     } catch {
       return false;
     }
   }
-
-  // BrowserView owns the address bar, tab title, history and the native
-  // webview. Even when the user is in chat, it can create the child webview
-  // off-screen so the agent can work before "Open browser" is pressed.
-  window.dispatchEvent(new CustomEvent("lantas:navigate", { detail: { url } }));
-  await sleep(500);
-  await elNavigate(url);
-  const landed = await waitForNativePage(url, 16);
-  return Boolean(landed?.page?.url);
+  return navigateNative(url);
 }
 
 export async function agentHistory(direction: "back" | "forward"): Promise<boolean> {
@@ -567,6 +663,64 @@ export async function agentReload(): Promise<boolean> {
   return true;
 }
 
+/** Real mouse click at viewport coordinates, for canvas editors. */
+export async function agentClickAt(x: number, y: number): Promise<boolean> {
+  const px = Math.max(0, Math.round(Number(x) || 0));
+  const py = Math.max(0, Math.round(Number(y) || 0));
+  if (activeEngine() === "chrome") {
+    try {
+      await chromeCommand("act", { action: "click_at", x: px, y: py });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const result = await runInPage<{ ok: boolean; detail?: string; error?: string }>(`
+    const el = document.elementFromPoint(${px}, ${py});
+    if (!el) return { ok: false, error: "Nothing is at those coordinates." };
+    const base = {
+      bubbles: true, cancelable: true, composed: true,
+      clientX: ${px}, clientY: ${py}, button: 0,
+      pointerId: 1, pointerType: "mouse", isPrimary: true,
+    };
+    for (const type of ["pointerover", "pointerenter", "pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+      const Ctor = type.indexOf("pointer") === 0 ? PointerEvent : MouseEvent;
+      el.dispatchEvent(new Ctor(type, { ...base, buttons: type.endsWith("down") ? 1 : 0 }));
+    }
+    return { ok: true, detail: el.tagName.toLowerCase() };
+  `);
+  if (result?.ok) {
+    await sleep(400);
+    return true;
+  }
+  return false;
+}
+
+/** Run page JavaScript (a site's own API or a verification read). */
+export async function agentEvaluate(
+  code: string,
+): Promise<{ ok: boolean; value?: unknown; error?: string }> {
+  if (activeEngine() === "chrome") {
+    try {
+      const result = await chromeCommand<ChromeEvent & { value?: unknown }>("evaluate", {
+        code,
+      });
+      return { ok: result.ok !== false, value: result.value, error: result.error };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+  const result = await runInPage<{ ok: boolean; value?: unknown; error?: string }>(`
+    try {
+      const value = (0, eval)(${JSON.stringify(code)});
+      return { ok: true, value: value === undefined ? null : value };
+    } catch (error) {
+      return { ok: false, error: String(error && error.message ? error.message : error) };
+    }
+  `);
+  return result ?? { ok: false, error: "The page did not answer." };
+}
+
 export async function agentPage(): Promise<ElPage | null> {
   if (activeEngine() !== "chrome") {
     const read = await readNative();
@@ -595,6 +749,8 @@ export async function agentSnapshot(): Promise<BrowserSnapshot> {
           "extract",
           "click",
           "click_ref",
+          "click_at",
+          "evaluate",
           "type",
           "press",
           "scroll",
@@ -651,12 +807,7 @@ export async function agentOpenChrome(url: string, newTab = false): Promise<bool
  */
 export async function ensureNativeBrowserPage(url: string): Promise<boolean> {
   if (!inTauri()) return false;
-  window.dispatchEvent(new CustomEvent("lantas:navigate", { detail: { url } }));
-  await sleep(550);
-  await elNavigate(url);
-  await elVisible(false);
-  const read = await waitForNativePage(url, 18);
-  return Boolean(read?.page?.url);
+  return navigateNative(url);
 }
 
 /** Formatted page + element map, capped so it fits comfortably in context. */

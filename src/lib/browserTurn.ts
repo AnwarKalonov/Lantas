@@ -1,5 +1,5 @@
 import { runToolLoop } from "./agentRuntime";
-import { setBrowserEngineOverride } from "./browserAgent";
+import { BROWSER_GUIDE, setBrowserEngineOverride } from "./browserAgent";
 import type { ChromeElement, ChromePage } from "./chrome";
 import type { PermissionRule } from "./permissions";
 import type { ProviderConfig, ProviderId } from "./types";
@@ -78,11 +78,15 @@ function systemPrompt(mode: "ask" | "act"): string {
     "  snapshot {} — re-read the page and controls",
     "  extract {} — the page text",
     "  click {ref} or {target} or {selector} — prefer ref from the latest controls",
+    "  click_at {x, y} — real mouse click at viewport coordinates",
     "  type {text, selector?, submit?} — type into a field; submit:true presses Enter",
+    "  evaluate {code} — run page JavaScript, for a site's documented API or verification",
     "  press {key} — Enter, Tab, Escape, arrows",
     "  scroll {dy} — pixels; positive is down",
     "  navigate {url} — open an address",
     "  back {}, forward {}, reload {}",
+    "",
+    BROWSER_GUIDE,
     "",
     "How to work:",
     "1. Answer from the page text when you can; do not act just because you can.",

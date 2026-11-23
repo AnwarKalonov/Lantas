@@ -118,6 +118,18 @@ export function BrowserView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.browserUrl]);
 
+  // Code mode unmounts BrowserView. When the browser tab mounts for an agent
+  // navigation, the request may already be in the store before this component
+  // exists, so adopt it on the first visible frame.
+  useEffect(() => {
+    if (!visible) return;
+    if (state.browserUrl && state.browserUrl !== active.url) {
+      lastBrowserUrl.current = state.browserUrl;
+      navigate(state.browserUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
   // The browser opens on its own home page every launch; bookmarks and history stay.
   useEffect(() => {
     setData((current) => {

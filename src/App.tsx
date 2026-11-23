@@ -615,6 +615,22 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A browser call can begin while the user is in Code, where BrowserView is
+  // unmounted. Switch to the Browser tab and carry the address with it so the
+  // page the agent is about to open is visible instead of orphaned.
+  useEffect(() => {
+    const onAgentNavigate = (event: Event) => {
+      const url = (event as CustomEvent<{ url?: string }>).detail?.url;
+      // Chat and Browser keep BrowserView mounted; only Code unmounts it.
+      // Switching there is what makes an agent-opened page visible again.
+      if (!url || state.mode !== "code") return;
+      setBrowserUrl(url);
+      setMode("browser");
+    };
+    window.addEventListener("lantas:navigate", onAgentNavigate);
+    return () => window.removeEventListener("lantas:navigate", onAgentNavigate);
+  }, [state.mode, setBrowserUrl, setMode]);
+
   const handleSendRef = useRef<(text: string) => Promise<void>>(async () => {});
   const handleSend = useCallback(
     async (raw: string, attachments: Attachment[] = []) => {

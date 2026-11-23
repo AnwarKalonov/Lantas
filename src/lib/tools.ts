@@ -1,9 +1,12 @@
 import type { AgentId, DiffLine, Skill, WorkspaceFile } from "./types";
 import { languageFor } from "./workspace";
 import {
+  BROWSER_GUIDE,
   agentClick,
+  agentClickAt,
   agentClickRef,
   agentEnter,
+  agentEvaluate,
   agentHistory,
   agentNavigate,
   agentPress,
@@ -610,6 +613,37 @@ async function runBrowserTool(
         : fail(`Could not click “${target}”. Take a fresh snapshot and try a different label.`);
     }
 
+    case "click_at": {
+      const x = Number(args.x ?? NaN);
+      const y = Number(args.y ?? NaN);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return fail("click_at needs numeric x and y viewport coordinates.");
+      }
+      const ok = await agentClickAt(x, y);
+      return ok
+        ? {
+            ok: true,
+            summary: `Clicked at ${Math.round(x)}, ${Math.round(y)}`,
+            content: await afterAction(`Clicked at ${Math.round(x)}, ${Math.round(y)}.`),
+            resource,
+          }
+        : fail("Nothing was at those coordinates. Take a fresh snapshot and aim at a control.");
+    }
+
+    case "evaluate": {
+      const code = String(args.code ?? "").trim();
+      if (!code) return fail("evaluate needs code to run in the page.");
+      const result = await agentEvaluate(code);
+      if (!result.ok) return fail(result.error || "The page could not run that script.");
+      const value = JSON.stringify(result.value ?? null);
+      return {
+        ok: true,
+        summary: "Ran page script",
+        content: truncate(`Page returned:\n${value ?? "null"}`, 12_000),
+        resource,
+      };
+    }
+
     case "type": {
       const text = String(args.text ?? "");
       if (!text && !args.clear) return fail("Text is required.");
@@ -687,7 +721,7 @@ async function runBrowserTool(
 
     default:
       return fail(
-        `Unknown browser action ${action || "(none)"}. Use snapshot, extract, click, type, press, scroll, navigate, back, forward or reload.`,
+        `Unknown browser action ${action || "(none)"}. Use snapshot, extract, click, click_at, type, evaluate, press, scroll, navigate, back, forward or reload.`,
       );
   }
 }
@@ -837,9 +871,9 @@ export const TOOL_MANUAL = [
   '- edit {"path","oldString","newString","replaceAll?"} — exact replacement; oldString must be unique.',
   '- skill {"name"} — load the full instructions of an enabled skill when the task matches it.',
   '- terminal {"command","timeoutMs?"} — run a command in the open workspace and return its real stdout and stderr. Use this for tests, builds, git and shell commands. Never claim a command ran without a terminal result.',
-  '- browser {"action",...} — actions: snapshot, extract, click {"target"|"ref"}, type {"text","selector?","submit?"}, press {"key"}, scroll {"dy"}, navigate {"url"}, back, forward, reload.',
+  '- browser {"action",...} — actions: snapshot, extract, click {"target"|"ref"}, click_at {"x","y"}, type {"text","selector?","submit?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, navigate {"url"}, back, forward, reload.',
   "",
-  "Browser workflow: when the user asks you to open, graph, fill, search, click or otherwise use a website, do it with the browser tool. Start with navigate, then snapshot. Click a control by its ref from that snapshot; type with no selector to use the focused field. After every action, read the returned URL, title and controls and verify the result before claiming it worked. For a graphing calculator, open the calculator, snapshot, click the expression row, type the equation, then snapshot again and look for the equation in the controls.",
+  BROWSER_GUIDE,
   '- integrations {"action",...} — apps, tools {"toolkit"}, inbox {"limit","query"}, search_email {"query","limit"}, run {"slug","arguments"}.',
   "",
   "Rules:",

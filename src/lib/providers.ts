@@ -59,6 +59,12 @@ const PRETTY: Record<string, string> = {
   "llama-3.3-70b-versatile": "Llama 3.3 70B",
   "qwen-3-32b": "Qwen3 32B",
   "moonshotai/kimi-k2-instruct": "Kimi K2",
+  "minimaxai/minimax-m3.1-flash": "MiniMax M3.1 Flash",
+  "moonshotai/kimi-k3.1-pro": "Kimi K3.1 Pro",
+  "z-ai/glm-5.3-flash": "GLM 5.3 Flash",
+  "mistralai/mistral-large-4-1t-a52b": "Mistral Large 4",
+  "google/gemma-4-31b-it": "Gemma 4 31B",
+  "nvidia/nemotron-3.5-lightning-30b-a3b": "Nemotron 3.5 Lightning",
   "qwen3-coder:30b": "Qwen3 Coder 30B",
   "llama3.3:latest": "Llama 3.3",
   "deepseek-r1:14b": "DeepSeek R1 14B",
@@ -247,7 +253,7 @@ async function streamOpenAI(options: StreamOptions): Promise<void> {
       model: options.model,
       messages,
       stream: true,
-      stream_options: { include_usage: true },
+      ...(options.provider === "nvidia" ? {} : { stream_options: { include_usage: true } }),
     }),
   });
 
@@ -594,10 +600,23 @@ export async function listModels(
     const models: string[] = (data.data ?? data.models ?? [])
       .map((model: any) => model.id ?? model.name)
       .filter(Boolean)
+      .filter((name: string) =>
+        id === "nvidia"
+          ? !/(embed|embedqa|nvclip|gliner|safety|guard|nemoguard|detector|retriever|riva|arctic-embed|calibration)/i.test(
+              name,
+            )
+          : true,
+      )
       .sort((a: string, b: string) => {
         if (id === "openrouter") {
           const free = Number(b.includes(":free")) - Number(a.includes(":free"));
           if (free !== 0) return free;
+        }
+        if (id === "nvidia") {
+          const rank = (name: string) =>
+            /minimax/i.test(name) ? 0 : /kimi/i.test(name) ? 1 : /glm/i.test(name) ? 2 : 3;
+          const diff = rank(a) - rank(b);
+          if (diff !== 0) return diff;
         }
         return a.localeCompare(b);
       });

@@ -76,7 +76,7 @@ predates the updater. `PUBLISH.md` has the full release flow.
 ## Providers
 
 Settings → Providers. Supported: Anthropic, OpenAI, OpenRouter, Groq, Google,
-Ollama, LM Studio and any OpenAI-compatible base URL.
+NVIDIA NIM, Ollama, LM Studio and any OpenAI-compatible base URL.
 
 - Bring your own key, or use a local server (`Ollama`, `LM Studio`).
 - **Test connection** checks the endpoint and sends one tiny turn.

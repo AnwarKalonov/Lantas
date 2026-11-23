@@ -87,6 +87,7 @@
 
   function kindFor(el) {
     const tag = el.tagName.toLowerCase();
+    if (el.classList && el.classList.contains("dcg-expressionitem")) return "math";
     if (tag === "a") return "link";
     if (tag === "button" || el.getAttribute("role") === "button") return "button";
     if (tag === "input") return el.type || "input";
@@ -98,7 +99,7 @@
 
   function interactive() {
     const nodes = document.querySelectorAll(
-      'a[href], button, [role="button"], input:not([type="hidden"]), textarea, select, summary, [contenteditable="true"]',
+      'a[href], button, [role="button"], input:not([type="hidden"]), textarea, select, summary, [contenteditable="true"], [role="textbox"], .dcg-expressionitem, .dcg-action-add-expression',
     );
     const list = [];
     for (const el of nodes) {
@@ -116,10 +117,26 @@
         .querySelectorAll("script,style,noscript,svg,template,iframe,canvas")
         .forEach((node) => node.remove());
     }
-    const text = String(clone?.textContent || "")
+    const bodyText = String(clone?.textContent || "")
       .replace(/[ \t\u00a0]+/g, " ")
       .replace(/\n{3,}/g, "\n\n")
-      .trim()
+      .trim();
+    const graphExpressions = (() => {
+      try {
+        if (!window.Calc || typeof window.Calc.getExpressions !== "function") return "";
+        return window.Calc.getExpressions()
+          .map((item) => `${item.id}: ${item.latex || "(empty)"}`)
+          .join(" | ");
+      } catch {
+        return "";
+      }
+    })();
+    const text = [
+      bodyText,
+      graphExpressions ? `Graph expressions: ${graphExpressions}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n")
       .slice(0, MAX_TEXT);
     const description =
       document.querySelector("meta[name='description']")?.getAttribute("content") ||
@@ -185,6 +202,78 @@
 
   async function act(message) {
     const action = message.action;
+
+    if (action === "point") {
+      const el = findTarget(message);
+      if (!el) return { ok: false, error: "That control was not found on the page." };
+      el.scrollIntoView({ block: "center", inline: "center" });
+      const rect = el.getBoundingClientRect();
+      return {
+        ok: true,
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+        label: labelFor(el) || el.tagName.toLowerCase(),
+      };
+    }
+
+    if (action === "focus") {
+      const el = findTarget(message) || document.activeElement;
+      if (!el || el === document.body) {
+        return { ok: false, error: "No field is focused. Click the field first." };
+      }
+      const editable =
+        /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable;
+      if (!editable && !(el.matches && el.matches(".dcg-expressionitem"))) {
+        return { ok: false, error: "That control is not a text field." };
+      }
+      el.scrollIntoView({ block: "center", inline: "center" });
+      if (typeof el.focus === "function") el.focus();
+      const mathEditor =
+        el.matches && el.matches(".dcg-expressionitem")
+          ? el.querySelector("textarea")
+          : null;
+      if (mathEditor) mathEditor.focus();
+      if (mathEditor && mathEditor.select) {
+        mathEditor.select();
+      } else if (el.select) {
+        el.select();
+      } else if (el.isContentEditable) {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const selection = window.getSelection();
+        if (selection) {
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      } else if (typeof el.click === "function") {
+        el.click();
+      }
+      return { ok: true, label: labelFor(el) || el.tagName.toLowerCase() };
+    }
+
+    if (action === "click_at") {
+      const x = Number(message.x);
+      const y = Number(message.y);
+      const el = document.elementFromPoint(x, y);
+      if (!el) return { ok: false, error: "Nothing is at those coordinates." };
+      const base = {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        clientX: x,
+        clientY: y,
+        button: 0,
+        pointerId: 1,
+        pointerType: "mouse",
+        isPrimary: true,
+      };
+      for (const type of ["pointerover", "pointerenter", "pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+        const Ctor = type.indexOf("pointer") === 0 ? PointerEvent : MouseEvent;
+        el.dispatchEvent(new Ctor(type, { ...base, buttons: type.endsWith("down") ? 1 : 0 }));
+      }
+      await sleep(300);
+      return { ok: true, detail: `Clicked at ${x}, ${y}`, page: readPage(), elements: readElements() };
+    }
 
     if (action === "press") {
       const key = String(message.key || "Enter");
@@ -260,13 +349,59 @@
     }
 
     if (action === "type") {
-      const el = message.selector ? findTarget(message) : document.activeElement;
-      if (!el) {
+      const el = message.selector || message.index != null
+        ? findTarget(message)
+        : document.activeElement;
+      if (!el || el === document.body) {
         return { ok: false, error: "That field was not found on the page." };
       }
       el.scrollIntoView({ block: "center", inline: "center" });
       if (typeof el.focus === "function") el.focus();
       const text = String(message.text ?? "");
+      const mathRow = el.matches && el.matches(".dcg-expressionitem");
+      if (
+        !el.isContentEditable &&
+        !/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) &&
+        !mathRow
+      ) {
+        return { ok: false, error: "That control is not a text field." };
+      }
+
+      // MathQuill (Desmos) ignores an assigned textarea value. The calculator
+      // exposes setExpression, so use the same API its own editor uses and
+      // read it back before reporting success.
+      const calc = window.Calc;
+      const row = (el.closest && el.closest(".dcg-expressionitem")) ||
+        document.querySelector(".dcg-expressionitem.dcg-selected") ||
+        document.querySelector(".dcg-expressionitem");
+      if (
+        /(^|\.)desmos\./.test(location.hostname) &&
+        calc &&
+        typeof calc.setExpression === "function"
+      ) {
+        try {
+          const all = typeof calc.getExpressions === "function" ? calc.getExpressions() : [];
+          const id = (row && row.getAttribute("expr-id")) || calc.selectedExpressionId || (all[0] && all[0].id) || "1";
+          calc.setExpression({ id: String(id), latex: text });
+          const latest = typeof calc.getExpressions === "function" ? calc.getExpressions() : all;
+          const compact = (value) => String(value || "").replace(/\s+/g, "");
+          const stored = latest.some(
+            (item) => item.id === String(id) && compact(item.latex) === compact(text),
+          );
+          if (stored) {
+            await sleep(300);
+            return {
+              ok: true,
+              detail: `Set Desmos expression ${id}`,
+              page: readPage(),
+              elements: readElements(),
+            };
+          }
+        } catch {
+          /* fall through to ordinary input */
+        }
+      }
+
       if (el.isContentEditable) {
         el.textContent = text;
         el.dispatchEvent(new InputEvent("input", { bubbles: true, data: text }));
@@ -294,6 +429,10 @@
       return { ok: false, error: "Nothing on the page matched that." };
     }
     el.scrollIntoView({ block: "center", inline: "center" });
+    const editor = el.matches && el.matches(".dcg-expressionitem")
+      ? el.querySelector("textarea")
+      : null;
+    if (editor && typeof editor.focus === "function") editor.focus();
     if (typeof el.focus === "function") el.focus();
     el.click();
     await sleep(450);

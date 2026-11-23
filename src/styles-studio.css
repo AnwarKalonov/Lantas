@@ -1,44 +1,45 @@
 /* ==========================================================================
    Lantas Studio
    A quieter, warmer workbench than the VS Code clone this replaced: ink and
-   sage, soft instrument-panel chrome, and one accent that means "active".
+   warm graphite, soft instrument-panel chrome, and one copper accent that
+   means "active" — no green tint across the whole tab.
    ========================================================================== */
 
 .ide,
 [data-theme="dark"] .ide,
 :root .ide {
-  --text: #e9e7dd;
-  --text-2: #c3c2b6;
-  --text-3: #96978c;
-  --text-4: #6f7168;
-  --ide-bg: #0e120f;
-  --ide-chrome: #131814;
-  --ide-panel: #151a16;
-  --ide-editor: #0f1410;
-  --ide-hover: rgba(219, 229, 208, 0.055);
-  --ide-selected: rgba(174, 195, 157, 0.14);
-  --ide-line: rgba(225, 232, 217, 0.075);
-  --ide-line-strong: rgba(225, 232, 217, 0.15);
-  --ide-blue: #a8c0ae;
-  --ide-yellow: #d9bd86;
-  --ide-pink: #d4a7c4;
-  --ide-orange: #dda47e;
-  --ide-green: #a9c79b;
-  --ide-cyan: #9cc7be;
-  --ide-purple: #c0b0d6;
-  --ide-muted: #7a7d72;
-  --accent: #c3d2b4;
-  --accent-ink: #111610;
-  --accent-soft: rgba(195, 210, 180, 0.14);
-  --sel: rgba(225, 232, 217, 0.055);
-  --line: rgba(225, 232, 217, 0.08);
-  --line-strong: rgba(225, 232, 217, 0.15);
-  --raised: #1b211c;
-  --raised-2: #202721;
-  --code-bg: #181e19;
-  --code-fg: #d9dacd;
-  --mono-ink: #c9cabc;
-  --term-bg: #0c110d;
+  --text: #ebe6dc;
+  --text-2: #c1bbae;
+  --text-3: #948e82;
+  --text-4: #6e6b63;
+  --ide-bg: #111110;
+  --ide-chrome: #171614;
+  --ide-panel: #1b1a17;
+  --ide-editor: #131210;
+  --ide-hover: rgba(244, 236, 222, 0.055);
+  --ide-selected: rgba(224, 161, 132, 0.15);
+  --ide-line: rgba(240, 232, 218, 0.075);
+  --ide-line-strong: rgba(240, 232, 218, 0.15);
+  --ide-blue: #9bb6cf;
+  --ide-yellow: #d6b783;
+  --ide-pink: #cba7b1;
+  --ide-orange: #dfa17e;
+  --ide-green: #aebfa2;
+  --ide-cyan: #99c1bd;
+  --ide-purple: #b9aecb;
+  --ide-muted: #77756c;
+  --accent: #e0a184;
+  --accent-ink: #19100b;
+  --accent-soft: rgba(224, 161, 132, 0.14);
+  --sel: rgba(244, 236, 222, 0.055);
+  --line: rgba(240, 232, 218, 0.08);
+  --line-strong: rgba(240, 232, 218, 0.15);
+  --raised: #1d1c19;
+  --raised-2: #24221f;
+  --code-bg: #1a1916;
+  --code-fg: #d8d4c9;
+  --mono-ink: #c7c1b5;
+  --term-bg: #0e0d0b;
   background: var(--ide-bg);
   color: var(--text);
   min-width: 0;
@@ -46,30 +47,30 @@
 }
 
 [data-theme="light"] .ide {
-  --text: #23271f;
-  --text-2: #4c5145;
-  --text-3: #757b6c;
-  --text-4: #9a9f91;
-  --ide-bg: #eeebe1;
-  --ide-chrome: #e7e2d6;
-  --ide-panel: #f5f2e9;
-  --ide-editor: #fbf9f2;
-  --ide-hover: rgba(54, 67, 51, 0.06);
-  --ide-selected: rgba(71, 96, 70, 0.13);
-  --ide-line: rgba(43, 53, 39, 0.095);
-  --ide-line-strong: rgba(43, 53, 39, 0.17);
-  --accent: #4a6950;
-  --accent-ink: #f8f6ee;
-  --accent-soft: rgba(74, 105, 80, 0.15);
-  --sel: rgba(43, 53, 39, 0.055);
-  --line: rgba(43, 53, 39, 0.095);
-  --line-strong: rgba(43, 53, 39, 0.17);
-  --raised: #fdfbf5;
-  --raised-2: #f1ede3;
-  --code-bg: #eee9dd;
-  --code-fg: #30372b;
-  --mono-ink: #414a3a;
-  --term-bg: #f7f3e9;
+  --text: #24221d;
+  --text-2: #4d4a43;
+  --text-3: #767268;
+  --text-4: #9a958a;
+  --ide-bg: #f1ede4;
+  --ide-chrome: #eae4d9;
+  --ide-panel: #f8f5ee;
+  --ide-editor: #fdfbf6;
+  --ide-hover: rgba(58, 50, 40, 0.06);
+  --ide-selected: rgba(163, 79, 45, 0.12);
+  --ide-line: rgba(58, 50, 40, 0.1);
+  --ide-line-strong: rgba(58, 50, 40, 0.18);
+  --accent: #a34f2d;
+  --accent-ink: #fff9f3;
+  --accent-soft: rgba(163, 79, 45, 0.12);
+  --sel: rgba(58, 50, 40, 0.055);
+  --line: rgba(58, 50, 40, 0.1);
+  --line-strong: rgba(58, 50, 40, 0.18);
+  --raised: #fdfbf6;
+  --raised-2: #f2ece1;
+  --code-bg: #eee8dc;
+  --code-fg: #332f28;
+  --mono-ink: #474138;
+  --term-bg: #f8f4eb;
   background: var(--ide-bg);
   color: var(--text);
 }
@@ -482,8 +483,8 @@
 }
 
 .ide-review-bar {
-  border-bottom: 1px solid rgba(195, 210, 180, 0.22);
-  background: rgba(120, 146, 105, 0.16);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--text-2);
 }
 
@@ -516,9 +517,7 @@
   padding: 28px;
   border: 1px solid var(--ide-line);
   border-radius: 16px;
-  background:
-    radial-gradient(circle at 100% 0%, var(--accent-soft), transparent 48%),
-    var(--ide-panel);
+  background: var(--ide-panel);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12);
 }
 
@@ -572,9 +571,7 @@
 }
 
 .ide-assistant .transcript {
-  background:
-    linear-gradient(180deg, var(--accent-soft), transparent 120px),
-    var(--ide-panel);
+  background: var(--ide-panel);
 }
 
 .ide-assistant .user-card {

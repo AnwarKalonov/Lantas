@@ -15,7 +15,6 @@
         </span>
         <span class="name-block">
           <span class="name">Lantas</span>
-          <span class="name-sub">Browser</span>
         </span>
         <span class="conn" id="conn"><i id="dot"></i><span id="status-text">Offline</span></span>
       </div>
@@ -48,17 +47,17 @@
           <span class="empty-cloud"></span>
           <img src="icons/icon128.png" alt="" />
         </div>
-        <p class="eyebrow">This tab · live context</p>
-        <h1>Ask the page.<br /><em>Then let it act.</em></h1>
+        <p class="eyebrow">Private to this tab</p>
+        <h1>Ask this page.</h1>
         <p class="lede" id="empty-copy">
-          Lantas reads what you are looking at and can click, type and navigate. Keep the app open on this Mac.
+          Lantas reads the tab beside you, answers from it, and can click, type and navigate when you choose Act.
         </p>
         <div class="prompts">
           <button type="button" data-prompt="Summarize this page in five lines.">
             <span class="prompt-ic" aria-hidden="true">
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M3 8h10M3 11.5h6" /></svg>
             </span>
-            <span class="prompt-label">Summarize this page</span>
+            <span class="prompt-label">Summarize the page</span>
             <span class="arrow">→</span>
           </button>
           <button type="button" data-prompt="What are the main actions available on this page?">
@@ -76,13 +75,13 @@
             <span class="arrow">→</span>
           </button>
         </div>
-        <div class="local-note"><span class="pulse"></span>Runs on this Mac · reads only the tab you are on</div>
+        <div class="local-note"><span class="pulse"></span>Reads this tab only · actions run here, on this Mac</div>
       </div>
       <div class="messages" id="messages" aria-live="polite"></div>
     </main>
 
     <form class="composer" id="form">
-      <textarea id="input" rows="1" placeholder="Ask, or describe a task" autocomplete="off" aria-label="Message Lantas"></textarea>
+      <textarea id="input" rows="1" placeholder="Ask about this tab, or tell Lantas what to do" autocomplete="off" aria-label="Message Lantas"></textarea>
       <div class="composer-foot">
         <div class="picks">
           <div class="pick-wrap">
@@ -126,7 +125,7 @@
     </form>
 
     <footer class="foot">
-      <span class="foot-note" id="foot-note">Reads this tab only</span>
+      <span class="foot-note" id="foot-note">Tab context only</span>
       <button class="id-chip" id="ext-id" type="button" title="Copy extension ID">Extension ID</button>
     </footer>
 

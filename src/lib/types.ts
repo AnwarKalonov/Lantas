@@ -4,6 +4,7 @@ export type ProviderId =
   | "openrouter"
   | "groq"
   | "google"
+  | "nvidia"
   | "ollama"
   | "lmstudio"
   | "custom";

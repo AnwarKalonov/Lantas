@@ -12,7 +12,7 @@
 
 const PORT = 47654;
 const ENDPOINT = `ws://127.0.0.1:${PORT}/lantas`;
-const VERSION = "0.4.0";
+const VERSION = "0.6.0";
 
 let socket = null;
 let retry = 0;
@@ -22,6 +22,247 @@ let state = { tabs: [], active: null, page: null, elements: [] };
 let stateTimer = null;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/* -------------------------------------------------------------- real input */
+
+/**
+ * DOM clicks are invisible to some canvas apps and easy for a site to tell
+ * apart from a person. When Chrome grants the debugger permission, these
+ * helpers send actual browser-level mouse and keyboard input through CDP.
+ * The content script still finds the control; CDP only presses it.
+ */
+const debuggerTabs = new Set();
+
+async function attachDebugger(tabId) {
+  if (debuggerTabs.has(tabId)) return;
+  try {
+    await chrome.debugger.attach({ tabId }, "1.3");
+    debuggerTabs.add(tabId);
+  } catch (error) {
+    // Already attached by this worker after a restart is harmless; DevTools
+    // owning the tab is not, and the caller falls back to a DOM action.
+    const message = String(error?.message || error);
+    if (!/already attached/i.test(message)) throw error;
+    debuggerTabs.add(tabId);
+  }
+}
+
+async function cdp(tabId, method, params = {}) {
+  await attachDebugger(tabId);
+  return chrome.debugger.sendCommand({ tabId }, method, params);
+}
+
+async function cdpClick(tabId, x, y) {
+  const point = { x, y, button: "left", clickCount: 1 };
+  await cdp(tabId, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: "none", clickCount: 0 });
+  await cdp(tabId, "Input.dispatchMouseEvent", { type: "mousePressed", ...point, buttons: 1 });
+  await cdp(tabId, "Input.dispatchMouseEvent", { type: "mouseReleased", ...point, buttons: 0 });
+}
+
+function keyInfo(key) {
+  const map = {
+    Enter: { code: "Enter", vk: 13 },
+    Tab: { code: "Tab", vk: 9 },
+    Escape: { code: "Escape", vk: 27 },
+    Backspace: { code: "Backspace", vk: 8 },
+    Delete: { code: "Delete", vk: 46 },
+    ArrowUp: { code: "ArrowUp", vk: 38 },
+    ArrowDown: { code: "ArrowDown", vk: 40 },
+    ArrowLeft: { code: "ArrowLeft", vk: 37 },
+    ArrowRight: { code: "ArrowRight", vk: 39 },
+  };
+  return map[key] || { code: key, vk: key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0 };
+}
+
+function charInfo(ch) {
+  if (/[a-z]/.test(ch)) {
+    const upper = ch.toUpperCase();
+    return { key: ch, code: `Key${upper}`, vk: upper.charCodeAt(0), modifiers: 0 };
+  }
+  if (/[A-Z]/.test(ch)) {
+    return { key: ch, code: `Key${ch}`, vk: ch.charCodeAt(0), modifiers: 8 };
+  }
+  if (/[0-9]/.test(ch)) {
+    return { key: ch, code: `Digit${ch}`, vk: ch.charCodeAt(0), modifiers: 0 };
+  }
+  const shifted = {
+    "+": { code: "Equal", vk: 187 },
+    "^": { code: "Digit6", vk: 54 },
+    "(": { code: "Digit9", vk: 57 },
+    ")": { code: "Digit0", vk: 48 },
+    "*": { code: "Digit8", vk: 56 },
+    "_": { code: "Minus", vk: 189 },
+    "{": { code: "BracketLeft", vk: 219 },
+    "}": { code: "BracketRight", vk: 221 },
+    ":": { code: "Semicolon", vk: 186 },
+  }[ch];
+  if (shifted) return { key: ch, ...shifted, modifiers: 8 };
+  const plain = {
+    " ": { code: "Space", vk: 32 },
+    "=": { code: "Equal", vk: 187 },
+    "-": { code: "Minus", vk: 189 },
+    "/": { code: "Slash", vk: 191 },
+    ".": { code: "Period", vk: 190 },
+    ",": { code: "Comma", vk: 188 },
+    ";": { code: "Semicolon", vk: 186 },
+    "[": { code: "BracketLeft", vk: 219 },
+    "]": { code: "BracketRight", vk: 221 },
+    "\\": { code: "Backslash", vk: 220 },
+  }[ch];
+  if (plain) return { key: ch, ...plain, modifiers: 0 };
+  return { key: ch, code: "", vk: 0, modifiers: 0 };
+}
+
+async function cdpType(tabId, text) {
+  for (const ch of String(text || "")) {
+    const info = charInfo(ch);
+    await cdp(tabId, "Input.dispatchKeyEvent", {
+      type: "keyDown",
+      key: info.key,
+      code: info.code,
+      text: ch,
+      unmodifiedText: ch,
+      windowsVirtualKeyCode: info.vk,
+      nativeVirtualKeyCode: info.vk,
+      modifiers: info.modifiers,
+    });
+    await cdp(tabId, "Input.dispatchKeyEvent", {
+      type: "keyUp",
+      key: info.key,
+      code: info.code,
+      windowsVirtualKeyCode: info.vk,
+      nativeVirtualKeyCode: info.vk,
+      modifiers: info.modifiers,
+    });
+  }
+}
+
+async function cdpPress(tabId, key) {
+  const { code, vk } = keyInfo(key);
+  await cdp(tabId, "Input.dispatchKeyEvent", {
+    type: "rawKeyDown",
+    key,
+    code,
+    windowsVirtualKeyCode: vk,
+    nativeVirtualKeyCode: vk,
+  });
+  await cdp(tabId, "Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key,
+    code,
+    windowsVirtualKeyCode: vk,
+    nativeVirtualKeyCode: vk,
+  });
+}
+
+async function waitForLoad(tabId, timeout = 4000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      if (tab.status === "complete") return;
+    } catch {
+      return;
+    }
+    await sleep(150);
+  }
+}
+
+async function inspectTab(tabId) {
+  try {
+    const result = await sendToTab(tabId, { cmd: "inspect" });
+    return result?.ok ? { page: result.page, elements: result.elements } : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Returns null before anything happens when real input is unavailable, so the
+ * caller can safely use the DOM fallback without clicking twice.
+ */
+async function realAct(tab, message) {
+  const action = message.action;
+  try {
+    if (action === "click") {
+      const point = await sendToTab(tab.id, {
+        cmd: "act",
+        action: "point",
+        selector: message.selector,
+        index: message.index,
+        text: message.text,
+      });
+      if (!point?.ok) return null;
+      await cdpClick(tab.id, point.x, point.y);
+      await sleep(300);
+      await waitForLoad(tab.id);
+      const state = await inspectTab(tab.id);
+      return { ok: true, detail: `Clicked ${point.label || "control"}`, ...state };
+    }
+
+    if (action === "type") {
+      const focused = await sendToTab(tab.id, {
+        cmd: "act",
+        action: "focus",
+        selector: message.selector,
+        index: message.index,
+        text: message.text,
+      });
+      if (!focused?.ok) return null;
+      await attachDebugger(tab.id);
+      await cdpType(tab.id, String(message.text ?? ""));
+      if (message.submit) await cdpPress(tab.id, "Enter");
+      await sleep(300);
+      await waitForLoad(tab.id);
+      const state = await inspectTab(tab.id);
+
+      // MathQuill can swallow synthetic-looking key events. If this is a
+      // Desmos calculator and the expression is not in the graph yet, set it
+      // through the calculator's own API instead of reporting a false success.
+      if (
+        /desmos\./i.test(tab.url || "") &&
+        message.text &&
+        state.page?.text &&
+        !state.page.text.replace(/\s+/g, "").includes(String(message.text).replace(/\s+/g, ""))
+      ) {
+        const fallback = await sendToTab(tab.id, {
+          cmd: "act",
+          action: "type",
+          selector: message.selector,
+          index: message.index,
+          text: message.text,
+          submit: message.submit,
+        });
+        if (fallback?.ok) {
+          return { ...fallback, detail: "Set the expression in the calculator" };
+        }
+      }
+
+      return { ok: true, detail: "Typed with the keyboard", ...state };
+    }
+
+    if (action === "press") {
+      await cdpPress(tab.id, String(message.key || "Enter"));
+      await sleep(250);
+      const state = await inspectTab(tab.id);
+      return { ok: true, detail: `Pressed ${message.key || "Enter"}`, ...state };
+    }
+
+    if (action === "click_at") {
+      await cdpClick(tab.id, Number(message.x) || 0, Number(message.y) || 0);
+      await sleep(300);
+      const state = await inspectTab(tab.id);
+      return { ok: true, detail: `Clicked at ${message.x}, ${message.y}`, ...state };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+chrome.debugger?.onDetach.addListener((source) => {
+  if (source.tabId != null) debuggerTabs.delete(source.tabId);
+});
 
 function send(message) {
   if (!socket || socket.readyState !== WebSocket.OPEN) return false;
@@ -158,6 +399,7 @@ function normalizeUrl(raw) {
   const value = String(raw || "").trim();
   if (!value) throw new Error("No address was given.");
   if (/^https?:\/\//i.test(value)) return value;
+  if (value.toLowerCase() === "desmos") return "https://www.desmos.com/calculator";
   if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(value)) return `https://${value}`;
   return `https://www.google.com/search?q=${encodeURIComponent(value)}`;
 }
@@ -245,8 +487,10 @@ async function execute(message) {
         const tab = await targetTab(message.tabId);
         if (!tab) throw new Error("No Chrome tab is available. Open Chrome first.");
         const url = normalizeUrl(message.url);
+        let targetId = tab.id;
         if (message.newTab) {
           const created = await chrome.tabs.create({ url, active: true });
+          targetId = created.id;
           if (created.windowId != null) {
             await chrome.windows.update(created.windowId, { focused: true });
           }
@@ -254,7 +498,8 @@ async function execute(message) {
           await chrome.tabs.update(tab.id, { url, active: true });
           if (tab.windowId != null) await chrome.windows.update(tab.windowId, { focused: true });
         }
-        await sleep(500);
+        await sleep(250);
+        if (targetId != null) await waitForLoad(targetId, 4500);
         pushState();
         return { ok: true, detail: `Opened ${url}` };
       }
@@ -301,6 +546,25 @@ async function execute(message) {
         const tab = await targetTab(message.tabId);
         if (!tab) throw new Error("No Chrome tab is available.");
         await actOnTab(tab);
+
+        const real = await realAct(tab, message);
+        if (real) {
+          const active = tabSummary(tab);
+          state = {
+            ...state,
+            active,
+            page: real.page || state.page,
+            elements: real.elements || state.elements,
+          };
+          send({
+            type: "state",
+            active,
+            page: real.page || state.page,
+            elements: real.elements || state.elements,
+          });
+          return real;
+        }
+
         const result = await sendToTab(tab.id, {
           cmd: "act",
           action: message.action,
@@ -311,6 +575,8 @@ async function execute(message) {
           submit: message.submit,
           key: message.key,
           value: message.value,
+          x: message.x,
+          y: message.y,
         });
         if (!result?.ok) throw new Error(result?.error || "That action did not land.");
         if (result.page || result.elements) {
@@ -333,6 +599,33 @@ async function execute(message) {
           page: result.page,
           elements: result.elements,
         };
+      }
+
+      case "evaluate": {
+        const tab = await targetTab(message.tabId);
+        if (!tab) throw new Error("No Chrome tab is available.");
+        await actOnTab(tab);
+        const expression = String(message.code || "").trim();
+        if (!expression) throw new Error("No page script was given.");
+        try {
+          const result = await cdp(tab.id, "Runtime.evaluate", {
+            expression,
+            awaitPromise: true,
+            returnByValue: true,
+            userGesture: true,
+          });
+          if (result?.exceptionDetails) {
+            return {
+              ok: false,
+              error: result.exceptionDetails.text || "The page script threw an error.",
+            };
+          }
+          return { ok: true, value: result?.result?.value ?? null, detail: "Ran page script" };
+        } catch (error) {
+          throw new Error(
+            `Chrome did not allow real input: ${String(error?.message || error)}. Reload the extension and try again.`,
+          );
+        }
       }
 
       case "chat": {

@@ -61,6 +61,12 @@ const FALLBACK_CATALOG = [
     configured: false,
   },
   {
+    id: "nvidia",
+    name: "NVIDIA NIM",
+    models: ["minimaxai/minimax-m3.1-flash", "moonshotai/kimi-k3.1-pro"],
+    configured: false,
+  },
+  {
     id: "ollama",
     name: "Ollama",
     models: ["qwen3-coder:30b", "llama3.3:latest"],

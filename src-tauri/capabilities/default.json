@@ -30,6 +30,9 @@
           "url": "https://generativelanguage.googleapis.com/*"
         },
         {
+          "url": "https://integrate.api.nvidia.com/*"
+        },
+        {
           "url": "http://localhost:*/*"
         },
         {
@@ -60,6 +63,9 @@
         },
         {
           "url": "https://generativelanguage.googleapis.com/*"
+        },
+        {
+          "url": "https://integrate.api.nvidia.com/*"
         },
         {
           "url": "http://localhost:*/*"

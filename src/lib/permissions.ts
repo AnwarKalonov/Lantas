@@ -74,6 +74,7 @@ export function defaultRules(mode: "auto" | "ask", buildAgent: boolean): Permiss
       { tool: "browser", pattern: "type*", effect: "deny" },
       { tool: "browser", pattern: "press*", effect: "deny" },
       { tool: "browser", pattern: "navigate*", effect: "deny" },
+      { tool: "browser", pattern: "evaluate*", effect: "deny" },
       { tool: "integrations", pattern: "run*", effect: "deny" },
     );
     return rules;

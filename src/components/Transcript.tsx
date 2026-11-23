@@ -171,7 +171,21 @@ function UserMessage({ message }: { message: Message }) {
         <Icon name="paperclip" size={12} />
       </span>
       <div className="user-card">
-        <p>{text}</p>
+        {message.attachments && message.attachments.length > 0 && (
+          <div className="msg-attachments">
+            {message.attachments.map((file) =>
+              file.kind === "image" ? (
+                <img key={file.id} className="msg-image" src={file.body} alt={file.name} />
+              ) : (
+                <span className="msg-file" key={file.id}>
+                  <Icon name="file" size={12} />
+                  {file.name}
+                </span>
+              ),
+            )}
+          </div>
+        )}
+        {text ? <p>{text}</p> : null}
       </div>
     </div>
   );

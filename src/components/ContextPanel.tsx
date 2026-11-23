@@ -1,5 +1,5 @@
 import type { Session } from "../lib/types";
-import { AGENTS, MCP_TEMPLATES, WORKSPACE_FILES } from "../lib/data";
+import { AGENTS, MCP_TEMPLATES } from "../lib/data";
 import { getProvider, isConfigured, prettyModel } from "../lib/providers";
 import { useStore } from "../lib/store";
 import { cx, formatCost, formatTokens } from "../lib/util";
@@ -256,20 +256,32 @@ export function ContextPanel({
         </section>
 
         <section className="panel-section">
-          <h3>Workspace</h3>
-          <div className="workspace-list">
-            {WORKSPACE_FILES.map((file) => (
-              <button
-                className="workspace-row"
-                key={file}
-                type="button"
-                onClick={() => notify(file)}
-              >
-                <Icon name="file" size={12} />
-                <span>{file}</span>
-              </button>
-            ))}
-          </div>
+          <h3>
+            Files
+            <button type="button" className="section-link" onClick={() => setView("chats")}>
+              Open
+            </button>
+          </h3>
+          {state.workspace.length > 0 ? (
+            <div className="workspace-list">
+              {state.workspace.slice(0, 6).map((file) => (
+                <button
+                  className="workspace-row"
+                  key={file.id}
+                  type="button"
+                  onClick={() => notify(`${file.path} · ${Math.max(1, Math.round(file.size / 1024))} KB`)}
+                >
+                  <Icon name="file" size={12} />
+                  <span>{file.path}</span>
+                </button>
+              ))}
+              {state.workspace.length > 6 && (
+                <p className="panel-empty-meta">+{state.workspace.length - 6} more</p>
+              )}
+            </div>
+          ) : (
+            <p className="panel-empty-meta">No folder open. Pick one in the Code tab.</p>
+          )}
         </section>
       </div>
 

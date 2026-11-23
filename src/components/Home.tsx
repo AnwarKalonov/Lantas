@@ -1,4 +1,5 @@
 import { useStore } from "../lib/store";
+import type { Attachment } from "../lib/types";
 import { SUGGESTIONS } from "../lib/data";
 import { isConfigured } from "../lib/providers";
 import { Composer } from "./Composer";
@@ -12,11 +13,12 @@ const SUGGESTION_ICONS: Record<string, IconName> = {
 };
 
 interface HomeProps {
-  onSend: (text: string) => void;
+  onSend: (text: string, attachments?: Attachment[]) => void;
   onOpenSettings: () => void;
+  onScreenToggle: () => void;
 }
 
-export function Home({ onSend, onOpenSettings }: HomeProps) {
+export function Home({ onSend, onOpenSettings, onScreenToggle }: HomeProps) {
   const { state, setSettings } = useStore();
   const configured = isConfigured(
     state.settings.defaultProvider,
@@ -42,6 +44,7 @@ export function Home({ onSend, onOpenSettings }: HomeProps) {
           }
           onOpenProviders={onOpenSettings}
           onSend={onSend}
+          onScreenToggle={onScreenToggle}
         />
 
         <div className="suggestions">
@@ -64,10 +67,10 @@ export function Home({ onSend, onOpenSettings }: HomeProps) {
 
         <div className="home-foot">
           <span className="home-foot-item">
-            <Icon name="folder" size={13} /> ~/dev/lantas
+            <Icon name="folder" size={13} /> {state.workspaceName || "No folder"}
           </span>
           <span className="home-foot-item">
-            <Icon name="branch" size={13} /> main
+            <Icon name="branch" size={13} /> {state.workspaceName ? "main" : "—"}
           </span>
           <span className="home-foot-item">
             <span className={`status-dot ${configured ? "is-ok" : "is-idle"}`} aria-hidden="true" />

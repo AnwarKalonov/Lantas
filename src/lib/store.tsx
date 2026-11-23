@@ -9,21 +9,26 @@ import {
   type ReactNode,
 } from "react";
 import type {
+  CustomCommand,
   AgentId,
   AppState,
   McpServer,
   Message,
+  Mode,
   ProviderConfig,
   ProviderId,
   Session,
   Settings,
   Skill,
   ViewId,
+  WorkspaceFile,
 } from "./types";
 import { DEFAULT_SETTINGS, PROVIDERS, seedState } from "./data";
 import { uid } from "./util";
 
 const STORAGE_KEY = "lantas.app.v2";
+/** Threads that shipped as sample content in earlier builds. */
+const DEMO_THREADS = new Set(["ses_streams", "ses_auth", "ses_ci"]);
 const LEGACY_KEY = "lantas.workspace.v1";
 
 export interface ToastMessage {
@@ -54,7 +59,13 @@ interface Store {
   addMcp: (server: McpServer) => void;
   updateMcp: (id: string, patch: Partial<McpServer>) => void;
   deleteMcp: (id: string) => void;
+  setCommands: (commands: CustomCommand[]) => void;
   setView: (view: ViewId) => void;
+  setMode: (mode: Mode) => void;
+  setWorkspace: (name: string, files: WorkspaceFile[]) => void;
+  clearWorkspace: () => void;
+  undo: (sessionId: string) => void;
+  redo: (sessionId: string) => void;
   toggleSidebar: () => void;
   togglePanel: () => void;
   toast: ToastMessage | null;
@@ -85,10 +96,20 @@ function loadState(): AppState {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<AppState>;
       if (!Array.isArray(parsed.sessions)) return fallback;
+      const sessions = (parsed.sessions as Session[]).filter(
+        (session) => !DEMO_THREADS.has(session.id),
+      );
+      const activeId =
+        typeof parsed.activeId === "string" && sessions.some((s) => s.id === parsed.activeId)
+          ? parsed.activeId
+          : (sessions[0]?.id ?? null);
       return {
-        sessions: parsed.sessions as Session[],
-        activeId: typeof parsed.activeId === "string" ? parsed.activeId : null,
+        sessions,
+        activeId,
         view: (parsed.view as ViewId) ?? "chats",
+        mode: (parsed.mode as Mode) ?? "chat",
+        workspace: [],
+        workspaceName: parsed.workspaceName ?? "",
         settings: {
           ...DEFAULT_SETTINGS,
           ...(parsed.settings ?? {}),
@@ -96,6 +117,7 @@ function loadState(): AppState {
         },
         skills: parsed.skills ?? fallback.skills,
         mcpServers: parsed.mcpServers ?? fallback.mcpServers,
+        commands: parsed.commands ?? [],
         sidebarOpen: parsed.sidebarOpen ?? true,
         panelOpen: parsed.panelOpen ?? true,
       };
@@ -138,9 +160,12 @@ export function LantasProvider({ children }: { children: ReactNode }) {
             sessions: state.sessions,
             activeId: state.activeId,
             view: state.view,
+            mode: state.mode,
+            workspaceName: state.workspaceName,
             settings: state.settings,
             skills: state.skills,
             mcpServers: state.mcpServers,
+            commands: state.commands,
             sidebarOpen: state.sidebarOpen,
             panelOpen: state.panelOpen,
           }),
@@ -298,8 +323,58 @@ export function LantasProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const setCommands = useCallback<Store["setCommands"]>((commands) => {
+    setState((prev) => ({ ...prev, commands }));
+  }, []);
+
   const setView = useCallback<Store["setView"]>((view) => {
     setState((prev) => ({ ...prev, view, activeId: view === "chats" ? prev.activeId : null }));
+  }, []);
+
+  const setMode = useCallback<Store["setMode"]>((mode) => {
+    setState((prev) => ({ ...prev, mode }));
+  }, []);
+
+  const setWorkspace = useCallback<Store["setWorkspace"]>((workspaceName, workspace) => {
+    setState((prev) => ({ ...prev, workspaceName, workspace }));
+  }, []);
+
+  const clearWorkspace = useCallback(() => {
+    setState((prev) => ({ ...prev, workspaceName: "", workspace: [] }));
+  }, []);
+
+  const undo = useCallback<Store["undo"]>((sessionId) => {
+    setState((prev) => ({
+      ...prev,
+      sessions: prev.sessions.map((session) => {
+        if (session.id !== sessionId || !session.past?.length) return session;
+        const past = [...session.past];
+        const previous = past.pop() as Message[];
+        return {
+          ...session,
+          messages: previous,
+          past,
+          future: [...(session.future ?? []), session.messages],
+        };
+      }),
+    }));
+  }, []);
+
+  const redo = useCallback<Store["redo"]>((sessionId) => {
+    setState((prev) => ({
+      ...prev,
+      sessions: prev.sessions.map((session) => {
+        if (session.id !== sessionId || !session.future?.length) return session;
+        const future = [...session.future];
+        const next = future.pop() as Message[];
+        return {
+          ...session,
+          messages: next,
+          future,
+          past: [...(session.past ?? []), session.messages],
+        };
+      }),
+    }));
   }, []);
 
   const toggleSidebar = useCallback(() => {
@@ -334,7 +409,13 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       addMcp,
       updateMcp,
       deleteMcp,
+      setCommands,
       setView,
+      setMode,
+      setWorkspace,
+      clearWorkspace,
+      undo,
+      redo,
       toggleSidebar,
       togglePanel,
       toast,
@@ -358,7 +439,13 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       addMcp,
       updateMcp,
       deleteMcp,
+      setCommands,
       setView,
+      setMode,
+      setWorkspace,
+      clearWorkspace,
+      undo,
+      redo,
       toggleSidebar,
       togglePanel,
       toast,

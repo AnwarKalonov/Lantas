@@ -24,8 +24,21 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
+# Always pick up the latest pushed version before starting.
+if [ -d .git ] && command -v git >/dev/null 2>&1; then
+  say "Checking for updates..."
+  if git pull --ff-only --quiet 2>/dev/null; then
+    say "Up to date."
+  else
+    say "Could not update automatically (local changes or offline) — using this copy."
+  fi
+fi
+
 if [ ! -d node_modules ]; then
   say "First run: installing dependencies (one or two minutes)..."
+  npm install --no-audit --no-fund
+elif [ package-lock.json -nt node_modules/.package-lock.json ]; then
+  say "Dependencies changed — updating..."
   npm install --no-audit --no-fund
 fi
 

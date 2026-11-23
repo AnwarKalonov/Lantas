@@ -1,0 +1,54 @@
+/**
+ * Screen access.
+ *
+ * In a browser tab this is the real thing: getDisplayMedia asks for a window or
+ * display, and the returned stream is what the app shows and can sample.
+ * The stream is never uploaded; it stays in this process.
+ */
+
+let active: MediaStream | null = null;
+
+export async function acquireScreen(): Promise<MediaStream> {
+  if (active) return active;
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getDisplayMedia) {
+    throw new Error("Screen capture is only available in a windowed build of this app.");
+  }
+  active = await navigator.mediaDevices.getDisplayMedia({
+    video: { frameRate: 4 },
+    audio: false,
+  });
+  active.getVideoTracks().forEach((track) => {
+    track.addEventListener("ended", () => {
+      active = null;
+    });
+  });
+  return active;
+}
+
+export function releaseScreen() {
+  active?.getTracks().forEach((track) => track.stop());
+  active = null;
+}
+
+export function currentScreen() {
+  return active;
+}
+
+/** One JPEG frame from the stream, used to attach what the agent should see. */
+export async function captureFrame(stream: MediaStream, maxWidth = 1280): Promise<string | null> {
+  const track = stream.getVideoTracks()[0];
+  if (!track) return null;
+  const video = document.createElement("video");
+  video.srcObject = new MediaStream([track]);
+  video.muted = true;
+  await video.play().catch(() => {});
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  const scale = Math.min(1, maxWidth / (video.videoWidth || maxWidth));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round((video.videoWidth || maxWidth) * scale);
+  canvas.height = Math.round((video.videoHeight || 720) * scale);
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.7);
+}

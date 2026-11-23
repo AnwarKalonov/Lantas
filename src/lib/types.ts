@@ -9,8 +9,28 @@ export type ProviderId =
   | "custom";
 
 export type AgentId = "build" | "plan" | "chat";
-export type ThemeMode = "dark" | "light" | "system";
+export type ThemeMode = "dark" | "light" | "glass" | "system";
 export type ViewId = "chats" | "skills" | "integrations";
+export type Mode = "chat" | "code";
+
+export interface Attachment {
+  id: string;
+  name: string;
+  size: number;
+  kind: "text" | "image" | "other";
+  /** Text contents, or a data URL for images. */
+  body: string;
+}
+
+export interface WorkspaceFile {
+  id: string;
+  name: string;
+  path: string;
+  size: number;
+  text: string;
+  added: number;
+  binary?: boolean;
+}
 
 export type ToolKind = "read" | "grep" | "edit" | "plan" | "web";
 export type ToolState = "run" | "done" | "error";
@@ -41,6 +61,7 @@ export interface Message {
   durationMs?: number;
   tokens?: number;
   cost?: number;
+  attachments?: Attachment[];
 }
 
 export interface Todo {
@@ -73,6 +94,9 @@ export interface Session {
   agent: AgentId;
   provider: ProviderId;
   model: string;
+  /** Message snapshots for /undo and /redo. */
+  past?: Message[][];
+  future?: Message[][];
 }
 
 export interface ProviderConfig {
@@ -93,6 +117,14 @@ export interface ProviderMeta {
   local: boolean;
   models: string[];
   docs: string;
+}
+
+export interface CustomCommand {
+  id: string;
+  name: string;
+  description: string;
+  /** Prompt template. `$ARGUMENTS` is replaced with whatever follows the command. */
+  template: string;
 }
 
 export interface Skill {
@@ -129,6 +161,7 @@ export interface Settings {
   screenAccess: boolean;
   computerControl: boolean;
   telemetry: boolean;
+  notifications: boolean;
   providers: Record<ProviderId, ProviderConfig>;
 }
 
@@ -136,9 +169,13 @@ export interface AppState {
   sessions: Session[];
   activeId: string | null;
   view: ViewId;
+  mode: Mode;
+  workspace: WorkspaceFile[];
+  workspaceName: string;
   settings: Settings;
   skills: Skill[];
   mcpServers: McpServer[];
+  commands: CustomCommand[];
   sidebarOpen: boolean;
   panelOpen: boolean;
 }

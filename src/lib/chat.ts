@@ -42,6 +42,13 @@ export function buildHistory(session: Session, limit = 16): ChatTurn[] {
 
     if (!text) continue;
     turns.push({ role: message.role, content: text.slice(0, 8000) });
+    if (message.role === "user" && message.attachments?.length) {
+      const files = message.attachments
+        .filter((file) => file.kind === "text")
+        .map((file) => `<file name="${file.name}">\n${file.body.slice(0, 24_000)}\n</file>`)
+        .join("\n");
+      if (files) turns.push({ role: "user", content: files });
+    }
   }
 
   return turns.slice(-limit);

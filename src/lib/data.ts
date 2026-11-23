@@ -1,12 +1,10 @@
 import type {
   AgentMeta,
   AppState,
-  FileChange,
   McpServer,
   ProviderConfig,
   ProviderId,
   ProviderMeta,
-  Session,
   Settings,
   Skill,
 } from "./types";
@@ -135,6 +133,7 @@ export const DEFAULT_SETTINGS: Settings = {
   screenAccess: true,
   computerControl: false,
   telemetry: false,
+  notifications: true,
   providers: defaultProviders(),
 };
 
@@ -183,11 +182,34 @@ export const SUGGESTIONS = [
 ];
 
 export const SLASH_COMMANDS = [
+  { command: "/new", label: "Start a fresh thread" },
+  { command: "/code", label: "Open the Code tab" },
+  { command: "/chat", label: "Back to the thread" },
+  { command: "/attach", label: "Attach files to this turn" },
+  { command: "/screen", label: "Share a window or display" },
   { command: "/init", label: "Scan the repo and write AGENTS.md" },
   { command: "/review", label: "Review the working tree" },
   { command: "/fix", label: "Reproduce and fix a failing check" },
+  { command: "/test", label: "Run the tests and fix the cause" },
+  { command: "/diff", label: "Walk through the last change" },
+  { command: "/commit", label: "Commit the working tree" },
+  { command: "/explain", label: "Explain a part of the codebase" },
+  { command: "/plan", label: "Switch to the read-only Plan agent" },
+  { command: "/build", label: "Switch to the Build agent" },
+  { command: "/model", label: "Choose a model" },
+  { command: "/agents", label: "Manage agents" },
+  { command: "/skills", label: "Manage skills" },
+  { command: "/mcp", label: "Manage MCP integrations" },
+  { command: "/permissions", label: "Approval rules" },
+  { command: "/theme", label: "Cycle the theme" },
+  { command: "/usage", label: "Tokens, cost and context" },
+  { command: "/export", label: "Download this thread as JSON" },
+  { command: "/copy", label: "Copy the transcript" },
+  { command: "/undo", label: "Rewind one turn" },
+  { command: "/redo", label: "Reapply the rewound turn" },
   { command: "/compact", label: "Summarise to free context" },
-  { command: "/clear", label: "Start a fresh session" },
+  { command: "/clear", label: "Clear this thread" },
+  { command: "/help", label: "Keys and commands" },
 ];
 
 export const SKILL_SEEDS: Skill[] = [
@@ -290,287 +312,20 @@ export const KEYBINDS = [
   { keys: "@", action: "Reference a file" },
 ];
 
-export const WORKSPACE_FILES = [
-  "src/lib/providers.ts",
-  "src/lib/store.tsx",
-  "src/components/SettingsModal.tsx",
-  "src/components/Composer.tsx",
-  "src-tauri/tauri.conf.json",
-];
-
-const MIN = 60_000;
-const HOUR = 3_600_000;
-const DAY = 86_400_000;
-const now = Date.now();
-
-const filesFromSeed: FileChange[] = [
-  { path: "src/lib/store.tsx", added: 42, removed: 18, status: "M" },
-  { path: "src/components/SessionView.tsx", added: 6, removed: 9, status: "M" },
-];
-
-const sessionOne: Session = {
-  id: "ses_streams",
-  title: "Keep a turn running when I switch sessions",
-  cwd: "~/dev/lantas",
-  branch: "main",
-  created: now - 32 * MIN,
-  updated: now - 9 * MIN,
-  agent: "build",
-  provider: "anthropic",
-  model: "claude-opus-4-5",
-  tokens: 18_420,
-  contextWindow: 200_000,
-  cost: 0.31,
-  files: filesFromSeed,
-  todos: [
-    { id: "t1", text: "Move the run controller into the store", done: true },
-    { id: "t2", text: "Keep partial output when a turn is interrupted", done: true },
-    { id: "t3", text: "Add a regression test for remounting mid-stream", done: false, active: true },
-  ],
-  messages: [
-    {
-      id: "msg_1",
-      role: "user",
-      created: now - 31 * MIN,
-      parts: [
-        {
-          id: "p1",
-          kind: "text",
-          text: "Sessions lose their streaming state when I switch away and come back. Can you make an in-flight reply keep running?",
-        },
-      ],
-    },
-    {
-      id: "msg_2",
-      role: "assistant",
-      created: now - 30 * MIN,
-      agent: "build",
-      provider: "anthropic",
-      model: "claude-opus-4-5",
-      durationMs: 74_000,
-      tokens: 3_240,
-      cost: 0.09,
-      parts: [
-        {
-          id: "p2",
-          kind: "text",
-          text: "The run is owned by `SessionView`, so unmounting the view aborts it. I moved the controller and the streaming buffer into the store — the view now only subscribes.",
-        },
-        {
-          id: "p3",
-          kind: "tool",
-          tool: "read",
-          label: "src/lib/store.tsx",
-          detail: "184 lines",
-          state: "done",
-        },
-        {
-          id: "p4",
-          kind: "tool",
-          tool: "read",
-          label: "src/components/SessionView.tsx",
-          detail: "96 lines",
-          state: "done",
-        },
-        {
-          id: "p5",
-          kind: "diff",
-          path: "src/lib/store.tsx",
-          added: 9,
-          removed: 4,
-          lines: [
-            { type: "ctx", no: 46, text: "  const [runs, setRuns] = useState<Record<string, Run>>({});" },
-            { type: "ctx", no: 47, text: "" },
-            { type: "del", no: 48, text: "  const startRun = useCallback((sessionId: string) => {" },
-            { type: "del", no: 49, text: "    const controller = new AbortController();" },
-            { type: "del", no: 50, text: "    setRuns((prev) => ({ ...prev, [sessionId]: controller }));" },
-            { type: "del", no: 51, text: "  }, [setRuns]);" },
-            { type: "add", no: 48, text: "  const startRun = useCallback((sessionId: string) => {" },
-            { type: "add", no: 49, text: "    // One run per session: remounting re-attaches, it does not restart." },
-            { type: "add", no: 50, text: "    const existing = runs[sessionId];" },
-            { type: "add", no: 51, text: "    if (existing) return existing;" },
-            { type: "add", no: 52, text: "" },
-            { type: "add", no: 53, text: "    const run = { controller: new AbortController(), buffer: \"\" };" },
-            { type: "add", no: 54, text: "    setRuns((prev) => ({ ...prev, [sessionId]: run }));" },
-            { type: "add", no: 55, text: "    return run;" },
-            { type: "add", no: 56, text: "  }, [runs]);" },
-          ],
-        },
-        {
-          id: "p6",
-          kind: "shell",
-          command: "npm run typecheck",
-          output: ["> tsc --noEmit", "no errors in 52 files (2.8s)"],
-          state: "done",
-        },
-        {
-          id: "p7",
-          kind: "text",
-          text: "Switching sessions no longer drops a reply: the run continues in the background and the transcript catches up when you return. The remaining piece is a regression test that remounts mid-stream — it is the open todo.",
-        },
-      ],
-    },
-    {
-      id: "msg_3",
-      role: "user",
-      created: now - 10 * MIN,
-      parts: [{ id: "p8", kind: "text", text: "Good. Keep partial output if I interrupt too." }],
-    },
-    {
-      id: "msg_4",
-      role: "assistant",
-      created: now - 9 * MIN,
-      agent: "build",
-      provider: "anthropic",
-      model: "claude-opus-4-5",
-      durationMs: 38_000,
-      tokens: 1_180,
-      cost: 0.03,
-      parts: [
-        {
-          id: "p9",
-          kind: "tool",
-          tool: "edit",
-          label: "src/lib/store.tsx",
-          detail: "+8 −1",
-          state: "done",
-        },
-        {
-          id: "p10",
-          kind: "text",
-          text: "Interrupts now flush the buffered text and mark the message as `interrupted` instead of clearing it, so you keep whatever had already streamed.",
-        },
-      ],
-    },
-  ],
-};
-
-const sessionTwo: Session = {
-  id: "ses_auth",
-  title: "Review the auth middleware",
-  cwd: "~/dev/lantas",
-  branch: "feat/passkeys",
-  created: now - DAY - 4 * HOUR,
-  updated: now - DAY - 3 * HOUR,
-  agent: "plan",
-  provider: "anthropic",
-  model: "claude-sonnet-4-5",
-  tokens: 42_100,
-  contextWindow: 200_000,
-  cost: 0.24,
-  files: [],
-  todos: [],
-  messages: [
-    {
-      id: "a1",
-      role: "user",
-      created: now - DAY - 4 * HOUR,
-      parts: [
-        {
-          id: "a2",
-          kind: "text",
-          text: "Review the auth middleware on this branch. Anything that would let a request skip the session check?",
-        },
-      ],
-    },
-    {
-      id: "a3",
-      role: "assistant",
-      created: now - DAY - 3 * HOUR,
-      agent: "plan",
-      provider: "anthropic",
-      model: "claude-sonnet-4-5",
-      durationMs: 51_000,
-      tokens: 2_860,
-      cost: 0.06,
-      parts: [
-        {
-          id: "a4",
-          kind: "tool",
-          tool: "grep",
-          label: 'matcher: "getSession|requireAuth"',
-          detail: "14 matches",
-          state: "done",
-        },
-        {
-          id: "a5",
-          kind: "text",
-          text: "One real gap: the health-check route is mounted before `requireAuth` and calls `getSession()` itself, so a signed-out request reaches the handler and only fails on a null dereference. Everything else fails closed.",
-        },
-        {
-          id: "a6",
-          kind: "note",
-          text: "No files changed — Plan is read-only on this branch.",
-        },
-      ],
-    },
-  ],
-};
-
-const sessionThree: Session = {
-  id: "ses_ci",
-  title: "Why is CI 40s slower on Linux?",
-  cwd: "~/dev/lantas",
-  branch: "main",
-  created: now - 3 * DAY,
-  updated: now - 3 * DAY,
-  agent: "build",
-  provider: "openai",
-  model: "gpt-5.1",
-  tokens: 9_640,
-  contextWindow: 400_000,
-  cost: 0.12,
-  files: [{ path: "vite.config.ts", added: 4, removed: 2, status: "M" }],
-  todos: [],
-  messages: [
-    {
-      id: "c1",
-      role: "user",
-      created: now - 3 * DAY,
-      parts: [{ id: "c2", kind: "text", text: "CI takes 40 seconds longer than my machine. Where is the time going?" }],
-    },
-    {
-      id: "c3",
-      role: "assistant",
-      created: now - 3 * DAY,
-      agent: "build",
-      provider: "openai",
-      model: "gpt-5.1",
-      durationMs: 44_000,
-      tokens: 1_940,
-      cost: 0.04,
-      parts: [
-        {
-          id: "c4",
-          kind: "shell",
-          command: "npm run build -- --profile",
-          output: [
-            "vite build",
-            "  transform    12.4s",
-            "  deps scan     1.1s",
-            "  minify        8.9s  (3.6x slower than darwin)",
-          ],
-          state: "done",
-        },
-        {
-          id: "c5",
-          kind: "text",
-          text: "It is minification: CI runs with two vCPUs and esbuild spawns one worker per core, so the whole bundle lands in a single process. Capping the worker count made it worse; switching the Linux job to `--minify=esbuild` with a larger runner recovered 28s.",
-        },
-      ],
-    },
-  ],
-};
 
 export function seedState(): AppState {
   return {
-    sessions: [sessionOne, sessionTwo, sessionThree],
+    sessions: [],
     activeId: null,
     view: "chats",
+    mode: "chat",
+    workspace: [],
+    workspaceName: "",
     settings: { ...DEFAULT_SETTINGS },
     skills: SKILL_SEEDS.map((skill) => ({ ...skill })),
     mcpServers: MCP_SEEDS.map((server) => ({ ...server })),
+    commands: [],
     sidebarOpen: true,
-    panelOpen: true,
+    panelOpen: false,
   };
 }

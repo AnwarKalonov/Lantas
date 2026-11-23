@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { AgentId, ProviderId, Session } from "../lib/types";
+import type { AgentId, Attachment, ProviderId, Session } from "../lib/types";
 import { useStore } from "../lib/store";
 import { Composer } from "./Composer";
 import { Icon } from "./Icons";
@@ -8,11 +8,12 @@ import { Transcript } from "./Transcript";
 interface SessionViewProps {
   session: Session;
   streaming: boolean;
-  onSend: (text: string) => void;
+  onSend: (text: string, attachments?: Attachment[]) => void;
   onStop: () => void;
   onAgentChange: (agent: AgentId) => void;
   onModelChange: (provider: ProviderId, model: string) => void;
   onOpenProviders: () => void;
+  onScreenToggle: () => void;
 }
 
 export function SessionView({
@@ -23,6 +24,7 @@ export function SessionView({
   onAgentChange,
   onModelChange,
   onOpenProviders,
+  onScreenToggle,
 }: SessionViewProps) {
   const { renameSession, deleteSession, notify } = useStore();
   const [editing, setEditing] = useState(false);
@@ -141,6 +143,7 @@ export function SessionView({
           onAgentChange={onAgentChange}
           onModelChange={onModelChange}
           onOpenProviders={onOpenProviders}
+          onScreenToggle={onScreenToggle}
         />
       </div>
     </section>

@@ -66,8 +66,20 @@ export function Wordmark({ cell = 6, className, label = "LANTAS" }: WordmarkProp
   );
 }
 
-/** Full lockup: wordmark, circuit ridge, faceted dashed enclosure, baseline rules. */
+/** The supplied artwork, cropped to a transparent asset. */
 export function Lockup({ className }: { className?: string }) {
+  return (
+    <img
+      className={`lockup-img ${className ?? ""}`.trim()}
+      src="/logo.png"
+      alt="Lantas"
+      draggable={false}
+    />
+  );
+}
+
+/** Vector fallback lockup, kept for print and favicons. */
+export function LockupVector({ className }: { className?: string }) {
   const { cells, columns } = cellsFor("LANTAS");
   const cell = 11;
   const originX = 290;

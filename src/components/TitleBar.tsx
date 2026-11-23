@@ -1,41 +1,58 @@
 import { useStore } from "../lib/store";
+import type { Mode } from "../lib/types";
+import { cx } from "../lib/util";
 import { Icon } from "./Icons";
-
-const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 interface TitleBarProps {
   title: string;
+  mode: Mode;
+  onModeChange: (mode: Mode) => void;
   onOpenPalette: () => void;
   onOpenSettings: () => void;
 }
 
-export function TitleBar({ title, onOpenPalette, onOpenSettings }: TitleBarProps) {
+export function TitleBar({
+  title,
+  mode,
+  onModeChange,
+  onOpenPalette,
+  onOpenSettings,
+}: TitleBarProps) {
   const { state, toggleSidebar, togglePanel, setSettings } = useStore();
   const nextTheme = state.settings.theme === "light" ? "dark" : "light";
 
   return (
     <header className="titlebar" data-tauri-drag-region>
-      {!inTauri && (
-        <div className="traffic" aria-hidden="true">
-          <span className="light light-close" />
-          <span className="light light-min" />
-          <span className="light light-zoom" />
-        </div>
-      )}
-
       <div className="titlebar-left" data-tauri-drag-region>
-        <span className="crumb">lantas</span>
-        <span className="crumb-sep">/</span>
         <span className="crumb-current">{title}</span>
       </div>
 
-      <button className="titlebar-search" onClick={onOpenPalette} type="button">
-        <Icon name="search" size={14} />
-        <span>Search</span>
-        <kbd>⌘K</kbd>
-      </button>
+      <div className="mode-tabs" role="tablist" aria-label="Workspace mode">
+        {(["chat", "code"] as Mode[]).map((item) => (
+          <button
+            key={item}
+            type="button"
+            role="tab"
+            aria-selected={mode === item}
+            className={cx("mode-tab", mode === item && "is-active")}
+            onClick={() => onModeChange(item)}
+          >
+            <Icon name={item === "chat" ? "message" : "terminal"} size={14} />
+            {item === "chat" ? "Chat" : "Code"}
+          </button>
+        ))}
+      </div>
 
       <div className="titlebar-right">
+        <button
+          className="icon-button"
+          onClick={onOpenPalette}
+          title="Command palette (⌘K)"
+          aria-label="Command palette"
+          type="button"
+        >
+          <Icon name="search" size={15} />
+        </button>
         <button
           className="icon-button"
           onClick={() => setSettings({ theme: nextTheme })}

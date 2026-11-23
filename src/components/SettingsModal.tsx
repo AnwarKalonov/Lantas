@@ -9,7 +9,7 @@ import {
 } from "../lib/providers";
 import { useStore } from "../lib/store";
 import type { AgentId, ProviderId, ProviderMeta, ThemeMode } from "../lib/types";
-import { cx } from "../lib/util";
+import { cx, uid } from "../lib/util";
 import { Lockup, Wordmark } from "./Brand";
 import { Icon, type IconName } from "./Icons";
 import { McpManager } from "./McpManager";
@@ -21,6 +21,7 @@ export type SettingsTab =
   | "agents"
   | "permissions"
   | "skills"
+  | "commands"
   | "integrations"
   | "appearance"
   | "keybinds"
@@ -33,6 +34,7 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
   { id: "agents", label: "Agents", icon: "sparkle" },
   { id: "permissions", label: "Permissions", icon: "shield" },
   { id: "skills", label: "Skills", icon: "book" },
+  { id: "commands", label: "Commands", icon: "terminal" },
   { id: "integrations", label: "Integrations", icon: "plug" },
   { id: "appearance", label: "Appearance", icon: "palette" },
   { id: "keybinds", label: "Keybinds", icon: "keyboard" },
@@ -223,8 +225,9 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ open, initialTab = "general", onClose }: SettingsModalProps) {
-  const { state, setSettings, updateSkill, setView, notify } = useStore();
+  const { state, setSettings, updateSkill, setView, setCommands, notify } = useStore();
   const [tab, setTab] = useState<SettingsTab>(initialTab);
+  const [draft, setDraft] = useState({ name: "", description: "", template: "" });
   const settings = state.settings;
 
   useEffect(() => {
@@ -525,6 +528,100 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
             </section>
           )}
 
+          {tab === "commands" && (
+            <section className="settings-section">
+              <h2>Commands</h2>
+              <p className="settings-lede">
+                Your own slash commands. The body is sent as the prompt, and{" "}
+                <code>$ARGUMENTS</code> is replaced with whatever you type after the command.
+              </p>
+
+              {state.commands.length > 0 ? (
+                <div className="settings-skill-list">
+                  {state.commands.map((item) => (
+                    <div className="settings-skill" key={item.id}>
+                      <span className="mono">/{item.name}</span>
+                      <span className="settings-skill-desc">{item.description || item.template}</span>
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() =>
+                          setCommands(state.commands.filter((entry) => entry.id !== item.id))
+                        }
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="panel-empty-meta">
+                  Nothing custom yet. The built-in commands are listed in ⌘K and in the composer.
+                </p>
+              )}
+
+              <div className="cmd-form">
+                <div className="cmd-form-row">
+                  <label className="settings-field">
+                    <span className="field-label">Name</span>
+                    <input
+                      className="text-input"
+                      value={draft.name}
+                      placeholder="ship"
+                      spellCheck={false}
+                      onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                    />
+                  </label>
+                  <label className="settings-field">
+                    <span className="field-label">Description</span>
+                    <input
+                      className="text-input"
+                      value={draft.description}
+                      placeholder="Commit, push and open the PR"
+                      onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+                    />
+                  </label>
+                </div>
+                <label className="settings-field">
+                  <span className="field-label">Prompt template</span>
+                  <textarea
+                    className="text-input cmd-template"
+                    rows={4}
+                    value={draft.template}
+                    placeholder={"Review the diff for $ARGUMENTS and fix what is wrong."}
+                    onChange={(event) => setDraft({ ...draft, template: event.target.value })}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="button-primary"
+                  disabled={!draft.name.trim() || !draft.template.trim()}
+                  onClick={() => {
+                    const name = draft.name.replace(/^\/+/, "").replace(/\s+/g, "-").toLowerCase();
+                    if (!name) return;
+                    if (state.commands.some((item) => item.name === name)) {
+                      notify(`/${name} already exists`, "error");
+                      return;
+                    }
+                    setCommands([
+                      ...state.commands,
+                      {
+                        id: uid("cmd"),
+                        name,
+                        description: draft.description.trim() || "Custom command",
+                        template: draft.template.trim(),
+                      },
+                    ]);
+                    setDraft({ name: "", description: "", template: "" });
+                    notify(`/${name} added`);
+                  }}
+                >
+                  Add command
+                </button>
+              </div>
+            </section>
+          )}
+
           {tab === "integrations" && (
             <section className="settings-section">
               <h2>Integrations</h2>
@@ -538,7 +635,10 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
           {tab === "appearance" && (
             <section className="settings-section">
               <h2>Appearance</h2>
-              <p className="settings-lede">The interface follows one neutral palette in both modes.</p>
+              <p className="settings-lede">
+                One neutral palette, with an optional Liquid Glass layer for the navigation and
+                control surfaces.
+              </p>
 
               <div className="settings-field">
                 <span className="field-label">Theme</span>
@@ -547,6 +647,7 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
                     [
                       { id: "dark", label: "Dark", icon: "moon" },
                       { id: "light", label: "Light", icon: "sun" },
+                      { id: "glass", label: "Glass", icon: "sparkle" },
                       { id: "system", label: "System", icon: "monitor" },
                     ] as Array<{ id: ThemeMode; label: string; icon: IconName }>
                   ).map((option) => (

@@ -1,14 +1,10 @@
-Lantas 1.0.3
+Lantas 1.0.4
 
-- **One mark, everywhere.** The small L-and-cloud glyph replaces the old mountain artwork in the title bar, sidebar, chat, Code workspace, Settings and About screen. The app icon and favicon are rebuilt from the same mark; the DMG keeps its hand-drawn, arched LANTAS window.
-- **A workbench with its own character.** Code mode now uses Lantas Studio: a warm ink-and-sage surface that fits a laptop window, with a calmer activity rail, editor chrome, welcome screen and terminal. It is still Monaco underneath, and **Open in VS Code** is in the top bar, File menu and Settings.
-- **A terminal that actually works.** The bottom panel starts a persistent `zsh` session, shows live output, and keeps a separate CLI tab. The bundled `lantas` CLI now starts on macOS, including Homebrew, Volta and local Node installs, and says exactly what is missing when Node is unavailable.
-- **The model can use the terminal.** A new `terminal` tool runs commands with a real exit status and stdout/stderr, renders shell output in the chat transcript, and respects the same permission rules as the other tools.
-- **Browser actions are verified, not assumed.** Every click, type, key press and navigation now reads back the actual page. Snapshots include numbered control references, labels, canvas controls and graph state; clicking dispatches a full pointer sequence; typing falls back to the app's own API when a rich editor ignores synthetic input.
-- **Desmos works end to end.** "Open Desmos and graph y=2x+4" now selects the expression row, types the equation, verifies it through `Calc.getExpressions()`, and reports the confirmed expression.
-- **See the browser working from chat.** A mini browser window sits above the composer while the agent is driving a page, with the live URL and the verified step trail. **Open browser** moves the same page into the Browser tab.
-- **Editor settings in the open.** Font size, font family, tab size, word wrap and minimap are now exposed in Settings → Appearance, alongside the existing IDE controls.
-- **A side panel that feels part of the app.** The Chrome extension has a new Lantas header, live page card, calmer prompt cards, a proper empty state and a warmer composer. It still reads and acts only in the tab you are on.
-- **The drag-to-Applications window stays.** The DMG still opens on the cream Lantas window with the arched LANTAS lockup, dashed arrow, and the app beside the Applications folder, so installing is one drag.
+- **The download page now explains the first open.** It has a clear drag-to-Applications guide, the exact **Privacy & Security → Open Anyway** steps, a Terminal quarantine alternative, and a plain explanation of why macOS shows the warning. The hosted page is updated from this release.
+- **Desmos works from a request, not a magic phrase.** Named apps resolve to their real site, while a literal request such as “the Desmos website” goes through search. The browser guide teaches the model to snapshot, click the expression row, type the math and verify the graph; the Chrome bridge also has real CDP mouse and keyboard input as its first path.
+- **Chrome actions use real browser input.** Clicks, typing and key presses go through the browser’s input pipeline, with the DOM and Desmos APIs as fallbacks. Page reads include the expression list and graph state, so a success is checked rather than assumed.
+- **NVIDIA NIM is a provider.** Add an NVIDIA API key, fetch the live model catalog from `https://integrate.api.nvidia.com/v1`, and choose from NVIDIA’s hosted models in the same model picker as the other providers.
+- **A calmer Chrome side panel.** The panel has a simpler header, a quieter page card, prompt rows and a cleaner composer, while keeping the read-only kill switch.
+- **The Code tab no longer turns green.** Lantas Studio uses a neutral warm graphite and paper palette with a copper accent for actions, selection and syntax highlights.
 
-This build is ad-hoc signed. macOS asks you to approve Lantas once: open **System Settings → Privacy & Security**, click **Open Anyway**, and authenticate. After that it opens normally. The installer clears the flag for you if you prefer not to click through.
+This build is ad-hoc signed. macOS may ask you to approve Lantas once: open **System Settings → Privacy & Security**, click **Open Anyway**, and authenticate. The installer clears the quarantine flag for you if you prefer not to click through.

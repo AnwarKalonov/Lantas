@@ -16,7 +16,7 @@ import { spawn, spawnSync } from "node:child_process";
 import readline from "node:readline";
 import { LOGO_ROWS } from "./logo.mjs";
 
-let VERSION = "1.0.4";
+let VERSION = "1.0.5";
 try {
   const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   VERSION = pkg.version || VERSION;

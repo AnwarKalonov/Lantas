@@ -1009,9 +1009,9 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
                   <span className="kv-val mono">{connected.length} connected</span>
                 </div>
                 <div className="kv">
-                  <span className="kv-key">Demo runtime</span>
+                  <span className="kv-key">Agent runtime</span>
                   <span className="kv-val mono">
-                    {connected.length === 0 ? "active" : "fallback"}
+                    {connected.length === 0 ? "waiting for a provider" : "live model calls"}
                   </span>
                 </div>
               </div>

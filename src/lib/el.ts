@@ -102,7 +102,15 @@ export function normalizeUrl(raw: string): string {
   const value = raw.trim();
   if (!value) return EL_HOME;
   if (value === EL_HOME) return value;
-  if (/^https?:\/\//i.test(value)) return value;
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      // Do not hand a hostless string such as `https://` to the browser: it
+      // renders as an empty page and looks like a successful navigation.
+      if (new URL(value).hostname) return value;
+    } catch {
+      /* fall through to search */
+    }
+  }
   if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(value)) return `https://${value}`;
   return `https://www.google.com/search?q=${encodeURIComponent(value)}`;
 }

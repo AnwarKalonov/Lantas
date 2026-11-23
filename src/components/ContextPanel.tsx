@@ -66,7 +66,7 @@ export function ContextPanel({
                 <span className="kv-val">
                   {prettyModel(session.model)}
                   {!isConfigured(session.provider, settings.providers[session.provider]) && (
-                    <span className="kv-tag">demo</span>
+                    <span className="kv-tag">offline</span>
                   )}
                 </span>
               </div>

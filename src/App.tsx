@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { runAgent, type Emit } from "./lib/agent";
 import { runAppAction } from "./lib/appActions";
 import { aiDriving } from "./lib/el";
 import { getComposio, listConnections } from "./lib/composio";
@@ -912,6 +911,7 @@ export function App() {
             root: state.workspaceRoot,
             agent,
             skills: state.skills,
+            task: text,
             saveFile: async (path, content) => {
               const index = toolFiles.findIndex((file) => file.path === path);
               const entry: WorkspaceFile = {
@@ -1086,66 +1086,21 @@ export function App() {
             updated: Date.now(),
           }));
         } else {
+          const providerName =
+            PROVIDERS.find((item) => item.id === provider)?.name ?? provider;
           patch((message) => ({
             ...message,
+            streaming: false,
+            durationMs: Date.now() - started,
             parts: [
               ...message.parts,
               {
                 id: uid("part"),
                 kind: "note",
-                text: "Demo runtime. Connect a provider in Settings → Providers for live replies.",
+                text: `No ${providerName} model is connected. Open Settings → Providers, add a key or start a local model, then send again. Lantas does not simulate runs.`,
               },
             ],
           }));
-
-          const emit: Emit = {
-            part: (part: Part) =>
-              patch((message) => ({ ...message, parts: [...message.parts, part] })),
-            patchPart: (id, delta) =>
-              patch((message) => ({
-                ...message,
-                parts: message.parts.map((part) =>
-                  part.id === id ? ({ ...part, ...delta } as Part) : part,
-                ),
-              })),
-            appendText: (id, chunk) =>
-              patch((message) => ({
-                ...message,
-                parts: message.parts.map((part) =>
-                  part.id === id && part.kind === "text"
-                    ? { ...part, text: part.text + chunk }
-                    : part,
-                ),
-              })),
-            appendOutput: (id, line) =>
-              patch((message) => ({
-                ...message,
-                parts: message.parts.map((part) =>
-                  part.id === id && part.kind === "shell"
-                    ? { ...part, output: [...part.output, line] }
-                    : part,
-                ),
-              })),
-            todos: (todos) => updateSession(sessionId, (session) => ({ ...session, todos })),
-            file: (file) =>
-              updateSession(sessionId, (session) => ({
-                ...session,
-                files: session.files.some((item) => item.path === file.path)
-                  ? session.files.map((item) => (item.path === file.path ? file : item))
-                  : [...session.files, file],
-              })),
-            done: ({ durationMs, tokens, cost }) => {
-              patch((message) => ({ ...message, streaming: false, durationMs, tokens, cost }));
-              updateSession(sessionId, (session) => ({
-                ...session,
-                tokens: session.tokens + tokens,
-                cost: session.cost + cost,
-                updated: Date.now(),
-              }));
-            },
-          };
-
-          await runAgent(text, emit, controller.signal);
         }
 
         if (state.settings.notifications && !document.hasFocus() && "Notification" in window) {

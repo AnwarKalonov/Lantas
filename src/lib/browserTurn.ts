@@ -132,6 +132,7 @@ export async function runBrowserTurn(options: BrowserTurnOptions): Promise<Brows
         skills: [],
         saveFile: async () => false,
         drive: options.mode === "act",
+        task: options.prompt,
       },
       rules: options.mode === "act" ? ACT_RULES : ASK_RULES,
       only: ["browser"],

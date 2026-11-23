@@ -1,10 +1,8 @@
-Lantas 1.0.4
+Lantas 1.0.5
 
-- **The download page now explains the first open.** It has a clear drag-to-Applications guide, the exact **Privacy & Security → Open Anyway** steps, a Terminal quarantine alternative, and a plain explanation of why macOS shows the warning. The hosted page is updated from this release.
-- **Desmos works from a request, not a magic phrase.** Named apps resolve to their real site, while a literal request such as “the Desmos website” goes through search. The browser guide teaches the model to snapshot, click the expression row, type the math and verify the graph; the Chrome bridge also has real CDP mouse and keyboard input as its first path.
-- **Chrome actions use real browser input.** Clicks, typing and key presses go through the browser’s input pipeline, with the DOM and Desmos APIs as fallbacks. Page reads include the expression list and graph state, so a success is checked rather than assumed.
-- **NVIDIA NIM is a provider.** Add an NVIDIA API key, fetch the live model catalog from `https://integrate.api.nvidia.com/v1`, and choose from NVIDIA’s hosted models in the same model picker as the other providers.
-- **A calmer Chrome side panel.** The panel has a simpler header, a quieter page card, prompt rows and a cleaner composer, while keeping the read-only kill switch.
-- **The Code tab no longer turns green.** Lantas Studio uses a neutral warm graphite and paper palette with a copper accent for actions, selection and syntax highlights.
+- **The demo agent is gone.** Lantas no longer plays back canned tool calls, fake shell output or random token counts when no model is connected. Without a configured provider it now says exactly that and points to Settings → Providers. The real agent loop is the only path that runs.
+- **“Open Desmos” opens Desmos.** A model that sends the bare fragment `calculator` is resolved against the user's request and the current page, so the browser goes to `https://www.desmos.com/calculator` instead of a Google search. A literal request such as “the Desmos website” still goes through search.
+- **Broken addresses no longer masquerade as pages.** Whitespace in a model-generated URL is collapsed before navigation, and a hostless `https://` is rejected before it can produce an empty page that looks successful.
+- **Honest status in the UI.** The composer, session panel, home screen and settings now say “No provider connected” / “offline” instead of “Demo runtime” or “fallback”.
 
 This build is ad-hoc signed. macOS may ask you to approve Lantas once: open **System Settings → Privacy & Security**, click **Open Anyway**, and authenticate. The installer clears the quarantine flag for you if you prefer not to click through.

@@ -15,6 +15,7 @@ import {
   agentSnapshot,
   agentType,
   describeSnapshot,
+  resolveBrowserAddress,
 } from "./browserAgent";
 import { aiDriving } from "./el";
 import { runTerminalCommand } from "./terminal";
@@ -46,6 +47,8 @@ export interface ToolContext {
   saveFile: (path: string, text: string) => Promise<boolean>;
   /** Overrides the browser drive switch for one turn (the Chrome panel's Act mode). */
   drive?: boolean;
+  /** The user's request for this turn, used to resolve ambiguous browser targets. */
+  task?: string;
 }
 
 export interface ToolCall {
@@ -441,7 +444,7 @@ export async function runTool(
         return await runTerminalTool(call.args, context);
 
       case "browser":
-        return await runBrowserTool(call.args, context.drive);
+        return await runBrowserTool(call.args, context.drive, context.task);
 
       case "integrations":
         return await runIntegrationTool(call.args);
@@ -518,6 +521,7 @@ async function runTerminalTool(
 async function runBrowserTool(
   args: Record<string, unknown>,
   drive?: boolean,
+  task?: string,
 ): Promise<ToolOutcome> {
   const action = String(args.action ?? "").toLowerCase();
   const resource = toolResource({ name: "browser", args });
@@ -696,8 +700,9 @@ async function runBrowserTool(
     }
 
     case "navigate": {
-      const url = String(args.url ?? "");
-      if (!url) return fail("A URL is required.");
+      const raw = String(args.url ?? "");
+      if (!raw) return fail("A URL is required.");
+      const url = resolveBrowserAddress(raw, task);
       const ok = await agentNavigate(url);
       return ok
         ? { ok: true, summary: `Opened ${url}`, content: await afterAction(`Navigated to ${url}.`), resource }

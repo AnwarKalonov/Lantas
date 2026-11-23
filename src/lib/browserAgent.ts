@@ -44,10 +44,25 @@ const SITE_URLS: Record<string, string> = {
  * the user asked for the search rather than for the app. Everything else uses
  * the same address rules as the browser's own address bar.
  */
-export function resolveBrowserAddress(raw: string): string {
+export function resolveBrowserAddress(raw: string, task = ""): string {
   const value = raw.trim();
+  const compact = value.replace(/\s+/g, "");
   const known = SITE_URLS[value.toLowerCase()];
   if (known) return known;
+
+  // A model can answer "open Desmos" and then send only the page fragment
+  // "calculator" (or a broken `https://\ncalculator`). Resolve that against the
+  // current task and page instead of turning it into a Google search.
+  const context = `${task} ${getElContext()?.url ?? ""}`;
+  if (
+    /\bdesmos\b/i.test(context) &&
+    /^(?:https?:\/\/)?(?:www\.)?(?:desmos\.com\/)?(?:graphing[\s-]?)?(?:calculator|graph)\/?$/i.test(
+      compact,
+    )
+  ) {
+    return SITE_URLS.desmos;
+  }
+
   return normalizeUrl(value);
 }
 
@@ -60,6 +75,7 @@ export function resolveBrowserAddress(raw: string): string {
 export const BROWSER_GUIDE = [
   "Browser playbook (follow this instead of guessing):",
   "- A named app or product (Desmos, GitHub, Gmail) means its real site. Desmos is https://www.desmos.com/calculator. A phrase like `the Desmos website` or `search for …` is literal: navigate to the search page and use its results.",
+  "- Put the full canonical URL in the navigate call. A fragment such as `calculator` is not a destination; if the user named Desmos, send https://www.desmos.com/calculator directly.",
   "- After navigate, snapshot. Controls come from the live page; use a ref or an exact label, never coordinates you invented.",
   "- To graph on Desmos: navigate to the calculator, snapshot, click the `Expression 1` row, type the equation exactly as math (`y=2x+4`), then snapshot again. The result includes a `Graph expressions:` line. Success means the equation is there, not merely that the tool returned.",
   "- Canvas and math editors often ignore a value assignment. Click into the editor first, then type or press keys. If the page exposes a documented API, `evaluate` may call it, but read the expression back to verify it.",
@@ -590,8 +606,8 @@ export async function agentScroll(pixels: number): Promise<boolean> {
   return Boolean(result?.ok);
 }
 
-async function navigateNative(raw: string): Promise<boolean> {
-  const url = resolveBrowserAddress(raw);
+async function navigateNative(raw: string, task = ""): Promise<boolean> {
+  const url = resolveBrowserAddress(raw, task);
   const before = getElContext()?.url ?? "";
 
   // BrowserView owns the address bar, tab title, history and the native
@@ -623,16 +639,16 @@ async function navigateNative(raw: string): Promise<boolean> {
   return Boolean(landed?.page?.url && /^https?:/i.test(landed.page.url));
 }
 
-export async function agentNavigate(url: string): Promise<boolean> {
+export async function agentNavigate(url: string, task = ""): Promise<boolean> {
   if (activeEngine() === "chrome") {
     try {
-      await chromeCommand("navigate", { url: resolveBrowserAddress(url) });
+      await chromeCommand("navigate", { url: resolveBrowserAddress(url, task) });
       return true;
     } catch {
       return false;
     }
   }
-  return navigateNative(url);
+  return navigateNative(url, task);
 }
 
 export async function agentHistory(direction: "back" | "forward"): Promise<boolean> {

@@ -79,7 +79,7 @@ export function Home({ onSend, onOpenSettings, onScreenToggle }: HomeProps) {
           </span>
           <span className="home-foot-item">
             <span className={`status-dot ${configured ? "is-ok" : "is-idle"}`} aria-hidden="true" />
-            {configured ? "Provider configured" : "Demo runtime"}
+            {configured ? "Provider configured" : "No provider connected"}
           </span>
           <span className="home-foot-spacer" />
           <span className="home-foot-item dim">

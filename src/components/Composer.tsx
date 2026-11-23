@@ -608,7 +608,7 @@ export function Composer({
 
       {!connected && (
         <div className="composer-note">
-          <span>Demo runtime — connect a provider for live replies.</span>
+          <span>No provider connected — replies need a model. Connect one in Settings.</span>
           <button type="button" className="text-button" onClick={onOpenProviders}>
             Connect
           </button>

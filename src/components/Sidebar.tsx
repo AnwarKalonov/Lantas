@@ -254,7 +254,7 @@ export function Sidebar({
                             ) : (
                               <>
                                 <span className="thread-title">{session.title}</span>
-                                {!available && <span className="thread-dot" title="Demo runtime" />}
+                                {!available && <span className="thread-dot" title="Provider not connected" />}
                                 <span className="thread-time">{timeAgo(session.updated)}</span>
                                 <button
                                   type="button"

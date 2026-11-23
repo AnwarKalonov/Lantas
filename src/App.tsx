@@ -674,7 +674,7 @@ export function App() {
       const sessionId = existing ? existing.id : createSession();
       const agent = existing?.agent ?? state.settings.defaultAgent;
       const provider = existing?.provider ?? state.settings.defaultProvider;
-      const model = existing?.model ?? state.settings.defaultModel;
+      const model = existing?.model || state.settings.defaultModel;
       const providerConfig = state.settings.providers[provider];
       const live = isConfigured(provider, providerConfig);
       const snapshot: Session | null = existing ?? null;
@@ -1146,6 +1146,7 @@ export function App() {
           }}
           onAsk={(text) => void handleSend(text)}
           session={activeSession}
+          defaultModel={state.settings.defaultModel}
           streaming={streaming}
         />
       ) : (

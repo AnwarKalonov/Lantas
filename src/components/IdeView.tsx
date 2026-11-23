@@ -26,6 +26,7 @@ interface IdeViewProps {
   onOpenSkills: () => void;
   onAsk: (text: string) => void;
   session: Session | null;
+  defaultModel: string;
   streaming: boolean;
 }
 
@@ -116,6 +117,7 @@ export function IdeView({
   onOpenSkills,
   onAsk,
   session,
+  defaultModel,
   streaming,
 }: IdeViewProps) {
   const {
@@ -680,7 +682,7 @@ export function IdeView({
               <div>
                 <span className="ide-assistant-title">Lantas</span>
                 <span className="ide-assistant-sub">
-                  {session?.model ?? "No model"}
+                  {session?.model || defaultModel || "No model"}
                 </span>
               </div>
               <button

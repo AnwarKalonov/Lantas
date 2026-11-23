@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="dark" />
+    <title>Lantas</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header class="top">
+      <img class="mark" src="icons/icon48.png" alt="" />
+      <div class="ident">
+        <strong>Lantas</strong>
+        <span class="status" id="status"><i class="status-dot" id="dot"></i><span id="status-text">Checking</span></span>
+      </div>
+      <button class="icon-button" id="read" type="button" title="Read this tab">Read</button>
+    </header>
+
+    <section class="tab">
+      <span class="tab-mark" id="tab-mark">·</span>
+      <div class="tab-text">
+        <strong id="tab-title">No website open</strong>
+        <span id="tab-url"></span>
+      </div>
+    </section>
+
+    <main class="thread" id="thread">
+      <div class="empty" id="empty">
+        <p class="empty-title">Ask, or say what to click</p>
+        <p class="empty-copy">
+          Lantas reads this tab and can act in it. Keep the app open on this Mac.
+        </p>
+        <div class="chips">
+          <button type="button" data-prompt="Summarize this page in five lines.">Summarize this page</button>
+          <button type="button" data-prompt="What can I do on this page?">What can I do</button>
+          <button type="button" data-prompt="Find the main action on this page and click it.">Do the main action</button>
+        </div>
+      </div>
+      <div class="messages" id="messages"></div>
+    </main>
+
+    <form class="composer" id="form">
+      <textarea
+        id="input"
+        rows="1"
+        placeholder="Ask about this tab, or tell it what to do"
+        autocomplete="off"
+      ></textarea>
+      <button class="send" id="send" type="submit" aria-label="Send" title="Send">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <path d="M12 19V5" /><path d="m6 11 6-6 6 6" />
+        </svg>
+      </button>
+    </form>
+
+    <footer class="foot">
+      <label class="drive" for="drive">
+        <span class="track"><span class="thumb"></span></span>
+        <input type="checkbox" id="drive" />
+        Let Lantas act
+      </label>
+      <span class="foot-note" id="version">Chrome</span>
+    </footer>
+
+    <details class="meta">
+      <summary>Extension details</summary>
+      <div class="meta-row">
+        <code id="ext-id">…</code>
+        <button type="button" id="copy-id">Copy</button>
+      </div>
+    </details>
+
+    <script src="panel.js"></script>
+  </body>
+</html>

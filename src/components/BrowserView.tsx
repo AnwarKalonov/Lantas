@@ -61,8 +61,8 @@ const SHORTCUTS = [
 export function BrowserView({ visible = true }: { visible?: boolean }) {
   const { state, setBrowserUrl, notify, togglePanel } = useStore();
   const [data, setData] = useState<ElData>(() => loadEl());
+  const lastBrowserUrl = useRef(state.browserUrl);
   const [draft, setDraft] = useState("");
-  const [mode, setMode] = useState<"live" | "reader">("live");
   const [page, setPage] = useState<ElPage | null>(getElContext());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -93,9 +93,22 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
   useEffect(() => saveEl(data), [data]);
 
   useEffect(() => {
+    if (state.browserUrl === lastBrowserUrl.current) return;
+    lastBrowserUrl.current = state.browserUrl;
     if (state.browserUrl && state.browserUrl !== active.url) navigate(state.browserUrl);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.browserUrl]);
+
+  // The browser opens on its own home page every launch; bookmarks and history stay.
+  useEffect(() => {
+    setData((current) => {
+      if (current.tabs.length === 1 && current.tabs[0].url === EL_HOME) return current;
+      const id = uid("tab");
+      return { ...current, tabs: [{ id, url: EL_HOME, title: "New tab" }], active: id };
+    });
+    setBrowserUrl("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     setDraft(active.url === EL_HOME ? "" : active.url);
@@ -120,7 +133,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
       void elVisible(false);
       return;
     }
-    if (mode === "live" && !atHome) {
+    if (!atHome) {
       void elVisible(true);
       const frame = requestAnimationFrame(() => {
         const rect = box();
@@ -137,7 +150,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
     setNativeReady(false);
     void elClose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [native, visible, active.url, mode, atHome, data.active, engineTick, engine]);
+  }, [native, visible, active.url, atHome, data.active, engineTick, engine]);
 
   useEffect(
     () => () => {
@@ -175,7 +188,6 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
     setReloadTick((tick) => tick + 1);
     setError("");
     setPage(null);
-    setMode("live");
     trail.current = [...trail.current.slice(0, trailIndex.current + 1), url];
     trailIndex.current = trail.current.length - 1;
     setData((current) => ({
@@ -273,27 +285,6 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
     }
     if (native) void agentReload();
     setReloadTick((tick) => tick + 1);
-  };
-
-  const reader = async () => {
-    if (atHome) return;
-    setBusy(true);
-    setError("");
-    try {
-      const next = await pageFor();
-      setPage(next);
-      setElContext(next);
-      setMode("reader");
-      patchTab(active.id, { title: next.title });
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? `${caught.message} — this site cannot be read from the web preview. The desktop build reads it through the native bridge.`
-          : String(caught),
-      );
-    } finally {
-      setBusy(false);
-    }
   };
 
   const openAssistant = () => {
@@ -521,7 +512,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
   );
 
   return (
-    <section className={cx("el", mode === "reader" && "is-reader")}>
+    <section className="el">
       <div className="el-chrome">
         <div className="el-tabstrip">
           {data.tabs.map((tab) => (
@@ -714,23 +705,13 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
           )}
           <button
             type="button"
-            className="el-round"
-            onClick={() => void reader()}
-            disabled={busy || atHome}
-            title="Reader — extract the page for the model"
-            aria-label="Reader"
-          >
-            <Icon name="book" size={13} />
-          </button>
-          <button
-            type="button"
             className={cx("el-round", bookmarked && "is-on")}
             onClick={toggleBookmark}
             disabled={atHome}
-            title={bookmarked ? "Remove bookmark" : "Bookmark"}
-            aria-label="Bookmark"
+            title={bookmarked ? "Remove from home" : "Add to home"}
+            aria-label={bookmarked ? "Remove bookmark" : "Bookmark"}
           >
-            <Icon name="sparkle" size={13} />
+            <Icon name="star" size={13} />
           </button>
           <button
             type="button"
@@ -871,28 +852,6 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
               )}
             </div>
           </div>
-        ) : mode === "reader" && page ? (
-          <div className="el-reader">
-            <div className="el-reader-head">
-              <div>
-                <p className="el-kicker">{hostOf(page.url)}</p>
-                <h2>{page.title}</h2>
-                <p className="el-muted">
-                  {page.words.toLocaleString()} words · read by Lantas Browser
-                </p>
-              </div>
-              <div className="el-actions">
-                <button type="button" className="button-quiet" onClick={() => setMode("live")}>
-                  Live page
-                </button>
-                <button type="button" className="button-primary" onClick={() => ask()}>
-                  Ask Lantas AI
-                </button>
-              </div>
-            </div>
-            {page.description && <p className="el-reader-desc">{page.description}</p>}
-            <div className="el-reader-body">{page.text}</div>
-          </div>
         ) : (
           <div className={cx("el-viewport", !native && "is-preview")} ref={viewportRef}>
             {native ? (
@@ -971,14 +930,12 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
         </div>
 
         {aiOpen && (
-          <aside className="el-ai" aria-label="Lantas AI">
+          <aside className="el-ai" aria-label="Lantas">
             <header className="el-ai-head">
               <div className="el-ai-id">
-                <span className="el-ai-glyph">
-                  <Icon name="sparkle" size={12} />
-                </span>
-                <div>
-                  <span className="el-ai-title">Lantas AI</span>
+                <img className="el-ai-mark" src="/mark.png" alt="" />
+                <div className="el-ai-who">
+                  <span className="el-ai-title">Lantas</span>
                   <small>{aiModel}</small>
                 </div>
               </div>
@@ -995,31 +952,40 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
             <div className="el-ai-log" ref={aiLogRef}>
               {aiMessages.length === 0 ? (
                 <div className="el-ai-empty">
-                  <p>Ask about this page, or tell the agent what to do.</p>
+                  <p className="el-ai-lead">Ask about this page, or say what to click.</p>
                   <div className="el-ai-chips">
                     <button type="button" onClick={() => ask()}>
-                      Summarize
+                      Summarize this page
                     </button>
                     <button type="button" onClick={() => ask("What can I do on this page?")}>
-                      What can I do
+                      What can I do here
                     </button>
                     <button
                       type="button"
-                      onClick={() => ask("Find the most useful links on this page and where they go.")}
+                      onClick={() => ask("Find the main action on this page and click it.")}
                     >
-                      Find links
+                      Do the main action
                     </button>
                   </div>
                 </div>
               ) : (
                 aiMessages.map((message) => (
                   <div key={message.id} className={cx("el-ai-msg", message.role)}>
+                    <span className="el-ai-role">
+                      {message.role === "user" ? "You" : "Lantas"}
+                    </span>
                     {message.parts.map((part) =>
                       part.kind === "text" || part.kind === "note" ? (
                         <p key={part.id}>{part.text}</p>
                       ) : null,
                     )}
-                    {message.streaming && <span className="el-ai-typing" />}
+                    {message.streaming && (
+                      <span className="el-ai-typing">
+                        <i />
+                        <i />
+                        <i />
+                      </span>
+                    )}
                   </div>
                 ))
               )}
@@ -1029,12 +995,17 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
               <input
                 value={aiDraft}
                 onChange={(event) => setAiDraft(event.target.value)}
-                placeholder={driving ? "Ask anything, or say “click Sign in”" : "You have control"}
+                placeholder={driving ? "Ask, or tell it what to do" : "You have control"}
                 spellCheck={false}
-                aria-label="Ask Lantas AI"
+                aria-label="Ask Lantas"
               />
-              <button type="submit" className="el-ai-send" disabled={!aiDraft.trim()}>
-                ↑
+              <button
+                type="submit"
+                className="el-ai-send"
+                disabled={!aiDraft.trim()}
+                aria-label="Send"
+              >
+                <Icon name="arrowUp" size={13} />
               </button>
             </form>
 

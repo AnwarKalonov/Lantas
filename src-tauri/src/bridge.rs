@@ -216,7 +216,7 @@ fn receive(text: &str, shared: &Arc<Mutex<Inner>>) {
         }
     }
 
-    if matches!(kind.as_str(), "result" | "event" | "error") {
+    if matches!(kind.as_str(), "result" | "event" | "error" | "chat") {
         let mut record = value;
         if let Some(object) = record.as_object_mut() {
             object.insert("kind".into(), json!(kind));

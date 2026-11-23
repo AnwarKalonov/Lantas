@@ -43,6 +43,7 @@ export interface ChromeEvent {
   error?: string;
   detail?: string;
   at?: number;
+  text?: string;
   page?: ChromePage;
   elements?: ChromeElement[];
 }
@@ -253,6 +254,30 @@ export async function chromeCommand<T extends ChromeEvent = ChromeEvent>(
   }
 
   throw new Error("Chrome did not answer. Is the Lantas extension installed and Chrome open?");
+}
+
+/** Sends a frame without waiting for a result — used for chat replies. */
+export async function chromeSendRaw(payload: Record<string, unknown>): Promise<boolean> {
+  if (!inTauri()) return false;
+  try {
+    await call<number>("chrome_bridge_send", { payload: JSON.stringify(payload) });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function chromeChatStatus(chatId: string, text: string) {
+  return chromeSendRaw({ type: "chat_status", chatId, text });
+}
+
+export function chromeChatReply(chatId: string, text: string, note?: string) {
+  return chromeSendRaw({
+    type: "chat_reply",
+    chatId,
+    text,
+    ...(note ? { note } : {}),
+  });
 }
 
 export function openChromeUrl(url: string, newTab = false) {

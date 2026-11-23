@@ -9,9 +9,12 @@ import { inTauri } from "./lib/native";
 import { agentClick, agentEnter, agentScroll, agentType } from "./lib/browserAgent";
 import { buildHistory, buildSystemPrompt, parseImage } from "./lib/chat";
 import { isConfigured, streamChat } from "./lib/providers";
+import { chromeChatReply, chromeChatStatus, chromeStatus } from "./lib/chrome";
+import { runBrowserAction, takeAction } from "./lib/chromeChat";
 import { useStore } from "./lib/store";
 import { acquireScreen, captureFrame, currentScreen, releaseScreen } from "./lib/screen";
 import { openWorkspaceFolder } from "./lib/workspace";
+import type { ChromeEvent } from "./lib/chrome";
 import type { AgentId, Attachment, Message, Mode, Part, ProviderId, Session } from "./lib/types";
 import { cx, titleFrom, uid } from "./lib/util";
 import { BrowserView } from "./components/BrowserView";
@@ -119,6 +122,100 @@ export function App() {
 
   useEffect(() => () => {
     Object.values(runs.current).forEach((controller) => controller.abort());
+  }, []);
+
+  const settingsRef = useRef(state.settings);
+  useEffect(() => {
+    settingsRef.current = state.settings;
+  }, [state.settings]);
+
+  // The Chrome side panel asks Lantas questions; answers come back over the bridge.
+  useEffect(() => {
+    if (!inTauri()) return;
+
+    type Turn = Parameters<typeof streamChat>[0]["messages"][number];
+    const seen = new Set<string>();
+    const history = new Map<string, Turn[]>();
+
+    const answer = async (chatId: string, prompt: string, page: ChromeEvent["page"] | null) => {
+      const settings = settingsRef.current;
+      const provider = settings.defaultProvider;
+      const config = settings.providers[provider];
+      const model = settings.defaultModel;
+
+      if (!isConfigured(provider, config)) {
+        await chromeChatReply(chatId, "Connect a provider in Settings → Providers, then ask again.");
+        return;
+      }
+
+      await chromeChatStatus(chatId, "Reading the page");
+
+      const pageBlock = page
+        ? `<page url="${page.url}" title="${page.title}">\n${page.text.slice(0, 12000)}\n</page>`
+        : "";
+      const system = [
+        "You answer inside the Chrome side panel, next to the tab the user is reading.",
+        "Use short, specific sentences. No headings, no emoji, no markdown.",
+        "You can act in the open tab: click, type, press Enter, scroll, open a URL, go back, forward or reload.",
+        'When the user asks you to act, write one short sentence and then exactly one tag on its own line: <action>{"action":"click","target":"Sign in"}</action>',
+        "Actions: click (target), type (text, optional selector, optional submit), enter, scroll (dy), open (url), back, forward, reload.",
+        "Never claim an action unless it ran; the result is reported to the user.",
+      ].join(" ");
+
+      const userTurn: Turn = {
+        role: "user",
+        content: pageBlock ? `${prompt}\n\n${pageBlock}` : prompt,
+      };
+      const turns = [...(history.get(chatId) ?? []).slice(-8), userTurn];
+
+      let reply = "";
+      try {
+        await streamChat({
+          provider,
+          config,
+          model,
+          system,
+          messages: turns,
+          signal: new AbortController().signal,
+          onDelta: (chunk) => {
+            reply += chunk;
+          },
+        });
+      } catch (error) {
+        const detail = error instanceof Error ? error.message.slice(0, 200) : String(error);
+        await chromeChatReply(chatId, `That request failed. ${detail}`);
+        return;
+      }
+
+      const { text, action } = takeAction(reply);
+      let note = "";
+      if (action) {
+        note = aiDriving()
+          ? await runBrowserAction(action)
+          : "You paused Lantas, so nothing in the tab was changed.";
+      }
+
+      const answerText = text.trim() || (action ? "On it." : "No answer came back.");
+      await chromeChatReply(chatId, answerText, note || undefined);
+      const assistantTurn: Turn = {
+        role: "assistant",
+        content: note ? `${answerText}\n[${note}]` : answerText,
+      };
+      history.set(chatId, [...turns, assistantTurn].slice(-10));
+    };
+
+    const tick = async () => {
+      const status = await chromeStatus();
+      for (const event of status.events) {
+        if (event.type !== "chat" || !event.id || seen.has(event.id)) continue;
+        seen.add(event.id);
+        void answer(event.id, event.text ?? "", event.page ?? null);
+      }
+    };
+
+    void tick();
+    const timer = window.setInterval(() => void tick(), 800);
+    return () => window.clearInterval(timer);
   }, []);
 
   const startScreen = useCallback(async () => {

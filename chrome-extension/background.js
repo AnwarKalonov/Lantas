@@ -12,7 +12,7 @@
 
 const PORT = 47654;
 const ENDPOINT = `ws://127.0.0.1:${PORT}/lantas`;
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 
 let socket = null;
 let retry = 0;
@@ -177,7 +177,7 @@ async function actOnTab(tab) {
   }
   const stored = await chrome.storage.local.get({ lantasDrive: true });
   if (!stored.lantasDrive) {
-    throw new Error("You paused Lantas in the Chrome extension popup.");
+    throw new Error("You paused Lantas in the Chrome side panel.");
   }
 }
 
@@ -333,6 +333,25 @@ async function execute(message) {
         };
       }
 
+      case "chat": {
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+          throw new Error("Open Lantas on this Mac to chat with it.");
+        }
+        const tab = await targetTab();
+        let page = null;
+        if (tab && isWebTab(tab)) {
+          try {
+            const snapshot = await sendToTab(tab.id, { cmd: "inspect" });
+            page = snapshot?.page || null;
+          } catch {
+            page = null;
+          }
+        }
+        const id = `chat_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+        send({ type: "chat", id, text: String(message.text || ""), page });
+        return { ok: true, id };
+      }
+
       default:
         return { ok: false, error: `Unknown command: ${message.type}` };
     }
@@ -343,6 +362,11 @@ async function execute(message) {
 
 async function forward(message) {
   if (!message || typeof message.type !== "string") return;
+  // Answers from the Lantas app go to the side panel, not through execute().
+  if (message.type === "chat_reply" || message.type === "chat_status") {
+    chrome.runtime.sendMessage(message).catch(() => {});
+    return;
+  }
   const result = await execute(message);
   send({ id: message.id, type: "result", ...result });
 }
@@ -355,27 +379,43 @@ chrome.runtime.onMessageExternal.addListener((message, _sender, respond) => {
   return true;
 });
 
+// The side panel talks in `cmd`; execute() takes the same value as `type`.
 chrome.runtime.onMessage.addListener((message, _sender, respond) => {
-  if (!message || message.cmd !== "status") return undefined;
-  respond({
-    connected: true,
-    port: PORT,
-    version: VERSION,
-    active: state.active,
-    tabs: state.tabs.length,
-    socket: Boolean(socket && socket.readyState === WebSocket.OPEN),
-  });
+  if (!message || typeof message.cmd !== "string") return undefined;
+
+  if (message.cmd === "status") {
+    const open = Boolean(socket && socket.readyState === WebSocket.OPEN);
+    respond({
+      connected: true,
+      lantas: open,
+      port: PORT,
+      version: VERSION,
+      active: state.active,
+      tabs: state.tabs.length,
+      socket: open,
+    });
+    return true;
+  }
+
+  void (async () => respond(await execute({ ...message, type: message.cmd })))();
   return true;
 });
+
+// Clicking the toolbar button opens the chat panel instead of a popup.
+function openPanelOnClick() {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+}
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get({ lantasDrive: true }).catch(() => {});
   chrome.alarms.create("lantas-keepalive", { periodInMinutes: 0.5 });
+  openPanelOnClick();
   connect();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   chrome.alarms.create("lantas-keepalive", { periodInMinutes: 0.5 });
+  openPanelOnClick();
   connect();
 });
 
@@ -386,4 +426,5 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 chrome.alarms.create("lantas-keepalive", { periodInMinutes: 0.5 });
+openPanelOnClick();
 connect();

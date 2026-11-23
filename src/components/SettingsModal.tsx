@@ -127,6 +127,16 @@ function ProviderCard({ meta }: { meta: ProviderMeta }) {
               autoComplete="off"
               spellCheck={false}
             />
+            {meta.docs && (
+              <a
+                className="text-button provider-link"
+                href={`https://${meta.docs}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Get a key
+              </a>
+            )}
           </label>
         )}
 

@@ -39,7 +39,11 @@ const PRETTY: Record<string, string> = {
   "gpt-5.1": "GPT-5.1",
   "gpt-5.1-mini": "GPT-5.1 mini",
   "gpt-4.1": "GPT-4.1",
-  "gemini-3-pro": "Gemini 3 Pro",
+  "gemini-4-argon": "Gemini 4 Argon",
+  "gemini-3.8-flash": "Gemini 3.8 Flash",
+  "gemini-3.6-flash": "Gemini 3.6 Flash",
+  "gemini-3.5-flash-lite": "Gemini 3.5 Flash-Lite",
+  "gemini-2.5-pro": "Gemini 2.5 Pro",
   "gemini-2.5-flash": "Gemini 2.5 Flash",
   "anthropic/claude-opus-4.5": "Claude Opus 4.5",
   "openai/gpt-5.1": "GPT-5.1",
@@ -381,8 +385,34 @@ export async function listModels(
       };
     }
 
-    if (meta.kind === "anthropic" || id === "google") {
+    if (meta.kind === "anthropic") {
       return { ok: true, detail: "Curated model list", models: meta.models };
+    }
+
+    if (id === "google") {
+      // AI Studio keys can list their own models, so the picker reflects what
+      // this key can actually call instead of a hardcoded guess.
+      const response = await httpFetch(
+        `${base}/models?pageSize=200&key=${encodeURIComponent(config.apiKey.trim())}`,
+        { method: "GET" },
+      );
+      if (!response.ok) return { ok: false, detail: await failure(response) };
+      const data = await response.json();
+      const models: string[] = (data.models ?? [])
+        .filter((model: any) =>
+          (model.supportedGenerationMethods ?? []).includes("generateContent"),
+        )
+        .map((model: any) => String(model.name ?? "").replace(/^models\//, ""))
+        .filter(
+          (name: string) =>
+            name && !/(embedding|tts|live|image|transcribe|lyria|omni|veo)/i.test(name),
+        )
+        .sort();
+      return {
+        ok: true,
+        detail: models.length ? `${models.length} models` : "No text models on this key",
+        models,
+      };
     }
 
     const response = await httpFetch(`${base}/models`, {

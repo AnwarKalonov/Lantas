@@ -62,12 +62,19 @@ export const PROVIDERS: ProviderMeta[] = [
   {
     id: "google",
     name: "Google",
-    description: "Gemini 3 Pro and Flash",
+    description: "Gemini 4 Argon and 3.8 Flash, via AI Studio",
     kind: "google",
     baseUrl: "https://generativelanguage.googleapis.com/v1beta",
     needsKey: true,
     local: false,
-    models: ["gemini-3-pro", "gemini-2.5-flash"],
+    models: [
+      "gemini-4-argon",
+      "gemini-3.8-flash",
+      "gemini-3.6-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-2.5-pro",
+      "gemini-2.5-flash",
+    ],
     docs: "aistudio.google.com/apikey",
   },
   {

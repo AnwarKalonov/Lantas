@@ -1,6 +1,7 @@
 import { httpFetch } from "./providers";
 
 const KEY = "lantas.composio.v1";
+const AUTH_CACHE = "lantas.composio.auth.v1";
 const DEVICE_KEY = "lantas.device.v1";
 const BASE = "https://backend.composio.dev/api/v3.1";
 
@@ -160,6 +161,7 @@ function list<T>(payload: any): T[] {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.items)) return payload.items;
   if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.auth_configs)) return payload.auth_configs;
   return [];
 }
 
@@ -176,15 +178,52 @@ export async function listConnections(): Promise<Connection[]> {
   }));
 }
 
+function readAuthCache(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(AUTH_CACHE) ?? "{}") as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function cacheAuthConfig(app: string, id: string) {
+  try {
+    localStorage.setItem(AUTH_CACHE, JSON.stringify({ ...readAuthCache(), [app]: id }));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+/**
+ * Finds the project's auth config for a toolkit, creating a Composio-managed one
+ * on first use. Nothing for the user to configure in the dashboard.
+ */
 async function authConfigId(app: string): Promise<string> {
+  const cached = readAuthCache()[app];
+  if (cached) return cached;
+
   const data = await api<any>(`/auth_configs?toolkit_slug=${encodeURIComponent(app)}&limit=20`);
   const found = list<any>(data).find((item) => item.id);
-  if (!found) {
+  if (found) {
+    cacheAuthConfig(app, found.id);
+    return found.id;
+  }
+
+  const created = await api<any>("/auth_configs", {
+    method: "POST",
+    body: JSON.stringify({
+      toolkit: { slug: app },
+      auth_config: { type: "use_composio_managed_auth", name: app },
+    }),
+  });
+  const id = created?.auth_config?.id ?? created?.id;
+  if (!id) {
     throw new ComposioError(
-      `No auth config for ${app} in this Composio project. Add one in the Composio dashboard once.`,
+      `Composio could not create an auth config for ${app}. Add it once in the Composio dashboard and retry.`,
     );
   }
-  return found.id;
+  cacheAuthConfig(app, id);
+  return id;
 }
 
 /** Starts hosted OAuth and returns the URL the user finishes in a browser. */
@@ -192,6 +231,10 @@ export async function connectToolkit(app: string): Promise<string> {
   const config = getComposio();
   if (!config) throw new ComposioError("This build has no Composio app key.");
   const authConfig = await authConfigId(app);
+  // tauri:// and localhost origins are not valid OAuth callbacks; Composio then
+  // shows its own success page and the app picks the account up by polling.
+  const here = window.location.href;
+  const callback = /^https?:/i.test(here) ? here : undefined;
 
   try {
     const link = await api<any>("/connected_accounts/link", {
@@ -199,7 +242,7 @@ export async function connectToolkit(app: string): Promise<string> {
       body: JSON.stringify({
         auth_config_id: authConfig,
         user_id: config.userId,
-        callback_url: window.location.href,
+        ...(callback ? { callback_url: callback } : {}),
       }),
     });
     if (link?.redirect_url) return link.redirect_url;
@@ -211,7 +254,7 @@ export async function connectToolkit(app: string): Promise<string> {
     method: "POST",
     body: JSON.stringify({
       auth_config: { id: authConfig },
-      connection: { user_id: config.userId, callback_url: window.location.href },
+      connection: { user_id: config.userId, ...(callback ? { callback_url: callback } : {}) },
     }),
   });
   const url = created?.redirect_url ?? created?.connectionData?.redirectUrl;

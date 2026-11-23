@@ -30,10 +30,11 @@ https://github.com/AnwarKalonov/Lantas-download/releases/latest/download/Lantas-
 ## Install
 
 1. Open the dmg and drag **Lantas.app** to Applications. (Or unzip the `.app.zip` there.)
-2. Builds are Developer ID signed and notarized, so they open normally. If macOS still
-   blocks one, open **System Settings → Privacy & Security**, click **Open Anyway**, and
-   authenticate. On macOS 15 and later, right-click → Open no longer overrides the block.
-   The installer is available as a fallback and clears quarantine after copying:
+2. The build is ad-hoc signed, so macOS asks you to approve Lantas once. Open
+   **System Settings → Privacy & Security**, click **Open Anyway**, and authenticate.
+   After that it opens normally. On macOS 15 and later, right-click → Open no longer
+   overrides the block. The installer is available as a fallback and clears quarantine
+   after copying:
 
    ```bash
    curl -fsSL https://raw.githubusercontent.com/AnwarKalonov/Lantas-download/main/install.sh | bash

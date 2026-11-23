@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Lantas Browser Bridge",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Lets Lantas read and drive the Chrome tab you are looking at, on this Mac only.",
   "minimum_chrome_version": "116",
   "permissions": ["tabs", "scripting", "storage", "alarms", "sidePanel"],

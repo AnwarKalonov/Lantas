@@ -13,7 +13,10 @@
         <span class="glyph" aria-hidden="true">
           <img src="icons/icon32.png" alt="" />
         </span>
-        <span class="name">Lantas</span>
+        <span class="name-block">
+          <span class="name">Lantas</span>
+          <span class="name-sub">Browser</span>
+        </span>
         <span class="conn" id="conn"><i id="dot"></i><span id="status-text">Offline</span></span>
       </div>
       <div class="bar-actions">
@@ -41,27 +44,41 @@
 
     <main class="thread" id="thread">
       <div class="empty" id="empty">
-        <p class="eyebrow">This tab</p>
-        <h1>Ask the page.</h1>
+        <div class="empty-mark" aria-hidden="true">
+          <span class="empty-cloud"></span>
+          <img src="icons/icon128.png" alt="" />
+        </div>
+        <p class="eyebrow">This tab · live context</p>
+        <h1>Ask the page.<br /><em>Then let it act.</em></h1>
         <p class="lede" id="empty-copy">
-          Lantas reads what you are looking at and can act in it. Keep the app open on this Mac.
+          Lantas reads what you are looking at and can click, type and navigate. Keep the app open on this Mac.
         </p>
         <div class="prompts">
           <button type="button" data-prompt="Summarize this page in five lines.">
-            <span>Summarize this page</span>
+            <span class="prompt-ic" aria-hidden="true">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M3 8h10M3 11.5h6" /></svg>
+            </span>
+            <span class="prompt-label">Summarize this page</span>
             <span class="arrow">→</span>
           </button>
           <button type="button" data-prompt="What are the main actions available on this page?">
-            <span>Find what I can do here</span>
+            <span class="prompt-ic" aria-hidden="true">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.5 12 8l-6.5 4.5z" /></svg>
+            </span>
+            <span class="prompt-label">Find what I can do</span>
             <span class="arrow">→</span>
           </button>
           <button type="button" data-prompt="Read this page and tell me what is wrong, missing or misleading.">
-            <span>Review the content</span>
+            <span class="prompt-ic" aria-hidden="true">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.2" /><path d="M8 5.2v3.2M8 10.8v.1" /></svg>
+            </span>
+            <span class="prompt-label">Review the content</span>
             <span class="arrow">→</span>
           </button>
         </div>
+        <div class="local-note"><span class="pulse"></span>Runs on this Mac · reads only the tab you are on</div>
       </div>
-      <div class="messages" id="messages"></div>
+      <div class="messages" id="messages" aria-live="polite"></div>
     </main>
 
     <form class="composer" id="form">

@@ -10,12 +10,14 @@ repository.
 1. Bump the version in `src-tauri/tauri.conf.json` **and** `APP_VERSION` in
    `src/lib/updates.ts`.
 2. Commit, then push a matching tag: `git tag v1.1.0 && git push origin main --tags`.
-3. CI builds on macOS, signs the app, and runs `scripts/package-release.sh`. With the
-   Apple secrets below present it is Developer ID signed, notarized and stapled; without
-   them the workflow refuses to publish a tagged release. It produces `release-assets/`:
-   the dmg, the app zip, the extension zip, `Lantas.app.tar.gz` with its `.sig`, and
-   `latest.json`.
-4. CI publishes those files as a release on `Lantas-download` (tag `v1.1.0`).
+3. CI builds on macOS, signs the app, and runs `scripts/package-release.sh`. Without
+   Apple secrets the build is ad-hoc signed and the download page explains the one-time
+   **Open Anyway** approval. With all six secrets below it is Developer ID signed,
+   notarized and stapled. It produces `release-assets/`: the dmg, the app zip, the
+   extension zip, `Lantas.app.tar.gz` with its `.sig`, and `latest.json`.
+4. Publish those files as a release on `Lantas-download` (tag `v1.1.0`). The automatic
+   step uses `LANTAS_RELEASE_TOKEN`; without it, download the `Lantas-macOS` artifact and
+   publish the release from the public download repository.
 5. Every installed app reads
    `…/Lantas-download/releases/latest/download/latest.json` on launch, sees the newer
    version, downloads the bundle, verifies the signature, installs it, and offers
@@ -67,15 +69,15 @@ hand**. Every release after that updates itself.
 
 An ad-hoc signature is why macOS says it cannot verify Lantas. Only a **Developer ID
 Application** certificate plus notarization removes that warning; a free Apple Developer
-account cannot notarize. The workflow supports both modes, but a tagged release is only
-published when the Apple credentials are complete:
+account cannot notarize. The workflow supports both modes:
 
-- **No Apple secrets** — the build stays ad-hoc signed and the workflow fails before a
-  tagged release can be published. This prevents shipping a download that every user
-  has to approve in System Settings first.
+- **No Apple secrets** — the build stays ad-hoc signed and every user approves Lantas
+  once in **System Settings → Privacy & Security → Open Anyway**. The download page
+  explains that one-time step. The installer clears quarantine for people who prefer it.
 - **All six Apple secrets present** — CI imports the certificate, enables the hardened
   runtime, signs with the Developer ID identity, and Tauri notarizes and staples the app.
-  Tauri only does this when the credentials below are complete.
+  A notarized build opens normally. Tauri only does this when the credentials below are
+  complete.
 
 Add these under repo → Settings → Secrets and variables → Actions:
 

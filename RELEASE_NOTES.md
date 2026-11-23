@@ -8,5 +8,7 @@ Lantas 1.0.3
 - **Desmos works end to end.** "Open Desmos and graph y=2x+4" now selects the expression row, types the equation, verifies it through `Calc.getExpressions()`, and reports the confirmed expression.
 - **See the browser working from chat.** A mini browser window sits above the composer while the agent is driving a page, with the live URL and the verified step trail. **Open browser** moves the same page into the Browser tab.
 - **Editor settings in the open.** Font size, font family, tab size, word wrap and minimap are now exposed in Settings → Appearance, alongside the existing IDE controls.
+- **A side panel that feels part of the app.** The Chrome extension has a new Lantas header, live page card, calmer prompt cards, a proper empty state and a warmer composer. It still reads and acts only in the tab you are on.
+- **The drag-to-Applications window stays.** The DMG still opens on the cream Lantas window with the app beside the Applications folder, so installing is one drag.
 
-This release is Developer ID signed and notarized, so macOS opens it normally after download. Right-click → Open is no longer needed.
+This build is ad-hoc signed. macOS asks you to approve Lantas once: open **System Settings → Privacy & Security**, click **Open Anyway**, and authenticate. After that it opens normally. The installer clears the flag for you if you prefer not to click through.

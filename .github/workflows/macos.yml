@@ -46,6 +46,15 @@ jobs:
           echo "TAURI_SIGNING_PRIVATE_KEY=$KEY" >> "$GITHUB_ENV"
           echo "signing key: ${#KEY} characters, no whitespace"
 
+      # Fail in seconds rather than after a full build when the stored key is
+      # stale, password-protected, or belongs to a different keypair.
+      - name: Check the signing key works
+        if: env.TAURI_SIGNING_PRIVATE_KEY != ''
+        run: |
+          printf 'lantas signing check\n' > "$RUNNER_TEMP/probe.txt"
+          npx tauri signer sign --app-version 0 "$RUNNER_TEMP/probe.txt" > /dev/null
+          echo "signing key works"
+
       - name: Check the tag matches the app version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |

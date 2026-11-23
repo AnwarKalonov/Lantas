@@ -26,7 +26,13 @@ function projectName(cwd: string) {
   return last.charAt(0).toUpperCase() + last.slice(1);
 }
 
-export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function Sidebar({
+  onOpenSettings,
+  historyCollapsed = false,
+}: {
+  onOpenSettings: () => void;
+  historyCollapsed?: boolean;
+}) {
   const {
     state,
     createSession,
@@ -34,6 +40,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
     deleteSession,
     renameSession,
     setView,
+    setMode,
     notify,
     toggleSidebar,
   } = useStore();
@@ -96,14 +103,14 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   };
 
   return (
-    <aside className="sidebar shell-nav">
+    <aside className={cx("sidebar shell-nav", historyCollapsed && "is-collapsed")}>
       <div className="rail">
         <button
           type="button"
-          className="rail-button rail-collapse"
+          className={cx("rail-button rail-collapse", historyCollapsed && "is-flipped")}
           onClick={toggleSidebar}
-          aria-label="Collapse sidebar"
-          title="Collapse sidebar (⌘B)"
+          aria-label={historyCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={historyCollapsed ? "Expand sidebar (⌘B)" : "Collapse history (⌘B)"}
         >
           <Icon name="panelLeft" size={16} />
         </button>
@@ -124,7 +131,10 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
               key={item.id}
               type="button"
               className={cx("rail-button", state.view === item.id && "is-active")}
-              onClick={() => setView(item.id)}
+              onClick={() => {
+                setMode("chat");
+                setView(item.id);
+              }}
               title={item.label}
               aria-label={item.label}
             >
@@ -138,7 +148,10 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         <button
           type="button"
           className="rail-button"
-          onClick={() => setView("skills")}
+          onClick={() => {
+            setMode("chat");
+            setView("skills");
+          }}
           title="Skills"
           aria-label="Skills"
         >
@@ -155,7 +168,11 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         </button>
       </div>
 
-      <div className="nav-panel">
+      <div
+        className={cx("nav-panel", historyCollapsed && "is-collapsed")}
+        inert={historyCollapsed ? true : undefined}
+        aria-hidden={historyCollapsed}
+      >
         <div className="nav-panel-head">
           <Wordmark cell={3} className="nav-wordmark" />
           <h1 className="nav-welcome">

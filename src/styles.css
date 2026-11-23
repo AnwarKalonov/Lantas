@@ -5430,3 +5430,46 @@ html[data-runtime="tauri"] .titlebar {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── collapsing history: rail stays, chat recenters ───────────────────── */
+
+.sidebar.shell-nav {
+  transition:
+    flex-basis 300ms cubic-bezier(0.22, 0.8, 0.24, 1),
+    width 300ms cubic-bezier(0.22, 0.8, 0.24, 1);
+  overflow: hidden;
+}
+
+.sidebar.shell-nav.is-collapsed {
+  flex-basis: 58px;
+  width: 58px;
+}
+
+.nav-panel {
+  transition:
+    opacity 200ms ease,
+    transform 300ms cubic-bezier(0.22, 0.8, 0.24, 1);
+}
+
+.sidebar.shell-nav.is-collapsed .nav-panel {
+  opacity: 0;
+  transform: translateX(-18px);
+  pointer-events: none;
+}
+
+.rail-collapse .icon,
+.rail-collapse svg {
+  transition: transform 260ms cubic-bezier(0.22, 0.8, 0.24, 1);
+}
+
+.rail-collapse.is-flipped svg {
+  transform: scaleX(-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar.shell-nav,
+  .nav-panel,
+  .rail-collapse svg {
+    transition: none;
+  }
+}

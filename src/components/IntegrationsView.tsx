@@ -1,6 +1,7 @@
 import { useStore } from "../lib/store";
 import { Icon } from "./Icons";
 import { McpManager } from "./McpManager";
+import { ComposioPanel } from "./ComposioPanel";
 import { GitHubPanel } from "./GitHubPanel";
 import { GooglePanel } from "./GooglePanel";
 
@@ -24,6 +25,7 @@ export function IntegrationsView() {
       </header>
 
       <div className="page-body">
+        <ComposioPanel />
         <GitHubPanel />
         <GooglePanel />
 

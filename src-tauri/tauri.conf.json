@@ -22,9 +22,13 @@
         "resizable": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "trafficLightPosition": { "x": 18, "y": 22 },
+        "trafficLightPosition": {
+          "x": 18,
+          "y": 22
+        },
         "theme": "Dark",
-        "backgroundColor": "#0a0b0a"
+        "backgroundColor": "#00000000",
+        "transparent": true
       }
     ],
     "security": {

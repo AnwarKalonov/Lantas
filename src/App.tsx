@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { runAgent, type Emit } from "./lib/agent";
 import { runAppAction } from "./lib/appActions";
+import { fetchInbox } from "./lib/composio";
+import { getElContext } from "./lib/el";
+import { consumeGoogleHash } from "./lib/google";
+import { inTauri, setNativeGlass } from "./lib/native";
 import { buildHistory, buildSystemPrompt, parseImage } from "./lib/chat";
 import { isConfigured, streamChat } from "./lib/providers";
 import { useStore } from "./lib/store";
@@ -307,6 +311,35 @@ export function App() {
     ],
   );
 
+  useEffect(() => {
+    if (inTauri()) document.documentElement.classList.add("tauri");
+    void setNativeGlass(state.settings.theme === "glass");
+  }, [state.settings.theme]);
+
+  useEffect(() => {
+    if (consumeGoogleHash()) notify("Gmail connected");
+    const onPrompt = (event: Event) => {
+      const detail = (event as CustomEvent<{ text?: string }>).detail;
+      if (!detail?.text) return;
+      setMode("chat");
+      setView("chats");
+      void handleSendRef.current(detail.text);
+    };
+    const onGmail = () => {
+      setMode("chat");
+      setView("integrations");
+      notify("Connect Gmail or Composio in Integrations");
+    };
+    window.addEventListener("lantas:prompt", onPrompt);
+    window.addEventListener("lantas:gmail", onGmail);
+    return () => {
+      window.removeEventListener("lantas:prompt", onPrompt);
+      window.removeEventListener("lantas:gmail", onGmail);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSendRef = useRef<(text: string) => Promise<void>>(async () => {});
   const handleSend = useCallback(
     async (raw: string, attachments: Attachment[] = []) => {
       let text = raw.trim();
@@ -500,9 +533,36 @@ export function App() {
             .filter((file) => file.kind === "text")
             .map((file) => `<file name="${file.name}">\n${file.body.slice(0, 24_000)}\n</file>`)
             .join("\n\n");
+          const page = getElContext();
+          const wantsPage =
+            Boolean(page) &&
+            (state.mode === "browser" ||
+              /this page|the page|article|website|site|el\b/i.test(text));
+          const pageText =
+            wantsPage && page
+              ? `<el_page url="${page.url}" title="${page.title}">\n${page.text.slice(0, 12_000)}\n</el_page>`
+              : "";
+          let inboxText = "";
+          if (/inbox|unread|email|e-mail|gmail/i.test(text)) {
+            try {
+              const items = await fetchInbox(6);
+              if (items.length) {
+                inboxText = `<gmail_unread>\n${items
+                  .map(
+                    (item, index) =>
+                      `${index + 1}. ${item.subject} — ${item.from}\n${item.snippet}`,
+                  )
+                  .join("\n")}\n</gmail_unread>`;
+              }
+            } catch {
+              /* Composio not configured — carry on */
+            }
+          }
           const userTurn = {
             role: "user" as const,
-            content: [text, fileText].filter(Boolean).join("\n\n") || "(attachment)",
+            content:
+              [text, fileText, pageText, inboxText].filter(Boolean).join("\n\n") ||
+              "(attachment)",
             ...(images.length ? { images } : {}),
           };
           const history = snapshot ? [...buildHistory(snapshot), userTurn] : [userTurn];
@@ -682,6 +742,10 @@ export function App() {
     ],
   );
 
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+  }, [handleSend]);
+
   const handleStop = useCallback(() => {
     if (!activeSession) return;
     runs.current[activeSession.id]?.abort();
@@ -742,7 +806,7 @@ export function App() {
   };
 
   const title = useMemo(() => {
-    if (state.mode === "browser") return "Browser";
+    if (state.mode === "browser") return "El · Browser";
     if (state.mode === "code") return "Code";
     if (state.view === "skills") return "Skills";
     if (state.view === "integrations") return "Integrations";
@@ -760,7 +824,7 @@ export function App() {
       />
 
       <div className="workspace">
-        {state.sidebarOpen && <Sidebar onOpenSettings={() => openSettings("general")} />}
+        <Sidebar onOpenSettings={() => openSettings("general")} historyCollapsed={!state.sidebarOpen} />
 
         <main className="main">
           {state.mode === "browser" ? (

@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { LantasProvider } from "./lib/store";
 import "./styles.css";
+import "./styles-el.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

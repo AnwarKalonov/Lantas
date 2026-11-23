@@ -122,7 +122,7 @@ export function runAppAction(input: string, api: AppActionApi): AppAction | null
     api.setView("integrations");
     return {
       message:
-        "Gmail runs on your own Google OAuth client — I opened Integrations → Google. Paste a Web application client ID (redirect URI is shown there), connect, and the unread inbox appears in the card. There is no broker server in between, so no shared secret is stored.",
+        "I opened Integrations → Composio, which is how Freebuff-style connections work: one project key, hosted OAuth for Gmail, Slack, Notion and the rest. Paste the key, connect Gmail, then just say “summarize my inbox”. The Google card below it still works without Composio if you prefer your own OAuth client.",
     };
   }
 

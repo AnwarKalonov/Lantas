@@ -3219,7 +3219,7 @@ html.reduce-motion *::after {
 }
 
 /* ==========================================================================
-   Shell, threads and chat — Freebuff-style
+   Shell, threads and chat
    ========================================================================== */
 
 :root,
@@ -4746,8 +4746,8 @@ html[data-runtime="tauri"] .titlebar {
   border: 1px solid var(--line-strong);
   border-radius: 4px;
   font-size: 9.5px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--text-3);
   vertical-align: 1px;
 }

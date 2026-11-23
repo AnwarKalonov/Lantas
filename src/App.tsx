@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { runAgent, type Emit } from "./lib/agent";
 import { runAppAction } from "./lib/appActions";
 import { aiDriving } from "./lib/el";
-import { fetchInbox } from "./lib/composio";
+import { fetchInbox, getComposio, listConnections } from "./lib/composio";
 import { getElContext } from "./lib/el";
-import { consumeGoogleHash } from "./lib/google";
+import { consumeGoogleHash, getGoogleToken, listMail } from "./lib/google";
 import { elClick, elEval, elType, inTauri } from "./lib/native";
 import { buildHistory, buildSystemPrompt, parseImage } from "./lib/chat";
 import { isConfigured, streamChat } from "./lib/providers";
@@ -73,6 +73,11 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{
+    message: string;
+    apply: () => void;
+    sessionId: string;
+  } | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const runs = useRef<Record<string, AbortController>>({});
   const screenRef = useRef<HTMLVideoElement | null>(null);
@@ -457,10 +462,16 @@ export function App() {
         addMessage(sessionId, {
           id: uid("msg"),
           role: "assistant",
-          parts: [{ id: uid("part"), kind: "note", text: action.message }],
+          parts: [
+            {
+              id: uid("part"),
+              kind: "note",
+              text: `I can ${action.message.charAt(0).toLowerCase()}${action.message.slice(1)} Nothing changes until you approve it.`,
+            },
+          ],
           created: Date.now(),
         });
-        notify(action.message);
+        setPendingAction({ message: action.message, apply: action.apply, sessionId });
         return;
       }
 
@@ -567,26 +578,65 @@ export function App() {
             wantsPage && page
               ? `<el_page url="${page.url}" title="${page.title}">\n${page.text.slice(0, 12_000)}\n</el_page>`
               : "";
+          const asksAboutAccess =
+            /access|connect|integrat|composio|gmail|slack|notion|inbox|email|e-mail|mail/i.test(
+              text,
+            );
+          let connectionsText = "";
+          if (asksAboutAccess) {
+            const lines = [
+              `gmail: ${getGoogleToken() ? "connected, read-only inbox access" : "not connected"}`,
+            ];
+            const composio = getComposio();
+            lines.push(`composio_key: ${composio ? "saved on this Mac" : "not saved"}`);
+            if (composio) {
+              try {
+                const accounts = await listConnections();
+                const active = accounts
+                  .filter((item) => item.status === "ACTIVE")
+                  .map((item) => item.toolkit);
+                lines.push(`composio_accounts: ${active.join(", ") || "none"}`);
+              } catch {
+                lines.push("composio_accounts: could not be listed just now");
+              }
+            }
+            connectionsText = `<connections>\n${lines.join("\n")}\n</connections>`;
+          }
+
           let inboxText = "";
-          if (/inbox|unread|email|e-mail|gmail/i.test(text)) {
+          if (/inbox|unread|email|e-mail|gmail|mail/i.test(text)) {
             try {
-              const items = await fetchInbox(6);
-              if (items.length) {
-                inboxText = `<gmail_unread>\n${items
-                  .map(
-                    (item, index) =>
-                      `${index + 1}. ${item.subject} — ${item.from}\n${item.snippet}`,
-                  )
-                  .join("\n")}\n</gmail_unread>`;
+              if (getGoogleToken()) {
+                const items = await listMail(6);
+                if (items.length) {
+                  inboxText = `<gmail_unread>\n${items
+                    .map(
+                      (item, index) =>
+                        `${index + 1}. ${item.subject} — ${item.from}\n${item.snippet}`,
+                    )
+                    .join("\n")}\n</gmail_unread>`;
+                }
+              } else {
+                const items = await fetchInbox(6);
+                if (items.length) {
+                  inboxText = `<gmail_unread>\n${items
+                    .map(
+                      (item, index) =>
+                        `${index + 1}. ${item.subject} — ${item.from}\n${item.snippet}`,
+                    )
+                    .join("\n")}\n</gmail_unread>`;
+                }
               }
             } catch {
-              /* Composio not configured — carry on */
+              /* not connected, or Composio is unavailable — the model still sees the status */
             }
           }
           const userTurn = {
             role: "user" as const,
             content:
-              [text, fileText, pageText, inboxText].filter(Boolean).join("\n\n") ||
+              [text, fileText, pageText, connectionsText, inboxText]
+                .filter(Boolean)
+                .join("\n\n") ||
               "(attachment)",
             ...(images.length ? { images } : {}),
           };
@@ -940,6 +990,58 @@ export function App() {
                   <span>{item.label}</span>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingAction && (
+        <div className="overlay" onMouseDown={() => setPendingAction(null)}>
+          <div
+            className="confirm-card"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Confirm change"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <p className="confirm-kicker">Needs your approval</p>
+            <h2>{pendingAction.message}</h2>
+            <p className="confirm-copy">Nothing changes until you allow it.</p>
+            <div className="confirm-actions">
+              <button
+                type="button"
+                className="button-quiet"
+                onClick={() => {
+                  const target = pendingAction.sessionId;
+                  addMessage(target, {
+                    id: uid("msg"),
+                    role: "assistant",
+                    parts: [{ id: uid("part"), kind: "note", text: "Cancelled — nothing changed." }],
+                    created: Date.now(),
+                  });
+                  setPendingAction(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="button-primary"
+                onClick={() => {
+                  const target = pendingAction.sessionId;
+                  pendingAction.apply();
+                  addMessage(target, {
+                    id: uid("msg"),
+                    role: "assistant",
+                    parts: [{ id: uid("part"), kind: "note", text: "Done." }],
+                    created: Date.now(),
+                  });
+                  notify(pendingAction.message);
+                  setPendingAction(null);
+                }}
+              >
+                Allow
+              </button>
             </div>
           </div>
         </div>

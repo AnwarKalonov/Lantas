@@ -1,3 +1,4 @@
+import { inTauri } from "../lib/native";
 import { useEffect, useState } from "react";
 import {
   clearGoogleToken,
@@ -118,6 +119,12 @@ export function GooglePanel() {
             Add <code>{window.location.origin}{window.location.pathname}</code> as an authorised
             redirect URI, and enable the Gmail API.
           </p>
+          {inTauri() && (
+            <p className="page-note">
+              In the desktop app, use the Composio Gmail card instead. Google sign-in needs a
+              hosted redirect, which the packaged app does not have.
+            </p>
+          )}
         </div>
       )}
 

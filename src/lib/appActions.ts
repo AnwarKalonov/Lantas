@@ -20,6 +20,7 @@ export interface AppActionApi {
 
 export interface AppAction {
   message: string;
+  apply: () => void;
 }
 
 const THEMES: ThemeMode[] = ["dark", "light", "system"];
@@ -37,8 +38,7 @@ export function runAppAction(input: string, api: AppActionApi): AppAction | null
       new RegExp(`\\b${name}\\b[^.]*\\b(theme|mode)\\b`).test(text),
   );
   if (theme && /(set|change|switch|make|use|turn|go|apply|put)/.test(text)) {
-    api.setTheme(theme);
-    return { message: `Theme set to ${theme}.` };
+    return { message: `Switch the theme to ${theme}.`, apply: () => api.setTheme(theme) };
   }
 
   const flagMatch =
@@ -65,15 +65,19 @@ export function runAppAction(input: string, api: AppActionApi): AppAction | null
             : label === "screen access"
               ? "screenAccess"
               : "computerControl";
-    api.setFlag(flag, on);
     const shown = flag === "reduceMotion" ? "Reduce motion" : label;
-    return { message: `${shown} ${on ? "on" : "off"}.` };
+    return {
+      message: `Turn ${shown.toLowerCase()} ${on ? "on" : "off"}.`,
+      apply: () => api.setFlag(flag, on),
+    };
   }
 
   const agent = /\b(plan|build|chat)\s+agent\b/.exec(text);
   if (agent && /(use|switch|set)/.test(text)) {
-    api.setDefaultAgent(agent[1] as AgentId);
-    return { message: `Default agent is now ${agent[1]}.` };
+    return {
+      message: `Use the ${agent[1]} agent by default.`,
+      apply: () => api.setDefaultAgent(agent[1] as AgentId),
+    };
   }
 
   const favorite = /(?:favorite|pin|star)\s+(?:the\s+)?(?:model\s+)?(.+)$/.exec(text);
@@ -83,8 +87,7 @@ export function runAppAction(input: string, api: AppActionApi): AppAction | null
       (model) => model.toLowerCase() === wanted || model.toLowerCase().includes(wanted),
     );
     if (hit) {
-      api.toggleFavorite(hit);
-      return { message: `Pinned ${hit}.` };
+      return { message: `Pin ${hit}.`, apply: () => api.toggleFavorite(hit) };
     }
   }
 
@@ -99,8 +102,10 @@ export function runAppAction(input: string, api: AppActionApi): AppAction | null
       all.find((entry) => entry.model.toLowerCase().includes(wanted)) ??
       all.find((entry) => entry.model.toLowerCase().replace(/[^a-z0-9]/g, "").includes(wanted.replace(/[^a-z0-9]/g, "")));
     if (hit) {
-      api.setModel(hit.provider, hit.model);
-      return { message: `Model set to ${hit.model}.` };
+      return {
+        message: `Switch the model to ${hit.model}.`,
+        apply: () => api.setModel(hit.provider, hit.model),
+      };
     }
   }
 
@@ -109,38 +114,22 @@ export function runAppAction(input: string, api: AppActionApi): AppAction | null
   );
   if (open) {
     const target = open[1];
-    if (target === "integrations") api.setView("integrations");
-    else if (target === "skills") api.setView("skills");
-    else if (target === "browser") api.setMode("browser");
-    else if (target === "code") api.setMode("code");
-    else if (target === "chat") api.setMode("chat");
-    else api.openSettings(target as never);
-    return { message: `Opened ${target}.` };
+    const go = () => {
+      if (target === "integrations") api.setView("integrations");
+      else if (target === "skills") api.setView("skills");
+      else if (target === "browser") api.setMode("browser");
+      else if (target === "code") api.setMode("code");
+      else if (target === "chat") api.setMode("chat");
+      else api.openSettings(target as never);
+    };
+    return { message: `Open ${target}.`, apply: go };
   }
 
-  if (/\bgmail\b|\bgoogle (mail|workspace)\b|\bmy inbox\b/.test(text)) {
-    api.setView("integrations");
-    return {
-      message:
-        "I opened Integrations → Composio, which is how Freebuff-style connections work: one project key, hosted OAuth for Gmail, Slack, Notion and the rest. Paste the key, connect Gmail, then just say “summarize my inbox”. The Google card below it still works without Composio if you prefer your own OAuth client.",
-    };
-  }
 
-  if (/\b(slack|notion|linear|calendar|drive|jira)\b/.test(text) && /(connect|integrate|link)/.test(text)) {
-    api.setView("integrations");
-    return {
-      message:
-        "Integrations currently speak GitHub (token) and Google/Gmail (OAuth client). Open Integrations to connect either; MCP servers cover the rest.",
-    };
-  }
 
-  if (/\b(clone|pull|push)\b/.test(text) && /\b(repo|repository|github|code)\b/.test(text)) {
-    api.setView("integrations");
-    return {
-      message:
-        "Opened Integrations → GitHub. Connect a token to list and clone repos into the Code tab, or open a repo's file and commit straight back.",
-    };
-  }
+
+
+
 
   const browse = /(?:browse to|open|go to|navigate to)\s+((?:https?:\/\/)?[\w-]+(?:\.[\w-]+)+(?:\/\S*)?)$/.exec(
     text,
@@ -148,9 +137,13 @@ export function runAppAction(input: string, api: AppActionApi): AppAction | null
   if (browse) {
     const raw = browse[1];
     const url = /^https?:\/\//.test(raw) ? raw : `https://${raw}`;
-    api.setBrowserUrl(url);
-    api.setMode("browser");
-    return { message: `Opened ${url} in the browser tab.` };
+    return {
+      message: `Open ${url} in Lantas Browser.`,
+      apply: () => {
+        api.setBrowserUrl(url);
+        api.setMode("browser");
+      },
+    };
   }
 
   return null;

@@ -56,6 +56,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
   const [mail, setMail] = useState<MailItem[]>([]);
   const [reloadTick, setReloadTick] = useState(0);
   const [nativeReady, setNativeReady] = useState(false);
+  const [engineError, setEngineError] = useState("");
   const [clickTarget, setClickTarget] = useState("");
   const [controlsOpen, setControlsOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -100,7 +101,10 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
       const frame = requestAnimationFrame(() => {
         const rect = box();
         if (!rect) return;
-        void elOpen(active.url, rect).then((ok) => setNativeReady(ok));
+        void elOpen(active.url, rect).then((ok) => {
+          setNativeReady(ok);
+          setEngineError(ok ? "" : "The native browser engine did not start on this build.");
+        });
       });
       return () => cancelAnimationFrame(frame);
     }
@@ -676,7 +680,6 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
           <div className="el-home">
             <div className="el-home-inner">
               <div className="el-greeting">
-                <span className="el-mark">Lantas Browser</span>
                 <h1>Search the web, or let the agent drive it</h1>
                 <p>
                   Pages open in Lantas Browser's own engine, so the model can read them, click
@@ -799,27 +802,55 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
             <div className="el-reader-body">{page.text}</div>
           </div>
         ) : (
-          <div className="el-viewport" ref={viewportRef}>
+          <div className={cx("el-viewport", !native && "is-preview")} ref={viewportRef}>
             {native ? (
-              <div className={cx("el-engine", nativeReady && "is-ready")}>
+              <div className={cx("el-engine", nativeReady && !engineError && "is-ready")}>
                 <span className="el-engine-mark">Lantas Browser</span>
-                <span className="el-muted">
-                  {nativeReady ? "Native page" : "Starting the browser engine…"}
-                </span>
+                {engineError ? (
+                  <>
+                    <span className="el-muted">{engineError}</span>
+                    <button
+                      type="button"
+                      className="button-quiet"
+                      onClick={() => openExternal(active.url)}
+                    >
+                      Open in Safari
+                    </button>
+                  </>
+                ) : (
+                  <span className="el-muted">
+                    {nativeReady ? "Native page" : "Starting the browser engine…"}
+                  </span>
+                )}
               </div>
             ) : (
-              <iframe
-                key={`${active.id}-${reloadTick}`}
-                className="el-frame"
-                src={active.url}
-                title={active.title}
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals"
-              />
-            )}
-            {!native && (
-              <div className="el-viewport-note">
-                Web preview: embedded frame. The desktop app runs a native browser engine, so
-                Google and frame-blocking sites load and the model can click.
+              <div className="el-preview-block">
+                <span className="el-preview-icon">
+                  <AppLogo
+                    slug={hostOf(active.url).replace(/^www\./, "").split(".")[0]}
+                    name={hostOf(active.url)}
+                    size={22}
+                    domain={hostOf(active.url)}
+                  />
+                </span>
+                <h2>{hostOf(active.url)}</h2>
+                <p>
+                  Sites like Notion and Google refuse to load inside a web frame. The desktop build
+                  opens them in Lantas Browser's own engine, where the agent can read and drive
+                  them.
+                </p>
+                <div className="el-actions">
+                  <button
+                    type="button"
+                    className="button-primary"
+                    onClick={() => openExternal(active.url)}
+                  >
+                    Open in Safari
+                  </button>
+                  <button type="button" className="button-quiet" onClick={reload}>
+                    Retry
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -829,9 +860,14 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
         {aiOpen && (
           <aside className="el-ai" aria-label="Lantas AI">
             <header className="el-ai-head">
-              <div>
-                <span className="el-ai-title">Lantas AI</span>
-                <small>{aiModel}</small>
+              <div className="el-ai-id">
+                <span className="el-ai-glyph">
+                  <Icon name="sparkle" size={12} />
+                </span>
+                <div>
+                  <span className="el-ai-title">Lantas AI</span>
+                  <small>{aiModel}</small>
+                </div>
               </div>
               <button
                 type="button"
@@ -892,11 +928,14 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
             <div className="el-ai-foot">
               <button
                 type="button"
-                className={cx("el-ai-control", driving && "is-agent")}
+                className={cx("el-switch", driving && "is-on")}
+                role="switch"
+                aria-checked={driving}
                 onClick={toggleControl}
-                title="Switch between the agent and your own hands"
               >
-                <span className="el-dot" />
+                <span className="el-switch-track">
+                  <span className="el-switch-thumb" />
+                </span>
                 {driving ? "Agent can drive" : "You have control"}
               </button>
               <span className="el-ai-hint">“open …”, “click …”, “type …”, “scroll down”</span>
@@ -919,20 +958,22 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
           className="el-foot-toggle"
           onClick={() => setControlsOpen((open) => !open)}
         >
-          {controlsOpen ? "Hide controls" : "Click controls"}
+          {controlsOpen ? "Hide page tools" : "Page tools"}
         </button>
         <span className="el-foot-spacer" />
         <button
           type="button"
-          className={cx("el-foot-agent", driving && "is-on")}
+          className={cx("el-switch is-compact", driving && "is-on")}
+          role="switch"
+          aria-checked={driving}
           onClick={toggleControl}
         >
-          <span className="el-dot" />
+          <span className="el-switch-track">
+            <span className="el-switch-thumb" />
+          </span>
           {driving ? "Agent can drive" : "You have control"}
         </button>
-        <button type="button" className="text-button" onClick={() => ask()} disabled={!page}>
-          Ask about this page
-        </button>
+
       </div>
 
       {controlsOpen && (

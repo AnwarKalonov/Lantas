@@ -121,8 +121,8 @@
 
         <div class="wbody">
           <div class="plot" data-trace="flat">
-            <div class="flag"><i></i>steady at 1.2 s an action</div>
-            <svg role="img" aria-label="Time per action across a task, falling to about 1.2 seconds and staying flat"></svg>
+            <div class="flag"><i></i>page read in 1.2 s</div>
+            <svg role="img" aria-label="Time for Lantas to read the page and answer, steady at about 1.2 seconds across one task"></svg>
             <div class="axis"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>14</span></div>
             <button class="replay">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4M3 4v5h5"/></svg>
@@ -150,7 +150,7 @@
     <div class="film-stage" data-film-stage>
       <header class="film-head">
         <p class="eyebrow"><span class="dot"></span>One run, start to finish</p>
-        <h2>It clicked the wrong button. Then it didn’t.</h2>
+        <h2>It opens on the home page. Then it goes to work.</h2>
       </header>
 
       <div class="film-scene">
@@ -162,7 +162,7 @@
               <div class="menubar">
                 <span class="mb-mark"><svg viewBox="0 0 24 16" fill="none" aria-hidden="true"><path d="M6 15h11a4.6 4.6 0 0 0 .6-9 6.4 6.4 0 0 0-12.2-1.7A4.7 4.7 0 0 0 6 15Z" fill="currentColor"/></svg></span>
                 <span class="mb-app">Lantas</span>
-                <span>Terminal</span><span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span>
+                <span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span>
                 <span class="grow"></span>
                 <span class="mb-ico" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2.5 9.5a15 15 0 0 1 19 0M5.5 13a10 10 0 0 1 13 0M8.7 16.4a5 5 0 0 1 6.6 0"/><circle cx="12" cy="19.4" r="1.1" fill="currentColor" stroke="none"/></svg>
@@ -173,35 +173,36 @@
                 <span class="clock">Tue 10:42</span>
               </div>
 
-              <!-- terminal window -->
-              <div class="win" data-win>
+              <!-- lantas, home page -->
+              <div class="win home" data-win>
                 <div class="win-bar">
                   <span class="tlights"><i class="r"></i><i class="y"></i><i class="g"></i></span>
-                  <span class="win-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l4 4-4 4M13 16h6"/></svg>lantas — -zsh — 80x24</span>
+                  <span class="win-title"><svg viewBox="0 0 24 16" fill="none" aria-hidden="true"><path d="M6 15h11a4.6 4.6 0 0 0 .6-9 6.4 6.4 0 0 0-12.2-1.7A4.7 4.7 0 0 0 6 15Z" fill="currentColor"/></svg>Lantas — Home</span>
                   <span class="win-pad"></span>
                 </div>
 
-                <div class="win-body">
-                  <div class="t-run">
-                    <p class="tline" style="--at:.03"><span class="pmt">anwar@MacBook-Pro</span> <span class="tilde">~</span> <span class="pct">%</span><span class="caret"></span></p>
-                    <p class="tline" style="--at:.10"><span class="pmt">anwar@MacBook-Pro</span> <span class="tilde">~</span> <span class="pct">%</span> open -a Lantas</p>
-                    <p class="tline dim" style="--at:.14">Lantas 1.0 · ready · Apple silicon</p>
-                    <p class="tline" style="--at:.17">Chrome connected · 3 tabs</p>
-                    <p class="tline" style="--at:.21">reading “Checkout — Mixtape” · 42 controls</p>
-                    <p class="tline bad" style="--at:.25">click “#place-order” → selector not found</p>
-                    <p class="tline bad" style="--at:.31">click “button:nth-child(3)” → wrong button: “Apply coupon”</p>
-                    <p class="tline bad" style="--at:.35">^C  stopped after 3 wrong clicks</p>
+                <div class="win-body home-body">
+                  <div class="home-top">
+                    <span class="home-mark"><svg viewBox="0 0 24 16" fill="none" aria-hidden="true"><path d="M6 15h11a4.6 4.6 0 0 0 .6-9 6.4 6.4 0 0 0-12.2-1.7A4.7 4.7 0 0 0 6 15Z" fill="currentColor"/></svg></span>
+                    <span class="home-url">lantas://home</span>
+                    <span class="home-engine"><i></i>Chrome · 3 tabs</span>
                   </div>
 
-                  <div class="t-fix">
-                    <p class="tline" style="--at:.42"><span class="pmt">anwar@MacBook-Pro</span> <span class="tilde">~</span> <span class="pct">%</span> open -a Lantas</p>
-                    <p class="tline ok" style="--at:.45">Lantas · Chrome connected</p>
-                    <p class="tline dim" style="--at:.48">reading “Checkout — Mixtape” · 42 controls</p>
-                    <p class="tline" style="--at:.51">button “Place order” matched 0.97 by its label</p>
-                    <p class="tline" style="--at:.54">filled “Card number” · 16 digits</p>
-                    <p class="tline ok" style="--at:.57">clicked “Place order” · page confirmed</p>
-                    <p class="tline" style="--at:.60">order #A-10428 · 38 s</p>
-                    <p class="tline ok" style="--at:.63">the agent had the page, not a screenshot</p>
+                  <p class="home-hi">Search the web, or let the agent drive it</p>
+
+                  <div class="home-ask"><span class="hc">⌕</span><span>Search Google or enter an address</span><span class="home-caret"></span><kbd class="home-kbd">↵</kbd></div>
+
+                  <div class="home-tiles">
+                    <span class="ht"><i>M</i>Mixtape</span>
+                    <span class="ht"><i>B</i>Bank</span>
+                    <span class="ht"><i>S</i>Stripe</span>
+                    <span class="ht"><i>G</i>GitHub</span>
+                  </div>
+
+                  <p class="home-recent-head">Recent</p>
+                  <div class="home-recent">
+                    <span class="hr"><i>C</i>Checkout — Mixtape<small>mixtape.co</small></span>
+                    <span class="hr"><i>I</i>Invoices<small>dashboard.stripe.com</small></span>
                   </div>
                 </div>
               </div>
@@ -221,22 +222,22 @@
         </div>
 
         <aside class="film-card">
-          <p class="fc-k"><i></i>lantas · live</p>
-          <p class="fc-t">Found the button by what it says.</p>
+          <p class="fc-k"><i></i>lantas · home</p>
+          <p class="fc-t">Search the web, or let the agent drive it.</p>
           <div class="fc-diff">
-            <div class="fc-line del">− page.click("#place-order")</div>
-            <div class="fc-line add">+ page.click("text=Place order")</div>
+            <div class="fc-line add">+ ask · “cancel the gym membership”</div>
+            <div class="fc-line add">+ chrome · 3 tabs · 42 controls</div>
           </div>
-          <p class="fc-meta">checkout · 1 action · verified</p>
+          <p class="fc-meta">home · recent · bookmarks · chrome</p>
         </aside>
       </div>
 
       <ol class="film-rail">
         <li data-at="0.02"><i></i>Open</li>
-        <li data-at="0.34"><i></i>Chrome</li>
-        <li data-at="0.46"><i></i>Wrong click</li>
-        <li data-at="0.56"><i></i>Re-read</li>
-        <li data-at="0.68"><i></i>Fixed</li>
+        <li data-at="0.18"><i></i>Home</li>
+        <li data-at="0.38"><i></i>Chrome</li>
+        <li data-at="0.56"><i></i>Read</li>
+        <li data-at="0.72"><i></i>Clicked</li>
       </ol>
     </div>
   </div>
@@ -291,26 +292,26 @@
           The page is the only thing that knows what is clickable right now. A model that cannot read it is guessing from your description.
         </p>
 
-        <p class="defn">For a control with label <span class="mono">ℓ<sub>i</sub></span> and your words <span class="mono">w<sub>i</sub></span>, the gap is the part your words did not say.</p>
+        <p class="defn">Every control has a label. Every request has words. The match is how much of one the other explains.</p>
 
         <div class="mathcard" style="margin-top:24px">
           <span class="math">
-            <i>g</i><sub>i</sub><span class="op">=</span><i>ℓ</i><sub>i</sub><span class="op">−</span><i>w</i><sub>i</sub>
+            <i>match</i><span class="op">=</span><i>sim</i><span class="op">(</span><i>label</i><span class="op">,</span> <i>request</i><span class="op">)</span>
           </span>
-          <span class="mathlabel">The gap: the part your words did not say.</span>
+          <span class="mathlabel">Above 0.90 it clicks. Below, it asks which one you meant.</span>
         </div>
 
         <p style="margin-top:22px;color:var(--ink-2);font-size:16.5px;line-height:28px;max-width:56ch">
-          Most labels are obvious. Some are the whole problem; the figure draws fourteen, and its points can be clicked.
+          Most labels are obvious. A few are the whole problem. The figure scores fourteen controls from one checkout, and every point can be clicked.
         </p>
       </div>
 
       <figure data-reveal style="--d:80ms">
         <div class="resid" data-resid>
-          <svg role="img" aria-label="Fourteen controls and the gap between their labels and a guess from the prompt"></svg>
+          <svg role="img" aria-label="Fourteen controls from one checkout, each scored against the same request"></svg>
           <div class="readout-line"></div>
         </div>
-        <figcaption class="cap"><b>Fourteen controls and the gap.</b> Green segments are g<sub>i</sub>; hover a point to read it.</figcaption>
+        <figcaption class="cap"><b>Fourteen controls, one request.</b> The dot is what the agent reached for, the tick is the control's own label, the green segment is how far apart they were. Hover a point to read the score.</figcaption>
       </figure>
     </div>
 
@@ -319,12 +320,12 @@
 
       <div class="grid-copy" style="margin-top:26px">
         <div class="prose" data-reveal>
-          <p>At 03:07 the layout was fine. Then it was not. A deploy shipped a new button id, an A/B test moved the form, and every selector from last week's run is now a guess. By the time you look, the agent has spent an hour clicking the wrong thing politely.</p>
+          <p>The layout was fine when you left it. Then a deploy shipped a new button id, an A/B test moved the form, and every selector from last week's run is now a guess. By the time you look, an agent has spent an hour clicking the wrong thing politely.</p>
           <p>Lantas re-reads the page after every action, and matches a control by its label before it ever falls back to a selector.</p>
 
           <div class="mathcard" style="margin-top:24px">
             <span class="math"><i>#buy</i><span class="op">→</span><i>#buy-v2</i></span>
-            <span class="mathlabel">The same button, a new id, shipped at 03:07.</span>
+            <span class="mathlabel">The same button, a new id, shipped this morning.</span>
           </div>
         </div>
 
@@ -345,13 +346,13 @@
       </div>
 
       <div style="margin-top:56px;max-width:760px">
-        <p class="meta" style="margin-bottom:6px">Overheard at 03:07, in order</p>
+        <p class="meta" style="margin-bottom:6px">One session, in order</p>
         <div class="log">
-          <div class="log-item" data-reveal><span class="t">03:07</span><span class="n">01</span><span>it’s the selector.</span></div>
-          <div class="log-item" data-reveal style="--d:60ms"><span class="t">03:09</span><span class="n">02</span><span><s>it’s the selector.</s> it’s not the selector.</span></div>
-          <div class="log-item" data-reveal style="--d:120ms"><span class="t">03:11</span><span class="n">03</span><span>why did the button move 40 px.</span></div>
-          <div class="log-item" data-reveal style="--d:180ms"><span class="t">03:12</span><span class="n">04</span><span>who renamed <b>#buy</b> to <b>#buy-v2</b>.</span></div>
-          <div class="log-item" data-reveal style="--d:240ms"><span class="t">03:19</span><span class="n">05</span><span>it was the selector.</span></div>
+          <div class="log-item" data-reveal><span class="t">09:41</span><span class="n">01</span><span>find the march invoice.</span></div>
+          <div class="log-item" data-reveal style="--d:60ms"><span class="t">09:41</span><span class="n">02</span><span>42 controls. two of them say <b>download</b>.</span></div>
+          <div class="log-item" data-reveal style="--d:120ms"><span class="t">09:42</span><span class="n">03</span><span>clicked the first. no file appeared.</span></div>
+          <div class="log-item" data-reveal style="--d:180ms"><span class="t">09:42</span><span class="n">04</span><span><s>wrong button.</s> the other one says <b>Download PDF</b>.</span></div>
+          <div class="log-item" data-reveal style="--d:240ms"><span class="t">09:43</span><span class="n">05</span><span>clicked it. file saved.</span></div>
         </div>
       </div>
     </div>
@@ -542,7 +543,7 @@
     <div class="band" data-reveal>
       <div class="stats plain">
         <div class="stat">
-          <p class="label">Time to fix, mean</p>
+          <p class="label">Time to finish, mean</p>
           <p class="fig"><span data-count="1.8" data-dec="1">1.8</span><span class="unit">min</span></p>
           <p class="sub"><b>1.8 min</b> Lantas · 3.3 Claude Code · 3.6 Antigravity</p>
         </div>
@@ -552,7 +553,7 @@
           <p class="sub"><b>$0.12</b> Lantas · $0.31 Claude Code · $0.27 Antigravity</p>
         </div>
         <div class="stat">
-          <p class="label">Cases fixed</p>
+          <p class="label">Tasks finished</p>
           <p class="fig"><span data-count="11">11</span><span class="unit">of 11</span></p>
           <p class="sub"><b>11 of 11</b> Lantas · 9 Claude Code · 8 Antigravity</p>
         </div>
@@ -654,7 +655,7 @@
       <p class="dek" data-reveal style="--d:120ms">Not a replacement: general agents are broader, and IDE agents are good inside the editor. Lantas is narrower on purpose: the tab you are looking at.</p>
     </header>
 
-    <p class="prose" data-reveal style="margin-bottom:26px;max-width:62ch;color:var(--ink-2)">General agents can use a browser when you hand them one, and IDE agents own the editor. Lantas owns the gap between the two: the page you are on, read and driven, with the app and the extension on your own machine.</p>
+    <p class="prose" data-reveal style="margin-bottom:26px;max-width:62ch;color:var(--ink-2)">General agents can use a browser when you hand them one, and IDE agents own the editor. Lantas owns the space between the two: the page you are on, read and driven, with the app and the extension on your own machine.</p>
 
     <div data-matrix data-reveal>
       <div class="matrix-wrap">

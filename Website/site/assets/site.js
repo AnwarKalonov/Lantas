@@ -420,7 +420,7 @@ function initBars() {
   });
 }
 
-/* ---------- residual figure ---------- */
+/* ---------- label match figure ---------- */
 
 function initResidual() {
   const host = $("[data-resid]");
@@ -493,7 +493,7 @@ function initResidual() {
       "data-i": i,
       tabindex: "0",
       role: "button",
-      "aria-label": `control ${i + 1}, gap ${p.e.toFixed(2)}`,
+      "aria-label": `control ${i + 1}, match ${(0.96 - Math.abs(p.e)).toFixed(2)}`,
     });
     group.append(seg, tick, dot);
     const on = () => {
@@ -501,9 +501,9 @@ function initResidual() {
       seg.setAttribute("opacity", "1");
       dot.classList.add("on");
       if (out)
-        out.innerHTML = `control <b>${i + 1}</b> · asked “${WANT[i]}” · page says “${SAYS[i]}” · gap <b>${
-          p.e >= 0 ? "+" : "−"
-        }${Math.abs(p.e).toFixed(2)}</b>`;
+        out.innerHTML = `control <b>${i + 1}</b> · asked “${WANT[i]}” · page says “${SAYS[i]}” · match <b>${(
+          0.96 - Math.abs(p.e)
+        ).toFixed(2)}</b>`;
     };
     dot.addEventListener("mouseenter", on);
     dot.addEventListener("focus", on);
@@ -522,7 +522,7 @@ function initResidual() {
   svg.append(axis);
 
   if (out)
-    out.innerHTML = `hover a control · green is the gap`;
+    out.innerHTML = `hover a control · green is the match`;
 
   const paths = $$("path", svg);
   paths.forEach((path) => {
@@ -990,7 +990,6 @@ function initFilm() {
   const apply = (p) => {
     stage.style.setProperty("--t", p.toFixed(4));
     stage.style.setProperty("--open", smooth(p, 0.015, 0.10).toFixed(3));
-    stage.style.setProperty("--crash", (smooth(p, 0.33, 0.37) * (1 - smooth(p, 0.4, 0.43))).toFixed(3));
     stage.style.setProperty("--done", smooth(p, 0.7, 0.8).toFixed(3));
     rail.forEach((li) => li.classList.toggle("on", p >= parseFloat(li.dataset.at)));
   };

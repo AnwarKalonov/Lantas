@@ -2,9 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { runAgent, type Emit } from "./lib/agent";
 import { runAppAction } from "./lib/appActions";
 import { aiDriving } from "./lib/el";
-import { fetchInbox, getComposio, listConnections } from "./lib/composio";
+import { getComposio, listConnections } from "./lib/composio";
+import { runToolLoop } from "./lib/agentRuntime";
+import { defaultRules, describeAction } from "./lib/permissions";
+import type { ToolCall, ToolContext } from "./lib/tools";
 import { getElContext } from "./lib/el";
-import { consumeGoogleHash, getGoogleToken, listMail } from "./lib/google";
+import { consumeGoogleHash, getGoogleToken } from "./lib/google";
 import { inTauri } from "./lib/native";
 import { agentClick, agentEnter, agentScroll, agentType } from "./lib/browserAgent";
 import { buildHistory, buildSystemPrompt, parseImage } from "./lib/chat";
@@ -13,12 +16,21 @@ import { chromeChatReply, chromeChatStatus, chromeStatus } from "./lib/chrome";
 import { runBrowserAction, takeAction } from "./lib/chromeChat";
 import { useStore } from "./lib/store";
 import { acquireScreen, captureFrame, currentScreen, releaseScreen } from "./lib/screen";
-import { openWorkspaceFolder } from "./lib/workspace";
+import { openWorkspaceFolder, writeWorkspaceFile } from "./lib/workspace";
 import type { ChromeEvent } from "./lib/chrome";
-import type { AgentId, Attachment, Message, Mode, Part, ProviderId, Session } from "./lib/types";
+import type {
+  AgentId,
+  Attachment,
+  Message,
+  Mode,
+  Part,
+  ProviderId,
+  Session,
+  WorkspaceFile,
+} from "./lib/types";
 import { cx, titleFrom, uid } from "./lib/util";
 import { BrowserView } from "./components/BrowserView";
-import { CodeView } from "./components/CodeView";
+import { IdeView } from "./components/IdeView";
 import { CommandPalette } from "./components/CommandPalette";
 import { ContextPanel } from "./components/ContextPanel";
 import { Home } from "./components/Home";
@@ -65,6 +77,7 @@ export function App() {
     setBrowserUrl,
     setView,
     setWorkspace,
+    patchWorkspaceFile,
     undo,
     redo,
     toggleSidebar,
@@ -82,6 +95,12 @@ export function App() {
     apply: () => void;
     sessionId: string;
   } | null>(null);
+  const [approval, setApproval] = useState<{
+    call: ToolCall;
+    resource: string;
+    label: string;
+  } | null>(null);
+  const approvalResolve = useRef<((allowed: boolean) => void) | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const runs = useRef<Record<string, AbortController>>({});
   const screenRef = useRef<HTMLVideoElement | null>(null);
@@ -137,7 +156,12 @@ export function App() {
     const seen = new Set<string>();
     const history = new Map<string, Turn[]>();
 
-    const answer = async (chatId: string, prompt: string, page: ChromeEvent["page"] | null) => {
+    const answer = async (
+      chatId: string,
+      prompt: string,
+      page: ChromeEvent["page"] | null,
+      elements: ChromeEvent["elements"] | null,
+    ) => {
       const settings = settingsRef.current;
       const provider = settings.defaultProvider;
       const config = settings.providers[provider];
@@ -153,18 +177,25 @@ export function App() {
       const pageBlock = page
         ? `<page url="${page.url}" title="${page.title}">\n${page.text.slice(0, 12000)}\n</page>`
         : "";
+      const controlsBlock = elements?.length
+        ? `<controls>\n${elements
+            .slice(0, 120)
+            .map((el) => `${el.i}. [${el.kind}] ${el.label}`)
+            .join("\n")}\n</controls>`
+        : "";
       const system = [
         "You answer inside the Chrome side panel, next to the tab the user is reading.",
         "Use short, specific sentences. No headings, no emoji, no markdown.",
-        "You can act in the open tab: click, type, press Enter, scroll, open a URL, go back, forward or reload.",
+        "You can act in the open tab: click, type, press a key, select an option, scroll, open a URL, go back, forward or reload.",
         'When the user asks you to act, write one short sentence and then exactly one tag on its own line: <action>{"action":"click","target":"Sign in"}</action>',
-        "Actions: click (target), type (text, optional selector, optional submit), enter, scroll (dy), open (url), back, forward, reload.",
-        "Never claim an action unless it ran; the result is reported to the user.",
+        "Prefer the control number from <controls> when it is present: {\"action\":\"click\",\"ref\":12}. Otherwise use the visible label.",
+        "Actions: click (ref or target), type (text, optional selector, optional submit), press (key), select (ref/target, value), enter, scroll (dy), open (url, optional newTab), snapshot, extract, back, forward, reload.",
+        "Take a snapshot when the controls list is missing or stale. Never claim an action unless it ran; the result is reported to the user.",
       ].join(" ");
 
       const userTurn: Turn = {
         role: "user",
-        content: pageBlock ? `${prompt}\n\n${pageBlock}` : prompt,
+        content: [prompt, pageBlock, controlsBlock].filter(Boolean).join("\n\n"),
       };
       const turns = [...(history.get(chatId) ?? []).slice(-8), userTurn];
 
@@ -209,7 +240,7 @@ export function App() {
       for (const event of status.events) {
         if (event.type !== "chat" || !event.id || seen.has(event.id)) continue;
         seen.add(event.id);
-        void answer(event.id, event.text ?? "", event.page ?? null);
+        void answer(event.id, event.text ?? "", event.page ?? null, event.elements ?? null);
       }
     };
 
@@ -245,12 +276,28 @@ export function App() {
     try {
       const next = await openWorkspaceFolder();
       if (!next) return;
-      setWorkspace(next.name, next.files);
+      setWorkspace(next.name, next.files, next.root);
       notify(`${next.files.length} files from ${next.name}`);
     } catch (error) {
       notify(error instanceof Error ? error.message : "Could not open that folder", "error");
     }
   }, [notify, setWorkspace]);
+
+  /** Resolves a pending tool approval, allowing the loop to continue. */
+  const settleApproval = useCallback((allowed: boolean) => {
+    approvalResolve.current?.(allowed);
+    approvalResolve.current = null;
+    setApproval(null);
+  }, []);
+
+  const requestApproval = useCallback(
+    (call: ToolCall, resource: string) =>
+      new Promise<boolean>((resolve) => {
+        approvalResolve.current = resolve;
+        setApproval({ call, resource, label: describeAction(call.name, resource) });
+      }),
+    [],
+  );
 
   const exportSession = useCallback(
     (session: Session | null) => {
@@ -740,40 +787,13 @@ export function App() {
             connectionsText = `<connections>\n${lines.join("\n")}\n</connections>`;
           }
 
-          let inboxText = "";
-          if (/inbox|unread|email|e-mail|gmail|mail/i.test(text)) {
-            try {
-              if (getGoogleToken()) {
-                const items = await listMail(6);
-                if (items.length) {
-                  inboxText = `<gmail_unread>\n${items
-                    .map(
-                      (item, index) =>
-                        `${index + 1}. ${item.subject} — ${item.from}\n${item.snippet}`,
-                    )
-                    .join("\n")}\n</gmail_unread>`;
-                }
-              } else {
-                const items = await fetchInbox(6);
-                if (items.length) {
-                  inboxText = `<gmail_unread>\n${items
-                    .map(
-                      (item, index) =>
-                        `${index + 1}. ${item.subject} — ${item.from}\n${item.snippet}`,
-                    )
-                    .join("\n")}\n</gmail_unread>`;
-                }
-              }
-            } catch {
-              /* not connected, or Composio is unavailable — the model still sees the status */
-            }
-          }
+          // Mail is read on demand through the integrations tool, with
+          // pagination. Dumping a truncated inbox here made the assistant
+          // believe the mailbox only held six messages.
           const userTurn = {
             role: "user" as const,
             content:
-              [text, fileText, pageText, connectionsText, inboxText]
-                .filter(Boolean)
-                .join("\n\n") ||
+              [text, fileText, pageText, connectionsText].filter(Boolean).join("\n\n") ||
               "(attachment)",
             ...(images.length ? { images } : {}),
           };
@@ -786,33 +806,116 @@ export function App() {
                 state.skills,
               );
 
-          await streamChat({
+          const toolFiles: WorkspaceFile[] = [...state.workspace];
+          const toolCtx: ToolContext = {
+            files: toolFiles,
+            root: state.workspaceRoot,
+            agent,
+            skills: state.skills,
+            saveFile: async (path, content) => {
+              const index = toolFiles.findIndex((file) => file.path === path);
+              const entry: WorkspaceFile = {
+                id: index >= 0 ? toolFiles[index].id : path,
+                name: path.split("/").pop() ?? path,
+                path,
+                size: content.length,
+                text: content,
+                added: Date.now(),
+              };
+              if (index >= 0) toolFiles[index] = entry;
+              else toolFiles.push(entry);
+              patchWorkspaceFile(path, content);
+              try {
+                return await writeWorkspaceFile(state.workspaceRoot, path, content);
+              } catch {
+                return false;
+              }
+            },
+          };
+
+          const toolKind = (name: string): "read" | "grep" | "edit" | "web" | "plan" => {
+            if (name === "read") return "read";
+            if (name === "grep" || name === "glob") return "grep";
+            if (name === "edit" || name === "write") return "edit";
+            if (name === "browser" || name === "integrations") return "web";
+            return "plan";
+          };
+
+          const appendText = (chunk: string) => {
+            if (!textPartId) {
+              const id = uid("part");
+              textPartId = id;
+              patch((message) => ({
+                ...message,
+                parts: [...message.parts, { id, kind: "text", text: chunk }],
+              }));
+            } else {
+              const id = textPartId;
+              patch((message) => ({
+                ...message,
+                parts: message.parts.map((part) =>
+                  part.id === id && part.kind === "text"
+                    ? { ...part, text: part.text + chunk }
+                    : part,
+                ),
+              }));
+            }
+          };
+
+          await runToolLoop({
             provider,
             config: providerConfig,
             model,
             system,
             messages: history,
+            ctx: toolCtx,
+            rules: defaultRules(state.settings.permissionMode, agent === "build"),
             signal: controller.signal,
-            onDelta: (chunk) => {
-              if (!textPartId) {
-                const id = uid("part");
-                textPartId = id;
-                patch((message) => ({
-                  ...message,
-                  parts: [...message.parts, { id, kind: "text", text: chunk }],
-                }));
-              } else {
-                const id = textPartId;
-                patch((message) => ({
-                  ...message,
-                  parts: message.parts.map((part) =>
-                    part.id === id && part.kind === "text"
-                      ? { ...part, text: part.text + chunk }
-                      : part,
-                  ),
-                }));
-              }
-            },
+            approve: (call, resource) => requestApproval(call, resource),
+            onText: appendText,
+            onToolStart: (id, call, label) =>
+              patch((message) => ({
+                ...message,
+                parts: [
+                  ...message.parts,
+                  {
+                    id,
+                    kind: "tool",
+                    tool: toolKind(call.name),
+                    label,
+                    state: "run",
+                  },
+                ],
+              })),
+            onToolDone: (id, outcome, stateOfTool) =>
+              patch((message) => ({
+                ...message,
+                parts: message.parts.flatMap((part): Part[] => {
+                  if (part.id !== id || part.kind !== "tool") return [part];
+                  const next: Part = {
+                    ...part,
+                    detail: outcome.summary,
+                    state: stateOfTool,
+                  };
+                  if (!outcome.diff) return [next];
+                  return [
+                    next,
+                    {
+                      id: uid("part"),
+                      kind: "diff",
+                      path: outcome.diff.path,
+                      added: outcome.diff.added,
+                      removed: outcome.diff.removed,
+                      lines: outcome.diff.lines,
+                    },
+                  ];
+                }),
+              })),
+            onNote: (note) =>
+              patch((message) => ({
+                ...message,
+                parts: [...message.parts, { id: uid("part"), kind: "note", text: note }],
+              })),
             onUsage: (usage) => {
               inputTokens = usage.input ?? inputTokens;
               outputTokens = usage.output ?? outputTokens;
@@ -948,8 +1051,13 @@ export function App() {
       state.settings.notifications,
       state.settings.providers,
       state.settings.screenAccess,
+      state.settings.permissionMode,
       state.commands,
       state.skills,
+      state.workspace,
+      state.workspaceRoot,
+      patchWorkspaceFile,
+      requestApproval,
       updateSession,
     ],
   );
@@ -1027,63 +1135,84 @@ export function App() {
 
   return (
     <div className="app">
-      <TitleBar
-        title={title}
-        mode={state.mode}
-        onModeChange={changeMode}
-        onOpenPalette={() => setPaletteOpen(true)}
-        onOpenSettings={() => openSettings("general")}
-      />
+      {state.mode === "code" ? (
+        <IdeView
+          onExit={() => changeMode("chat")}
+          onOpenFolder={() => void openFolder()}
+          onOpenSettings={() => openSettings("general")}
+          onOpenSkills={() => {
+            setMode("chat");
+            setView("skills");
+          }}
+          onAsk={(text) => void handleSend(text)}
+          session={activeSession}
+          streaming={streaming}
+        />
+      ) : (
+        <>
+          <TitleBar
+            title={title}
+            mode={state.mode}
+            onModeChange={changeMode}
+            onOpenPalette={() => setPaletteOpen(true)}
+            onOpenSettings={() => openSettings("general")}
+          />
 
-      <div className="workspace">
-        <Sidebar onOpenSettings={() => openSettings("general")} historyCollapsed={!state.sidebarOpen} />
+          <div className="workspace">
+            <Sidebar
+              onOpenSettings={() => openSettings("general")}
+              historyCollapsed={!state.sidebarOpen}
+            />
 
-        <main className="main">
-          <div
-            className={`browser-holder${state.mode === "browser" ? "" : " is-hidden"}`}
-            aria-hidden={state.mode !== "browser"}
-          >
-            <BrowserView visible={state.mode === "browser"} />
+            <main className="main">
+              <div
+                className={`browser-holder${state.mode === "browser" ? "" : " is-hidden"}`}
+                aria-hidden={state.mode !== "browser"}
+              >
+                <BrowserView visible={state.mode === "browser"} />
+              </div>
+
+              {state.mode === "chat" && (
+                <>
+                  {state.view === "skills" && <SkillsView />}
+                  {state.view === "integrations" && <IntegrationsView />}
+                  {state.view === "chats" &&
+                    (activeSession && activeSession.messages.length > 0 ? (
+                      <SessionView
+                        key={activeSession.id}
+                        session={activeSession}
+                        streaming={streaming}
+                        onSend={handleSend}
+                        onStop={handleStop}
+                        onAgentChange={(agent: AgentId) =>
+                          updateSession(activeSession.id, (session) => ({ ...session, agent }))
+                        }
+                        onModelChange={(provider, model) =>
+                          changeModel(activeSession.id, provider, model)
+                        }
+                        onOpenProviders={() => openSettings("providers")}
+                        onScreenToggle={handleScreenToggle}
+                      />
+                    ) : (
+                      <Home
+                        onSend={handleSend}
+                        onOpenSettings={() => openSettings("providers")}
+                        onScreenToggle={handleScreenToggle}
+                      />
+                    ))}
+                </>
+              )}
+            </main>
+
+            {state.panelOpen && (
+              <ContextPanel
+                session={activeSession}
+                onOpenSettings={() => openSettings("providers")}
+              />
+            )}
           </div>
-
-          {state.mode === "code" ? (
-            <CodeView onOpenFolder={openFolder} />
-          ) : state.mode === "chat" ? (
-            <>
-              {state.view === "skills" && <SkillsView />}
-              {state.view === "integrations" && <IntegrationsView />}
-              {state.view === "chats" &&
-                (activeSession && activeSession.messages.length > 0 ? (
-                  <SessionView
-                    key={activeSession.id}
-                    session={activeSession}
-                    streaming={streaming}
-                    onSend={handleSend}
-                    onStop={handleStop}
-                    onAgentChange={(agent: AgentId) =>
-                      updateSession(activeSession.id, (session) => ({ ...session, agent }))
-                    }
-                    onModelChange={(provider, model) =>
-                      changeModel(activeSession.id, provider, model)
-                    }
-                    onOpenProviders={() => openSettings("providers")}
-                    onScreenToggle={handleScreenToggle}
-                  />
-                ) : (
-                  <Home
-                    onSend={handleSend}
-                    onOpenSettings={() => openSettings("providers")}
-                    onScreenToggle={handleScreenToggle}
-                  />
-                ))}
-            </>
-          ) : null}
-        </main>
-
-        {state.panelOpen && (
-          <ContextPanel session={activeSession} onOpenSettings={() => openSettings("providers")} />
-        )}
-      </div>
+        </>
+      )}
 
       {screenStream && (
         <div className="screen-dock">
@@ -1178,6 +1307,32 @@ export function App() {
                 }}
               >
                 Allow
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {approval && (
+        <div className="overlay" onMouseDown={() => settleApproval(false)}>
+          <div
+            className="confirm-card tool-approval"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Tool approval"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <p className="confirm-kicker">Lantas wants to act</p>
+            <h2>{approval.label}</h2>
+            <pre className="tool-approval-args">
+              {JSON.stringify(approval.call.args, null, 2).slice(0, 1400)}
+            </pre>
+            <div className="confirm-actions">
+              <button type="button" className="button-quiet" onClick={() => settleApproval(false)}>
+                Decline
+              </button>
+              <button type="button" className="button-primary" onClick={() => settleApproval(true)}>
+                Allow once
               </button>
             </div>
           </div>

@@ -213,6 +213,19 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
     }
   };
 
+  // The assistant's browser tool navigates through this component so the URL,
+  // tab title and history stay in sync with the page it changed.
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+  useEffect(() => {
+    const onAgentNavigate = (event: Event) => {
+      const detail = (event as CustomEvent<{ url?: string }>).detail;
+      if (detail?.url) navigateRef.current(detail.url);
+    };
+    window.addEventListener("lantas:navigate", onAgentNavigate);
+    return () => window.removeEventListener("lantas:navigate", onAgentNavigate);
+  }, []);
+
   /** Text for the model, from the active Chrome tab or the embedded engine. */
   const pageFor = async (): Promise<ElPage> => {
     if (engine === "chrome") {

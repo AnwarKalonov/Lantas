@@ -185,6 +185,44 @@
 
   async function act(message) {
     const action = message.action;
+
+    if (action === "press") {
+      const key = String(message.key || "Enter");
+      const el = document.activeElement || document.body;
+      for (const type of ["keydown", "keypress", "keyup"]) {
+        el.dispatchEvent(
+          new KeyboardEvent(type, { key, code: key, bubbles: true, cancelable: true }),
+        );
+      }
+      if (key === "Enter" && el.form && typeof el.form.requestSubmit === "function") {
+        el.form.requestSubmit();
+      }
+      await sleep(350);
+      return {
+        ok: true,
+        detail: `Pressed ${key}`,
+        page: readPage(),
+        elements: readElements(),
+      };
+    }
+
+    if (action === "select") {
+      const el = findTarget(message);
+      if (!el) return { ok: false, error: "That control was not found on the page." };
+      const value = String(message.value ?? message.text ?? "");
+      el.focus();
+      setNativeValue(el, value);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      await sleep(250);
+      return {
+        ok: true,
+        detail: `Selected ${value}`,
+        page: readPage(),
+        elements: readElements(),
+      };
+    }
+
     if (action === "scroll") {
       const dy = Number(message.dy) || 600;
       window.scrollBy({ top: dy, behavior: "smooth" });

@@ -14,6 +14,10 @@ export interface BrowserAction {
   submit?: boolean;
   dy?: number;
   url?: string;
+  key?: string;
+  value?: string;
+  ref?: number;
+  newTab?: boolean;
 }
 
 /** Splits the reply from its action tag. */
@@ -38,10 +42,37 @@ export async function runBrowserAction(action: BrowserAction): Promise<string> {
       case "click": {
         const result = await chromeCommand("act", {
           action: "click",
-          text: action.selector ? undefined : action.target,
+          index: typeof action.ref === "number" ? action.ref : undefined,
+          text: action.selector || typeof action.ref === "number" ? undefined : action.target,
           selector: action.selector,
         });
         return result.detail || `Clicked ${action.target || "the page"}`;
+      }
+      case "press": {
+        const result = await chromeCommand("act", {
+          action: "press",
+          key: action.key || "Enter",
+        });
+        return result.detail || `Pressed ${action.key || "Enter"}`;
+      }
+      case "select": {
+        const result = await chromeCommand("act", {
+          action: "select",
+          selector: action.selector,
+          text: action.target,
+          value: action.value ?? action.text,
+        });
+        return result.detail || "Selected the option";
+      }
+      case "snapshot": {
+        const result = await chromeCommand("read");
+        return result.page
+          ? `Read ${result.page.title} — ${result.elements?.length ?? 0} controls`
+          : "No readable page.";
+      }
+      case "extract": {
+        const result = await chromeCommand("read");
+        return result.page?.text?.slice(0, 4000) || "No readable page.";
       }
       case "type": {
         const result = await chromeCommand("act", {
@@ -63,7 +94,7 @@ export async function runBrowserAction(action: BrowserAction): Promise<string> {
       }
       case "open": {
         if (!action.url) return "No address was given.";
-        const result = await openChromeUrl(action.url);
+        const result = await openChromeUrl(action.url, Boolean(action.newTab));
         return result.detail || `Opened ${action.url}`;
       }
       case "back":

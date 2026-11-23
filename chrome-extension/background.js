@@ -309,6 +309,8 @@ async function execute(message) {
           index: message.index,
           dy: message.dy,
           submit: message.submit,
+          key: message.key,
+          value: message.value,
         });
         if (!result?.ok) throw new Error(result?.error || "That action did not land.");
         if (result.page || result.elements) {
@@ -339,16 +341,18 @@ async function execute(message) {
         }
         const tab = await targetTab();
         let page = null;
+        let elements = [];
         if (tab && isWebTab(tab)) {
           try {
             const snapshot = await sendToTab(tab.id, { cmd: "inspect" });
             page = snapshot?.page || null;
+            elements = snapshot?.elements || [];
           } catch {
             page = null;
           }
         }
         const id = `chat_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-        send({ type: "chat", id, text: String(message.text || ""), page });
+        send({ type: "chat", id, text: String(message.text || ""), page, elements });
         return { ok: true, id };
       }
 

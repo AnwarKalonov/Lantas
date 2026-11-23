@@ -127,6 +127,14 @@ export interface CustomCommand {
   template: string;
 }
 
+export type SkillCategory =
+  | "engineering"
+  | "security"
+  | "product"
+  | "data"
+  | "writing"
+  | "design";
+
 export interface Skill {
   id: string;
   name: string;
@@ -134,6 +142,27 @@ export interface Skill {
   instructions: string;
   enabled: boolean;
   builtin?: boolean;
+  category?: SkillCategory;
+  tags?: string[];
+  source?: "builtin" | "custom" | "plugin";
+  pluginId?: string;
+}
+
+export interface PluginSkill {
+  name: string;
+  description: string;
+  instructions: string;
+}
+
+export interface Plugin {
+  id: string;
+  name: string;
+  publisher: string;
+  description: string;
+  category: SkillCategory;
+  version: string;
+  featured?: boolean;
+  skills: PluginSkill[];
 }
 
 export type McpTransport = "http" | "stdio";
@@ -175,6 +204,8 @@ export interface AppState {
   browserUrl: string;
   workspace: WorkspaceFile[];
   workspaceName: string;
+  /** Absolute folder path on the desktop build, so the IDE can write files back. */
+  workspaceRoot: string;
   settings: Settings;
   skills: Skill[];
   mcpServers: McpServer[];

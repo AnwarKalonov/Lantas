@@ -1,5 +1,6 @@
 import type { ChatTurn } from "./providers";
 import type { AgentId, Session, Skill } from "./types";
+import { TOOL_MANUAL } from "./tools";
 
 const AGENT_ROLE: Record<AgentId, string> = {
   build:
@@ -11,19 +12,28 @@ const AGENT_ROLE: Record<AgentId, string> = {
 
 export function buildSystemPrompt(session: Session, skills: Skill[]): string {
   const enabled = skills.filter((skill) => skill.enabled);
+  const dormant = skills.filter((skill) => !skill.enabled);
+
   const skillBlock = enabled.length
-    ? `\n\nSkills you follow when relevant:\n${enabled
-        .map((skill) => `- ${skill.name}: ${skill.instructions}`)
-        .join("\n")}`
+    ? `\n\nActive skills. Follow the relevant one; do not mention that you are following it.\n${enabled
+        .map((skill) => `## /${skill.name}\n${skill.instructions}`)
+        .join("\n\n")}`
+    : "";
+
+  const dormantBlock = dormant.length
+    ? `\n\nAvailable but disabled skills, load with the skill tool only if the user asks for one: ${dormant
+        .map((skill) => `/${skill.name} (${skill.description})`)
+        .join(", ")}.`
     : "";
 
   return [
     "You are Lantas, a coding agent working inside the user's workspace.",
     `Workspace: ${session.cwd}. Branch: ${session.branch}.`,
     AGENT_ROLE[session.agent],
-    "You can read Gmail when the user has connected Google, reach connected apps through Composio, and drive the open page — Lantas Browser, or the user's Chrome through the Lantas extension — with /click, /type, /scroll and /enter when the user asks. Only say an account is connected when the <connections> context says so. Never mention or compare other products.",
+    "Only state that an account, page or file is available when a tool result or the context below says so. If you did not check, say you did not check.",
     "Be concise and specific. Use sentence case. No emoji. Prefer short paragraphs, and use inline code for identifiers.",
-  ].join(" ") + skillBlock;
+    TOOL_MANUAL,
+  ].join("\n\n") + skillBlock + dormantBlock;
 }
 
 /** `data:image/jpeg;base64,…` -> provider-ready parts. */

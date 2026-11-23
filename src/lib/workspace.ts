@@ -8,6 +8,10 @@ import type { WorkspaceFile } from "./types";
  * user's permission, straight from this tab. Nothing is uploaded anywhere.
  */
 
+/** The picked folder, kept so the IDE can write a file back after an edit. */
+let rootHandle: any = null;
+let rootPath = "";
+
 const MAX_FILES = 600;
 const TEXT_LIMIT = 400_000;
 const SKIP = new Set([
@@ -50,8 +54,15 @@ function isTauri() {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
+export interface OpenedWorkspace {
+  name: string;
+  /** Absolute path in the desktop build; empty in a browser tab. */
+  root: string;
+  files: WorkspaceFile[];
+}
+
 /** Ask for a folder and return every text file inside it. */
-export async function openWorkspaceFolder(): Promise<{ name: string; files: WorkspaceFile[] } | null> {
+export async function openWorkspaceFolder(): Promise<OpenedWorkspace | null> {
   if (isTauri()) return openWithTauri();
   return openWithFileSystemAccess();
 }
@@ -67,10 +78,12 @@ async function openWithFileSystemAccess() {
   }
 
   const root = await picker({ mode: "readwrite" });
+  rootHandle = root;
+  rootPath = "";
   const files: WorkspaceFile[] = [];
   await walk(root, "", files);
   files.sort((a, b) => a.path.localeCompare(b.path));
-  return { name: root.name, files };
+  return { name: root.name, root: "", files };
 }
 
 async function walk(dir: any, prefix: string, out: WorkspaceFile[]) {
@@ -148,7 +161,61 @@ async function openWithTauri() {
 
   await readDir(dir, "");
   files.sort((a, b) => a.path.localeCompare(b.path));
-  return { name: dir.split("/").filter(Boolean).pop() ?? "Workspace", files };
+  rootPath = dir;
+  rootHandle = null;
+  return {
+    name: dir.split("/").filter(Boolean).pop() ?? "Workspace",
+    root: dir,
+    files,
+  };
+}
+
+/**
+ * Writes one text file back to the folder the user opened. Desktop uses the fs
+ * plugin against the absolute root; a browser tab walks the retained directory
+ * handle. Both require the user's original folder permission, and neither
+ * leaves the machine.
+ */
+export async function writeWorkspaceFile(
+  root: string,
+  path: string,
+  text: string,
+): Promise<boolean> {
+  if (root && isTauri()) {
+    const fs = await import("@tauri-apps/plugin-fs");
+    const target = path.split("/").filter(Boolean);
+    await fs.writeTextFile(`${root}/${target.join("/")}`, text);
+    return true;
+  }
+  if (!rootHandle) return false;
+  let dir = rootHandle;
+  const parts = path.split("/").filter(Boolean);
+  const fileName = parts.pop();
+  if (!fileName) return false;
+  for (const part of parts) dir = await dir.getDirectoryHandle(part);
+  const file = await dir.getFileHandle(fileName, { create: true });
+  const writable = await file.createWritable();
+  await writable.write(text);
+  await writable.close();
+  return true;
+}
+
+/** Whether the current session can write files back to disk. */
+export function canWriteWorkspace(root: string): boolean {
+  return Boolean(root) ? isTauri() : Boolean(rootHandle);
+}
+
+/**
+ * Reads a page from the open tab for the browser tool. The webview bridge
+ * returns text only; Chrome returns a full element snapshot separately.
+ */
+export function workspaceStats(files: WorkspaceFile[]) {
+  const text = files.filter((file) => !file.binary);
+  return {
+    files: files.length,
+    text: text.length,
+    bytes: files.reduce((total, file) => total + (file.size || file.text.length), 0),
+  };
 }
 
 /** Read user-dropped or picked files into workspace entries. */
@@ -156,10 +223,12 @@ export async function readLocalFiles(list: FileList | File[]): Promise<Workspace
   const files: WorkspaceFile[] = [];
   for (const file of Array.from(list)) {
     const kind = fileKind(file.name);
+    const relative = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
+    const path = relative && relative.length ? relative : file.name;
     files.push({
-      id: `drop_${file.name}_${file.lastModified}`,
+      id: `drop_${path}_${file.lastModified}`,
       name: file.name,
-      path: file.name,
+      path,
       size: file.size,
       added: 0,
       binary: kind !== "text",

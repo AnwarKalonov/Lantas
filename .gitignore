@@ -18,3 +18,4 @@ src-tauri/gen
 # local screenshots and one-off site scripts
 /artifacts/
 /.rebrand/
+/.tmp/

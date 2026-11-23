@@ -23,7 +23,7 @@ import type {
   ViewId,
   WorkspaceFile,
 } from "./types";
-import { DEFAULT_SETTINGS, PROVIDERS, seedState } from "./data";
+import { DEFAULT_SETTINGS, PROVIDERS, SKILL_SEEDS, seedState } from "./data";
 import { uid } from "./util";
 
 const STORAGE_KEY = "lantas.app.v2";
@@ -63,7 +63,8 @@ interface Store {
   setView: (view: ViewId) => void;
   setMode: (mode: Mode) => void;
   setBrowserUrl: (url: string) => void;
-  setWorkspace: (name: string, files: WorkspaceFile[]) => void;
+  setWorkspace: (name: string, files: WorkspaceFile[], root?: string) => void;
+  patchWorkspaceFile: (path: string, text: string) => void;
   clearWorkspace: () => void;
   undo: (sessionId: string) => void;
   redo: (sessionId: string) => void;
@@ -101,6 +102,22 @@ function normalizeSettings(raw: any): Settings {
   return merged;
 }
 
+/**
+ * Built-in skills ship with the app, so they are replaced on load while a
+ * user's enable/disable choice is preserved by name. Custom and plugin skills
+ * are never touched.
+ */
+function mergeBuiltins(stored: Skill[] | undefined, fallback: Skill[]): Skill[] {
+  if (!stored) return fallback;
+  const choice = new Map(stored.filter((skill) => skill.builtin).map((skill) => [skill.name, skill.enabled]));
+  const custom = stored.filter((skill) => !skill.builtin);
+  const builtins = SKILL_SEEDS.map((skill) => ({
+    ...skill,
+    enabled: choice.get(skill.name) ?? skill.enabled,
+  }));
+  return [...builtins, ...custom];
+}
+
 function loadState(): AppState {
   const fallback = seedState();
   try {
@@ -123,8 +140,9 @@ function loadState(): AppState {
         browserUrl: typeof parsed.browserUrl === "string" ? parsed.browserUrl : "https://example.com",
         workspace: [],
         workspaceName: parsed.workspaceName ?? "",
+        workspaceRoot: parsed.workspaceRoot ?? "",
         settings: normalizeSettings(parsed.settings),
-        skills: parsed.skills ?? fallback.skills,
+        skills: mergeBuiltins(parsed.skills, fallback.skills),
         mcpServers: parsed.mcpServers ?? fallback.mcpServers,
         commands: parsed.commands ?? [],
         sidebarOpen: parsed.sidebarOpen ?? true,
@@ -171,6 +189,7 @@ export function LantasProvider({ children }: { children: ReactNode }) {
             mode: state.mode,
             browserUrl: state.browserUrl,
             workspaceName: state.workspaceName,
+            workspaceRoot: state.workspaceRoot,
             settings: state.settings,
             skills: state.skills,
             mcpServers: state.mcpServers,
@@ -348,12 +367,41 @@ export function LantasProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, browserUrl }));
   }, []);
 
-  const setWorkspace = useCallback<Store["setWorkspace"]>((workspaceName, workspace) => {
-    setState((prev) => ({ ...prev, workspaceName, workspace }));
+  const setWorkspace = useCallback<Store["setWorkspace"]>((workspaceName, workspace, root) => {
+    setState((prev) => ({
+      ...prev,
+      workspaceName,
+      workspace,
+      workspaceRoot: root ?? prev.workspaceRoot,
+    }));
+  }, []);
+
+  const patchWorkspaceFile = useCallback<Store["patchWorkspaceFile"]>((path, text) => {
+    setState((prev) => {
+      const exists = prev.workspace.some((file) => file.path === path);
+      return {
+        ...prev,
+        workspace: exists
+          ? prev.workspace.map((file) =>
+              file.path === path ? { ...file, text, size: text.length } : file,
+            )
+          : [
+              ...prev.workspace,
+              {
+                id: path,
+                name: path.split("/").pop() ?? path,
+                path,
+                size: text.length,
+                text,
+                added: Date.now(),
+              },
+            ],
+      };
+    });
   }, []);
 
   const clearWorkspace = useCallback(() => {
-    setState((prev) => ({ ...prev, workspaceName: "", workspace: [] }));
+    setState((prev) => ({ ...prev, workspaceName: "", workspaceRoot: "", workspace: [] }));
   }, []);
 
   const undo = useCallback<Store["undo"]>((sessionId) => {
@@ -427,6 +475,7 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       setMode,
       setBrowserUrl,
       setWorkspace,
+      patchWorkspaceFile,
       clearWorkspace,
       undo,
       redo,
@@ -458,6 +507,7 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       setMode,
       setBrowserUrl,
       setWorkspace,
+      patchWorkspaceFile,
       clearWorkspace,
       undo,
       redo,

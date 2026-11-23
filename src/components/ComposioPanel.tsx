@@ -3,7 +3,7 @@ import {
   CATALOG,
   keyPresent,
   connectToolkit,
-  fetchInbox,
+  fetchInboxPage,
   listConnections,
   revokeConnection,
   setComposioKey,
@@ -36,6 +36,8 @@ export function ComposioPanel() {
   const [error, setError] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [inbox, setInbox] = useState<InboxItem[]>([]);
+  const [inboxCursor, setInboxCursor] = useState<string | null>(null);
+  const [inboxError, setInboxError] = useState("");
   const [hasKey, setHasKey] = useState(() => keyPresent());
   const [keyOpen, setKeyOpen] = useState(false);
   const [keyDraft, setKeyDraft] = useState("");
@@ -127,12 +129,23 @@ export function ComposioPanel() {
     }
   };
 
-  const readInbox = async () => {
+  const readInbox = async (more = false) => {
     setBusy("inbox");
+    setInboxError("");
     try {
-      setInbox(await fetchInbox(6));
+      const page = await fetchInboxPage({
+        limit: 25,
+        cursor: more ? inboxCursor : null,
+        query: "is:unread",
+      });
+      setInbox((current) => {
+        const base = more ? current : [];
+        const seen = new Set(base.map((item) => item.id));
+        return [...base, ...page.items.filter((item) => !seen.has(item.id))];
+      });
+      setInboxCursor(page.nextCursor);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setInboxError(caught instanceof Error ? caught.message : String(caught));
     } finally {
       setBusy(null);
     }
@@ -301,23 +314,34 @@ export function ComposioPanel() {
         <div className="market-inbox">
           <div className="section-head">
             <h3>Gmail</h3>
+            <span className="market-inbox-meta">
+              {inbox.length > 0
+                ? `${inbox.length} loaded${inboxCursor ? " · more available" : ""}`
+                : "Unread, 25 at a time"}
+            </span>
             <button
               type="button"
               className="button-quiet"
-              onClick={() => void readInbox()}
+              onClick={() => void readInbox(inbox.length > 0)}
               disabled={busy === "inbox"}
             >
-              {busy === "inbox" ? "Reading" : "Read unread"}
+              {busy === "inbox"
+                ? "Reading"
+                : inbox.length > 0 && inboxCursor
+                  ? "Load more"
+                  : "Read unread"}
             </button>
           </div>
-          {inbox.length === 0 ? (
+          {inboxError && <p className="status-line is-error">{inboxError}</p>}
+          {inbox.length === 0 && !inboxError ? (
             <p className="page-note">
-              Ask the chat <code>summarize my inbox</code> and it reads through this connection.
+              Ask the chat <code>summarize my inbox</code> and it reads through this connection with
+              pagination, not a fixed six-message sample.
             </p>
           ) : (
             <ul className="market-mail">
-              {inbox.map((item, index) => (
-                <li key={`${item.subject}-${index}`}>
+              {inbox.map((item) => (
+                <li key={item.id}>
                   <Icon name="message" size={12} />
                   <span>{item.subject}</span>
                   <small>{item.from}</small>

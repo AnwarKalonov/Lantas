@@ -307,14 +307,31 @@ fn handshake(stream: &mut TcpStream) -> Result<String, String> {
     }
 
     let text = String::from_utf8_lossy(&buffer);
+    let mut key = String::new();
+    let mut origin = String::new();
+
     for line in text.lines() {
         let lower = line.to_ascii_lowercase();
         if lower.starts_with("sec-websocket-key:") {
-            return Ok(line["sec-websocket-key:".len()..].trim().to_string());
+            key = line["sec-websocket-key:".len()..].trim().to_string();
+        } else if lower.starts_with("origin:") {
+            origin = line["origin:".len()..].trim().to_string();
         }
     }
 
-    Err("missing websocket key".into())
+    // Only the extension (or a non-browser client, which sends no Origin) may
+    // connect. A website in any tab is refused, so a page cannot pose as Lantas.
+    let web_page = !origin.is_empty() && origin != "null" && !origin.starts_with("chrome-extension://");
+    if web_page {
+        let _ = stream.write_all(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n");
+        return Err("origin not allowed".into());
+    }
+
+    if key.is_empty() {
+        return Err("missing websocket key".into());
+    }
+
+    Ok(key)
 }
 
 struct Frame {

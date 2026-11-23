@@ -155,6 +155,24 @@ export function readChromeTab() {
   return chromeCommand<ChromeEvent & { page: ChromePage; elements: ChromeElement[] }>("read");
 }
 
+/** Opens a URL in Chrome itself rather than whichever browser is default. */
+export async function openInChrome(url: string): Promise<boolean> {
+  if (inTauri()) {
+    try {
+      await call<void>("open_in_chrome", { url });
+      return true;
+    } catch {
+      /* fall through to a normal link */
+    }
+  }
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noreferrer";
+  link.click();
+  return true;
+}
+
 export async function chromeExtensionPath(): Promise<string> {
   try {
     return await call<string>("chrome_extension_dir");

@@ -9,11 +9,11 @@ import {
   elVisible,
   elWindow,
   inTauri,
-  openExternal,
 } from "../lib/native";
 import {
   browserEngine,
   openChromeUrl,
+  openInChrome,
   setBrowserEngine,
   useChromeBridge,
   type BrowserEngine,
@@ -506,7 +506,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
       }
       return;
     }
-    openExternal(active.url);
+    void openInChrome(active.url);
   };
 
   const bookmarked = data.bookmarks.some((item) => item.url === active.url);

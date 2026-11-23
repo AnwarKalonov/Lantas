@@ -218,6 +218,39 @@ fn el_window(app: tauri::AppHandle, url: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Opens a URL in Google Chrome itself, so no other default browser is used.
+#[tauri::command]
+fn open_in_chrome(url: String) -> Result<(), String> {
+    let parsed = parse_url(&url)?;
+    let target = parsed.as_str();
+
+    #[cfg(target_os = "macos")]
+    {
+        let direct = std::process::Command::new("open")
+            .args(["-a", "Google Chrome", target])
+            .status();
+        if let Ok(status) = direct {
+            if status.success() {
+                return Ok(());
+            }
+        }
+        std::process::Command::new("open")
+            .arg(target)
+            .status()
+            .map_err(|error| format!("Could not open {target} ({error})."))?;
+        return Ok(());
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(target)
+            .status()
+            .map_err(|error| format!("Could not open {target} ({error})."))?;
+        Ok(())
+    }
+}
+
 /// Snapshot of the Chrome bridge: connection, live tab, page, elements.
 #[tauri::command]
 fn chrome_bridge_state() -> String {
@@ -321,7 +354,8 @@ pub fn run() {
             chrome_bridge_state,
             chrome_bridge_send,
             chrome_extension_dir,
-            chrome_extension_reveal
+            chrome_extension_reveal,
+            open_in_chrome
         ])
         .run(tauri::generate_context!())
         .expect("error while running Lantas");

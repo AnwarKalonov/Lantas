@@ -48,6 +48,8 @@ export interface WorkspaceFile {
   text: string;
   added: number;
   binary?: boolean;
+  /** An empty folder in the explorer. Files are inferred from their paths. */
+  dir?: boolean;
 }
 
 export type ToolKind = "read" | "grep" | "edit" | "plan" | "web";

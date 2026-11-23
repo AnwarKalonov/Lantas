@@ -14,6 +14,7 @@ interface SessionViewProps {
   onModelChange: (provider: ProviderId, model: string) => void;
   onOpenProviders: () => void;
   onScreenToggle: () => void;
+  onOpenFile?: (path: string, line?: number) => void;
 }
 
 export function SessionView({
@@ -25,6 +26,7 @@ export function SessionView({
   onModelChange,
   onOpenProviders,
   onScreenToggle,
+  onOpenFile,
 }: SessionViewProps) {
   const { renameSession, deleteSession, notify } = useStore();
   const [editing, setEditing] = useState(false);
@@ -81,7 +83,6 @@ export function SessionView({
     <section className="session chat">
       <header className="session-head chat-head">
         <button type="button" className="chat-project" onClick={() => setEditing(true)}>
-          <Icon name="folder" size={14} />
           {editing ? (
             <input
               className="chat-title-input"
@@ -127,7 +128,7 @@ export function SessionView({
         </div>
       </header>
 
-      <Transcript session={session} scrollRef={scrollRef} />
+      <Transcript session={session} scrollRef={scrollRef} onOpenFile={onOpenFile} />
 
       <div className="composer-dock">
         <Composer

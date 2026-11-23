@@ -1,7 +1,7 @@
 {
   "name": "lantas",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.2",
   "type": "module",
   "description": "Lantas — a desktop coding agent with screen awareness and computer control.",
   "bin": {

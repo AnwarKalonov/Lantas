@@ -2,6 +2,7 @@ import { useStore } from "../lib/store";
 import type { Mode } from "../lib/types";
 import { cx } from "../lib/util";
 import { Icon } from "./Icons";
+import { MarkGlyph } from "./Brand";
 import { UpdatePill } from "./UpdatePill";
 
 interface TitleBarProps {
@@ -10,6 +11,7 @@ interface TitleBarProps {
   onModeChange: (mode: Mode) => void;
   onOpenPalette: () => void;
   onOpenSettings: () => void;
+  onOpenCli: () => void;
 }
 
 export function TitleBar({
@@ -18,13 +20,15 @@ export function TitleBar({
   onModeChange,
   onOpenPalette,
   onOpenSettings,
+  onOpenCli,
 }: TitleBarProps) {
   const { state, toggleSidebar, togglePanel, setSettings } = useStore();
   const nextTheme = state.settings.theme === "light" ? "dark" : "light";
 
   return (
-    <header className="titlebar" data-tauri-drag-region>
+    <header className={cx("titlebar", mode === "code" && "is-code")} data-tauri-drag-region>
       <div className="titlebar-left" data-tauri-drag-region>
+        <MarkGlyph size={14} className="titlebar-mark" />
         <span className="crumb-current">{title}</span>
         <UpdatePill />
       </div>
@@ -63,6 +67,15 @@ export function TitleBar({
         </button>
         <button
           className="icon-button"
+          onClick={onOpenCli}
+          title="Terminal and Lantas CLI"
+          aria-label="Terminal and Lantas CLI"
+          type="button"
+        >
+          <Icon name="terminal" size={15} />
+        </button>
+        <button
+          className="icon-button"
           onClick={() => setSettings({ theme: nextTheme })}
           title={`Switch to ${nextTheme} theme`}
           aria-label={`Switch to ${nextTheme} theme`}
@@ -70,24 +83,28 @@ export function TitleBar({
         >
           <Icon name={state.settings.theme === "light" ? "moon" : "sun"} size={15} />
         </button>
-        <button
-          className={`icon-button ${state.sidebarOpen ? "is-on" : ""}`}
-          onClick={toggleSidebar}
-          title="Toggle sidebar (⌘B)"
-          aria-label="Toggle sidebar"
-          type="button"
-        >
-          <Icon name="panelLeft" size={16} />
-        </button>
-        <button
-          className={`icon-button ${state.panelOpen ? "is-on" : ""}`}
-          onClick={togglePanel}
-          title="Toggle context panel (⌘⇧B)"
-          aria-label="Toggle context panel"
-          type="button"
-        >
-          <Icon name="panelRight" size={16} />
-        </button>
+        {mode !== "code" && (
+          <>
+            <button
+              className={`icon-button ${state.sidebarOpen ? "is-on" : ""}`}
+              onClick={toggleSidebar}
+              title="Toggle sidebar (⌘B)"
+              aria-label="Toggle sidebar"
+              type="button"
+            >
+              <Icon name="panelLeft" size={16} />
+            </button>
+            <button
+              className={`icon-button ${state.panelOpen ? "is-on" : ""}`}
+              onClick={togglePanel}
+              title="Toggle context panel (⌘⇧B)"
+              aria-label="Toggle context panel"
+              type="button"
+            >
+              <Icon name="panelRight" size={16} />
+            </button>
+          </>
+        )}
         <button
           className="icon-button"
           onClick={onOpenSettings}

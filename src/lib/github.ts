@@ -26,6 +26,7 @@ export interface Repo {
   description: string | null;
   updated_at: string;
   html_url: string;
+  clone_url: string;
 }
 
 export interface TreeEntry {
@@ -81,13 +82,15 @@ export async function listRepos(): Promise<Repo[]> {
     description: repo.description,
     updated_at: repo.updated_at,
     html_url: repo.html_url,
+    clone_url: repo.clone_url,
   }));
 }
 
 export async function createRepo(name: string, isPrivate: boolean, description = ""): Promise<Repo> {
   const repo = await gh<any>("/user/repos", {
     method: "POST",
-    body: JSON.stringify({ name, private: isPrivate, description, auto_init: true }),
+    // Empty on purpose: the first push from the open folder creates the branch.
+    body: JSON.stringify({ name, private: isPrivate, description, auto_init: false }),
   });
   return {
     full_name: repo.full_name,
@@ -98,6 +101,7 @@ export async function createRepo(name: string, isPrivate: boolean, description =
     description: repo.description,
     updated_at: repo.updated_at,
     html_url: repo.html_url,
+    clone_url: repo.clone_url,
   };
 }
 

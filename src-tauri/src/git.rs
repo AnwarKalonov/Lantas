@@ -1,9 +1,11 @@
 //! Local git, driven by the IDE.
 //!
 //! Every command runs the user's own `git` in the folder they opened. Credentials
-//! stay with git (macOS Keychain, `gh`, or a configured credential helper); this
-//! module never reads, stores or prints a token.
+//! stay with git (macOS Keychain, `gh`, or a configured credential helper). A
+//! connected GitHub token is accepted only for an HTTPS GitHub origin, passed
+//! through a one-command config header, and never written or logged.
 
+use base64::Engine;
 use serde::Serialize;
 use std::path::Path;
 use std::process::Command;
@@ -51,6 +53,34 @@ struct Output {
 }
 
 fn run(root: &str, args: &[&str]) -> Result<Output, String> {
+    run_with_header(root, args, None)
+}
+
+/// A GitHub token is used only for this process and only for an HTTPS GitHub
+/// origin. It is never written to the remote, config, or disk.
+fn github_header(root: &str, token: Option<String>) -> Option<String> {
+    let token = token?;
+    let token = token.trim();
+    if token.is_empty() {
+        return None;
+    }
+    let origin = run(root, &["remote", "get-url", "origin"]).ok()?;
+    if !origin.ok
+        || !origin.stdout.starts_with("https://")
+        || !origin.stdout.contains("github.com")
+    {
+        return None;
+    }
+    let encoded = base64::engine::general_purpose::STANDARD
+        .encode(format!("x-access-token:{token}"));
+    Some(format!("Authorization: Basic {encoded}"))
+}
+
+fn run_with_header(
+    root: &str,
+    args: &[&str],
+    authorization: Option<&str>,
+) -> Result<Output, String> {
     let dir = Path::new(root);
     if !dir.is_dir() {
         return Err("Open a folder before using source control.".into());
@@ -59,11 +89,20 @@ fn run(root: &str, args: &[&str]) -> Result<Output, String> {
         return Err("That folder path is not valid.".into());
     }
 
-    let output = Command::new("git")
+    let mut command = Command::new("git");
+    command
         .env("PATH", git_path())
         .env("GIT_TERMINAL_PROMPT", "0")
         .current_dir(dir)
-        .args(args)
+        .args(args);
+    if let Some(header) = authorization {
+        // GIT_CONFIG_* keeps the token out of argv and out of the repository.
+        command
+            .env("GIT_CONFIG_COUNT", "1")
+            .env("GIT_CONFIG_KEY_0", "http.extraHeader")
+            .env("GIT_CONFIG_VALUE_0", header);
+    }
+    let output = command
         .output()
         .map_err(|error| format!("git could not start: {error}"))?;
 
@@ -274,22 +313,27 @@ pub fn git_commit(root: String, message: String) -> Result<String, String> {
 
 /// Pushes the current branch. The first push creates the upstream automatically.
 #[tauri::command]
-pub fn git_push(root: String) -> Result<String, String> {
+pub fn git_push(root: String, token: Option<String>) -> Result<String, String> {
     let status = git_status(root.clone())?;
     let parsed: serde_json::Value =
         serde_json::from_str(&status).map_err(|error| error.to_string())?;
     if !parsed.get("repo").and_then(|value| value.as_bool()).unwrap_or(false) {
         return Err("This folder is not a git repository.".into());
     }
+    let header = github_header(&root, token);
     if parsed.get("upstream").and_then(|value| value.as_str()).unwrap_or("").is_empty() {
-        let out = run(&root, &["push", "-u", "origin", "HEAD"])?;
+        let out = run_with_header(
+            &root,
+            &["push", "-u", "origin", "HEAD"],
+            header.as_deref(),
+        )?;
         return if out.ok {
             Ok(out.stdout.lines().last().unwrap_or("Pushed").to_string())
         } else {
             Err(out.stderr)
         };
     }
-    let out = run(&root, &["push"])?;
+    let out = run_with_header(&root, &["push"], header.as_deref())?;
     if out.ok {
         Ok(out.stdout.lines().last().unwrap_or("Pushed").to_string())
     } else {
@@ -298,8 +342,9 @@ pub fn git_push(root: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn git_pull(root: String) -> Result<String, String> {
-    let out = run(&root, &["pull", "--ff-only"])?;
+pub fn git_pull(root: String, token: Option<String>) -> Result<String, String> {
+    let header = github_header(&root, token);
+    let out = run_with_header(&root, &["pull", "--ff-only"], header.as_deref())?;
     if out.ok {
         Ok(out.stdout)
     } else {

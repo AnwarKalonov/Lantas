@@ -50,6 +50,7 @@ import {
 import { cx, timeAgo, uid } from "../lib/util";
 import { AppLogo } from "./AppLogo";
 import { Icon } from "./Icons";
+import { Transcript } from "./Transcript";
 
 const SHORTCUTS = [
   { name: "GitHub", slug: "github", url: "https://github.com" },
@@ -62,7 +63,13 @@ const SHORTCUTS = [
   { name: "X", slug: "x", url: "https://x.com" },
 ];
 
-export function BrowserView({ visible = true }: { visible?: boolean }) {
+export function BrowserView({
+  visible = true,
+  onOpenFile,
+}: {
+  visible?: boolean;
+  onOpenFile?: (path: string, line?: number) => void;
+}) {
   const { state, setBrowserUrl, setSettings, updateSession, notify, togglePanel } = useStore();
   const [data, setData] = useState<ElData>(() => loadEl());
   const lastBrowserUrl = useRef(state.browserUrl);
@@ -85,6 +92,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
   const [driving, setDriving] = useState(() => aiDriving());
   const aiLogRef = useRef<HTMLDivElement>(null);
   const frameKey = useRef(0);
+  const openedUrl = useRef("");
   const viewportRef = useRef<HTMLDivElement>(null);
   const trail = useRef<string[]>([EL_HOME]);
   const trailIndex = useRef(0);
@@ -139,12 +147,20 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
       return;
     }
     if (!atHome) {
-      void elVisible(true);
+      // Reopening Settings should reveal the page that is already loaded, not
+      // navigate to it again and lose its state.
+      if (nativeReady && openedUrl.current === active.url) {
+        void elVisible(true);
+        const rect = box();
+        if (rect) void elBounds(rect);
+        return;
+      }
       const frame = requestAnimationFrame(() => {
         const rect = box();
         if (!rect) return;
         void elOpen(active.url, rect).then((ok) => {
           setNativeReady(ok);
+          if (ok) openedUrl.current = active.url;
           setEngineError(
             ok ? "" : elLastError() || "The native browser engine did not start on this build.",
           );
@@ -153,6 +169,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
       return () => cancelAnimationFrame(frame);
     }
     setNativeReady(false);
+    openedUrl.current = "";
     void elClose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [native, visible, active.url, atHome, data.active, engineTick, engine]);
@@ -623,7 +640,9 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
         </div>
 
         <div className="el-identity">
-          <span className="el-mini-wordmark">Lantas Browser</span>
+          <span className="el-mini-wordmark">
+            <MarkGlyph size={12} /> Lantas Browser
+          </span>
           <button
             type="button"
             className={cx("el-avatar", data.profile && "is-signed")}
@@ -1036,56 +1055,41 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
             </header>
 
             <div className="el-ai-log" ref={aiLogRef}>
-              {aiMessages.length === 0 ? (
-                <div className="el-ai-empty">
-                  <p className="el-ai-eyebrow">This page</p>
-                  <h2 className="el-ai-lead">Ask the page.</h2>
-                  <p className="el-ai-copy">
-                    Lantas reads what you are looking at. In Act mode it can click, type and
-                    navigate, one step at a time.
-                  </p>
-                  <div className="el-ai-prompts">
-                    <button type="button" onClick={() => ask()}>
-                      <span>Summarize this page</span>
-                      <span className="el-ai-arrow">→</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => ask("What are the main actions available on this page?")}
-                    >
-                      <span>Find what I can do here</span>
-                      <span className="el-ai-arrow">→</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => ask("Find the main action on this page and click it.")}
-                    >
-                      <span>Do the main action</span>
-                      <span className="el-ai-arrow">→</span>
-                    </button>
+              <Transcript
+                messages={aiMessages}
+                compact
+                onOpenFile={onOpenFile}
+                empty={
+                  <div className="el-ai-empty">
+                    <p className="el-ai-eyebrow">This page</p>
+                    <h2 className="el-ai-lead">Ask the page.</h2>
+                    <p className="el-ai-copy">
+                      Lantas reads what you are looking at. In Act mode it can click, type and
+                      navigate, one step at a time.
+                    </p>
+                    <div className="el-ai-prompts">
+                      <button type="button" onClick={() => ask()}>
+                        <span>Summarize this page</span>
+                        <span className="el-ai-arrow">→</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => ask("What are the main actions available on this page?")}
+                      >
+                        <span>Find what I can do here</span>
+                        <span className="el-ai-arrow">→</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => ask("Find the main action on this page and click it.")}
+                      >
+                        <span>Do the main action</span>
+                        <span className="el-ai-arrow">→</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                aiMessages.map((message) => (
-                  <div key={message.id} className={cx("el-ai-msg", message.role)}>
-                    <span className="el-ai-role">
-                      {message.role === "user" ? "You" : "Lantas"}
-                    </span>
-                    {message.parts.map((part) =>
-                      part.kind === "text" || part.kind === "note" ? (
-                        <p key={part.id}>{part.text}</p>
-                      ) : null,
-                    )}
-                    {message.streaming && (
-                      <span className="el-ai-typing">
-                        <i />
-                        <i />
-                        <i />
-                      </span>
-                    )}
-                  </div>
-                ))
-              )}
+                }
+              />
             </div>
 
             <form className="el-ai-form" onSubmit={submitAsk}>

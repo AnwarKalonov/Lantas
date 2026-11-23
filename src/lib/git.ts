@@ -1,8 +1,10 @@
 import { inTauri } from "./native";
+import { getGithubToken } from "./github";
 
 /**
- * Local git through Tauri. The app never handles credentials: git uses the
- * user's existing Keychain / `gh` / credential-helper setup.
+ * Local git through Tauri. Credentials stay with git's Keychain / `gh` /
+ * credential-helper setup; a connected GitHub token is forwarded only for the
+ * one HTTPS push or pull command.
  */
 
 async function call<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -66,9 +68,11 @@ export const gitUnstage = (root: string, paths: string[] = []) =>
 export const gitCommit = (root: string, message: string) =>
   call<string>("git_commit", { root, message });
 
-export const gitPush = (root: string) => call<string>("git_push", { root });
+export const gitPush = (root: string) =>
+  call<string>("git_push", { root, token: getGithubToken() || null });
 
-export const gitPull = (root: string) => call<string>("git_pull", { root });
+export const gitPull = (root: string) =>
+  call<string>("git_pull", { root, token: getGithubToken() || null });
 
 export const gitInit = (root: string) => call<string>("git_init", { root });
 

@@ -183,6 +183,23 @@ jobs:
             xcrun stapler validate "$APP"
           fi
 
+      # The Finder layout is part of the product. Fail the build when the dmg
+      # is a plain window instead of the branded drag-to-Applications surface.
+      - name: Verify the dmg Finder layout
+        run: |
+          DMG="$(ls src-tauri/target/release/bundle/dmg/*.dmg | head -1)"
+          MOUNT="$RUNNER_TEMP/lantas-dmg"
+          mkdir -p "$MOUNT"
+          hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT"
+          trap 'hdiutil detach "$MOUNT" -quiet || true' EXIT
+          test -f "$MOUNT/.background/background.png"
+          test -f "$MOUNT/.DS_Store"
+          test -f "$MOUNT/Lantas.app/Contents/MacOS/Lantas"
+          test -d "$MOUNT/Applications"
+          echo "dmg Finder layout verified: custom background, icon positions and Applications link"
+          hdiutil detach "$MOUNT" -quiet
+          trap - EXIT
+
       - name: Package release assets
         run: bash scripts/package-release.sh
 

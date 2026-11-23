@@ -8,9 +8,11 @@ import { Icon } from "./Icons";
 export function ContextPanel({
   session,
   onOpenSettings,
+  onOpenFile,
 }: {
   session: Session | null;
   onOpenSettings: () => void;
+  onOpenFile?: (path: string, line?: number) => void;
 }) {
   const { state, setSettings, updateSession, updateMcp, togglePanel, setView, notify } = useStore();
   const settings = state.settings;
@@ -20,6 +22,7 @@ export function ContextPanel({
     ? Math.min(100, Math.round((session.tokens / session.contextWindow) * 100))
     : 0;
   const skillsOn = state.skills.filter((skill) => skill.enabled).length;
+  const workspaceFiles = state.workspace.filter((file) => !file.dir);
 
   const toggleTodo = (todoId: string) => {
     if (!session) return;
@@ -176,7 +179,11 @@ export function ContextPanel({
                       key={file.path}
                       type="button"
                       className="file-row"
-                      onClick={() => notify(`${file.path} · +${file.added} −${file.removed}`)}
+                      onClick={() =>
+                        onOpenFile
+                          ? onOpenFile(file.path)
+                          : notify(`${file.path} · +${file.added} −${file.removed}`)
+                      }
                     >
                       <Icon name="file" size={13} />
                       <span className="file-path">{file.path}</span>
@@ -262,21 +269,25 @@ export function ContextPanel({
               Open
             </button>
           </h3>
-          {state.workspace.length > 0 ? (
+          {workspaceFiles.length > 0 ? (
             <div className="workspace-list">
-              {state.workspace.slice(0, 6).map((file) => (
+              {workspaceFiles.slice(0, 6).map((file) => (
                 <button
                   className="workspace-row"
                   key={file.id}
                   type="button"
-                  onClick={() => notify(`${file.path} · ${Math.max(1, Math.round(file.size / 1024))} KB`)}
+                  onClick={() =>
+                    onOpenFile
+                      ? onOpenFile(file.path)
+                      : notify(`${file.path} · ${Math.max(1, Math.round(file.size / 1024))} KB`)
+                  }
                 >
                   <Icon name="file" size={12} />
                   <span>{file.path}</span>
                 </button>
               ))}
-              {state.workspace.length > 6 && (
-                <p className="panel-empty-meta">+{state.workspace.length - 6} more</p>
+              {workspaceFiles.length > 6 && (
+                <p className="panel-empty-meta">+{workspaceFiles.length - 6} more</p>
               )}
             </div>
           ) : (

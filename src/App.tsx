@@ -112,6 +112,12 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [fileRequest, setFileRequest] = useState<{
+    path: string;
+    line?: number;
+    nonce: number;
+  } | null>(null);
+  const [cliRequest, setCliRequest] = useState(0);
   const [pendingAction, setPendingAction] = useState<{
     message: string;
     apply: () => void;
@@ -320,7 +326,7 @@ export function App() {
       const next = await openWorkspaceFolder();
       if (!next) return;
       setWorkspace(next.name, next.files, next.root);
-      notify(`${next.files.length} files from ${next.name}`);
+      notify(`${next.files.filter((file) => !file.dir).length} files from ${next.name}`);
     } catch (error) {
       notify(error instanceof Error ? error.message : "Could not open that folder", "error");
     }
@@ -802,6 +808,24 @@ export function App() {
             .filter((file) => file.kind === "text")
             .map((file) => `<file name="${file.name}">\n${file.body.slice(0, 24_000)}\n</file>`)
             .join("\n\n");
+          // Cursor-style @ mentions put the file itself in the turn, not just
+          // its name. The agent can still read more with its tools.
+          const mentioned = Array.from(text.matchAll(/@([\w./-]+)/g))
+            .map((match) => match[1])
+            .filter((path, index, all) => all.indexOf(path) === index)
+            .map((path) =>
+              state.workspace.find(
+                (file) => !file.dir && !file.binary && file.path === path,
+              ),
+            )
+            .filter((file): file is WorkspaceFile => Boolean(file))
+            .slice(0, 5);
+          const mentionText = mentioned
+            .map(
+              (file) =>
+                `<file name="${file.path}">\n${file.text.slice(0, 24_000)}\n</file>`,
+            )
+            .join("\n\n");
           const page = getElContext();
           const wantsPage =
             Boolean(page) &&
@@ -842,8 +866,9 @@ export function App() {
           const userTurn = {
             role: "user" as const,
             content:
-              [text, fileText, pageText, connectionsText].filter(Boolean).join("\n\n") ||
-              "(attachment)",
+              [text, fileText, mentionText, pageText, connectionsText]
+                .filter(Boolean)
+                .join("\n\n") || "(attachment)",
             ...(images.length ? { images } : {}),
           };
           const history = snapshot ? [...buildHistory(snapshot), userTurn] : [userTurn];
@@ -1185,92 +1210,117 @@ export function App() {
 
   const title = useMemo(() => {
     if (state.mode === "browser") return "Lantas Browser";
-    if (state.mode === "code") return "Code";
+    if (state.mode === "code") return state.workspaceName || "Code";
     if (state.view === "skills") return "Skills";
     if (state.view === "integrations") return "Integrations";
     return activeSession?.title ?? "Home";
-  }, [state.mode, state.view, activeSession]);
+  }, [state.mode, state.view, activeSession, state.workspaceName]);
+
+  const openFile = useCallback(
+    (path: string, line?: number) => {
+      const clean = path.replace(/^\.\//, "");
+      setMode("code");
+      setFileRequest({ path: clean, line, nonce: Date.now() });
+    },
+    [setMode],
+  );
+
+  const openCli = useCallback(() => {
+    setMode("code");
+    setCliRequest((value) => value + 1);
+  }, [setMode]);
+
+  const overlayOpen =
+    paletteOpen || settingsOpen || helpOpen || Boolean(pendingAction) || Boolean(approval);
 
   return (
     <div className="app">
+      <TitleBar
+        title={title}
+        mode={state.mode}
+        onModeChange={changeMode}
+        onOpenPalette={() => setPaletteOpen(true)}
+        onOpenSettings={() => openSettings("general")}
+        onOpenCli={openCli}
+      />
+
       {state.mode === "code" ? (
-        <IdeView
-          onExit={() => changeMode("chat")}
-          onOpenFolder={() => void openFolder()}
-          onOpenSettings={() => openSettings("general")}
-          onOpenSkills={() => {
-            setMode("chat");
-            setView("skills");
-          }}
-          onAsk={(text) => void handleSend(text)}
-          session={activeSession}
-          defaultModel={state.settings.defaultModel}
-          streaming={streaming}
-        />
-      ) : (
-        <>
-          <TitleBar
-            title={title}
-            mode={state.mode}
-            onModeChange={changeMode}
-            onOpenPalette={() => setPaletteOpen(true)}
+        <div className="code-shell">
+          <IdeView
+            onExit={() => changeMode("chat")}
+            onOpenFolder={() => void openFolder()}
             onOpenSettings={() => openSettings("general")}
+            onOpenSkills={() => {
+              setMode("chat");
+              setView("skills");
+            }}
+            onAsk={(text) => void handleSend(text)}
+            session={activeSession}
+            defaultModel={state.settings.defaultModel}
+            streaming={streaming}
+            openRequest={fileRequest}
+            cliRequest={cliRequest}
+          />
+        </div>
+      ) : (
+        <div className="workspace">
+          <Sidebar
+            onOpenSettings={() => openSettings("general")}
+            historyCollapsed={!state.sidebarOpen}
           />
 
-          <div className="workspace">
-            <Sidebar
-              onOpenSettings={() => openSettings("general")}
-              historyCollapsed={!state.sidebarOpen}
-            />
-
-            <main className="main">
-              <div
-                className={`browser-holder${state.mode === "browser" ? "" : " is-hidden"}`}
-                aria-hidden={state.mode !== "browser"}
-              >
-                <BrowserView visible={state.mode === "browser"} />
-              </div>
-
-              {state.mode === "chat" && (
-                <>
-                  {state.view === "skills" && <SkillsView />}
-                  {state.view === "integrations" && <IntegrationsView />}
-                  {state.view === "chats" &&
-                    (activeSession && activeSession.messages.length > 0 ? (
-                      <SessionView
-                        key={activeSession.id}
-                        session={activeSession}
-                        streaming={streaming}
-                        onSend={handleSend}
-                        onStop={handleStop}
-                        onAgentChange={(agent: AgentId) =>
-                          updateSession(activeSession.id, (session) => ({ ...session, agent }))
-                        }
-                        onModelChange={(provider, model) =>
-                          changeModel(activeSession.id, provider, model)
-                        }
-                        onOpenProviders={() => openSettings("providers")}
-                        onScreenToggle={handleScreenToggle}
-                      />
-                    ) : (
-                      <Home
-                        onSend={handleSend}
-                        onOpenSettings={() => openSettings("providers")}
-                        onScreenToggle={handleScreenToggle}
-                      />
-                    ))}
-                </>
-              )}
-            </main>
-
-            {state.panelOpen && (
-              <ContextPanel
-                session={activeSession}
-                onOpenSettings={() => openSettings("providers")}
+          <main className="main">
+            <div
+              className={`browser-holder${state.mode === "browser" ? "" : " is-hidden"}`}
+              aria-hidden={state.mode !== "browser"}
+            >
+              <BrowserView
+                visible={state.mode === "browser" && !overlayOpen}
+                onOpenFile={openFile}
               />
+            </div>
+
+            {state.mode === "chat" && (
+              <>
+                {state.view === "skills" && <SkillsView />}
+                {state.view === "integrations" && <IntegrationsView />}
+                {state.view === "chats" &&
+                  (activeSession && activeSession.messages.length > 0 ? (
+                    <SessionView
+                      key={activeSession.id}
+                      session={activeSession}
+                      streaming={streaming}
+                      onSend={handleSend}
+                      onStop={handleStop}
+                      onOpenFile={openFile}
+                      onAgentChange={(agent: AgentId) =>
+                        updateSession(activeSession.id, (session) => ({ ...session, agent }))
+                      }
+                      onModelChange={(provider, model) =>
+                        changeModel(activeSession.id, provider, model)
+                      }
+                      onOpenProviders={() => openSettings("providers")}
+                      onScreenToggle={handleScreenToggle}
+                    />
+                  ) : (
+                    <Home
+                      onSend={handleSend}
+                      onOpenSettings={() => openSettings("providers")}
+                      onScreenToggle={handleScreenToggle}
+                    />
+                  ))}
+              </>
             )}
-          </div>
-        </>
+          </main>
+
+          {state.panelOpen && (
+            <ContextPanel
+              session={activeSession}
+              onOpenSettings={() => openSettings("providers")}
+              onOpenFile={openFile}
+            />
+          )}
+        </div>
       )}
 
       {screenStream && (

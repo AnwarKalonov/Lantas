@@ -16,7 +16,7 @@ import { spawn, spawnSync } from "node:child_process";
 import readline from "node:readline";
 import { LOGO_ROWS } from "./logo.mjs";
 
-let VERSION = "0.1.0";
+let VERSION = "1.0.2";
 try {
   const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   VERSION = pkg.version || VERSION;
@@ -26,6 +26,9 @@ try {
 const CONFIG_DIR = path.join(os.homedir(), ".lantas");
 const CONFIG_PATH = path.join(CONFIG_DIR, "config.json");
 const IS_TTY = Boolean(process.stdout.isTTY);
+// The desktop app pipes stdin instead of allocating a pty, but its terminal
+// panel can still answer approvals. Treat that as an interactive session.
+const IN_APP = process.env.LANTAS_IN_APP_TERMINAL === "1";
 const COLOR = IS_TTY && !process.env.NO_COLOR && process.env.TERM !== "dumb";
 const COLUMNS = process.stdout.columns || Number(process.env.COLUMNS) || 80;
 
@@ -765,7 +768,7 @@ function printDiff(before, after) {
 async function confirm(ctx, action) {
   if (ctx.mode === "plan") return false;
   if (ctx.autoApprove) return true;
-  if (!process.stdin.isTTY) {
+  if (!process.stdin.isTTY && !IN_APP) {
     console.log(`  ${paint("non-interactive: rerun with --yes to allow this", C.yellow)}`);
     return false;
   }

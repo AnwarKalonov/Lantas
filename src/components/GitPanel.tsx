@@ -13,6 +13,14 @@ import {
   statusLabel,
   type GitStatus,
 } from "../lib/git";
+import {
+  createRepo,
+  getGithubToken,
+  listRepos,
+  setGithubToken,
+  whoami,
+  type Repo,
+} from "../lib/github";
 import { inTauri, openExternal } from "../lib/native";
 import { useStore } from "../lib/store";
 import type { StagedChange } from "../lib/types";
@@ -58,6 +66,15 @@ export function GitPanel({
   const [remoteOpen, setRemoteOpen] = useState(false);
   const [diff, setDiff] = useState<{ path: string; text: string; staged: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ghOpen, setGhOpen] = useState(false);
+  const [ghToken, setGhToken] = useState(getGithubToken());
+  const [ghLogin, setGhLogin] = useState("");
+  const [ghRepos, setGhRepos] = useState<Repo[]>([]);
+  const [ghBusy, setGhBusy] = useState("");
+  const [ghError, setGhError] = useState("");
+  const [ghNewRepo, setGhNewRepo] = useState("");
+  const [ghPrivate, setGhPrivate] = useState(true);
+  const githubConnected = Boolean(getGithubToken());
 
   const refresh = useCallback(async () => {
     if (!root) {
@@ -85,6 +102,76 @@ export function GitPanel({
     setDiff(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [root]);
+
+  const loadGithub = useCallback(async () => {
+    if (!getGithubToken()) return;
+    setGhBusy("account");
+    try {
+      const me = await whoami();
+      setGhLogin(me.login);
+      setGhRepos(await listRepos());
+      setGhError("");
+    } catch (caught) {
+      setGhError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setGhBusy("");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (githubConnected) void loadGithub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const connectGithub = async () => {
+    if (!ghToken.trim()) return;
+    setGithubToken(ghToken);
+    setGhBusy("connect");
+    setGhError("");
+    try {
+      const me = await whoami();
+      setGhLogin(me.login);
+      setGhRepos(await listRepos());
+    } catch (caught) {
+      setGithubToken("");
+      setGhError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setGhBusy("");
+    }
+  };
+
+  const connectRepo = async (repo: Repo) => {
+    setBusy("gh-remote");
+    setError("");
+    try {
+      await gitSetRemote(root, repo.clone_url);
+      setGhOpen(false);
+      notify(`Origin set to ${repo.full_name}`);
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const makeRepo = async () => {
+    if (!ghNewRepo.trim()) return;
+    setGhBusy("create");
+    setGhError("");
+    try {
+      const repo = await createRepo(ghNewRepo.trim(), ghPrivate);
+      setGhRepos((current) => [repo, ...current]);
+      setGhNewRepo("");
+      await gitSetRemote(root, repo.clone_url);
+      notify(`${repo.full_name} created and connected`);
+      await refresh();
+    } catch (caught) {
+      setGhError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setGhBusy("");
+    }
+  };
 
   const run = async (label: string, action: () => Promise<unknown>) => {
     setBusy(label);
@@ -274,6 +361,140 @@ export function GitPanel({
             >
               {busy === "push" ? "…" : "Push"}
             </button>
+          </div>
+
+          <div className={cx("ide-gh", ghOpen && "is-open")}>
+            <button
+              type="button"
+              className="ide-gh-head"
+              onClick={() => setGhOpen((open) => !open)}
+            >
+              <span className="ide-gh-title">
+                <Icon name="branch" size={12} />
+                GitHub
+              </span>
+              <span className={cx("ide-gh-status", githubConnected && "is-on")}>
+                {githubConnected ? ghLogin || "connected" : "Connect"}
+              </span>
+              <Icon name={ghOpen ? "chevronDown" : "chevronRight"} size={11} />
+            </button>
+
+            {ghOpen && (
+              <div className="ide-gh-body">
+                {!githubConnected ? (
+                  <>
+                    <p className="ide-side-note">
+                      Connect your GitHub account to pick a repository without typing a remote URL.
+                    </p>
+                    <input
+                      type="password"
+                      value={ghToken}
+                      onChange={(event) => setGhToken(event.target.value)}
+                      placeholder="Personal access token"
+                      spellCheck={false}
+                      autoComplete="off"
+                    />
+                    <div className="ide-gh-actions">
+                      <button
+                        type="button"
+                        className="button-primary small"
+                        onClick={() => void connectGithub()}
+                        disabled={!ghToken.trim() || Boolean(ghBusy)}
+                      >
+                        {ghBusy === "connect" ? "Connecting…" : "Connect"}
+                      </button>
+                      <button
+                        type="button"
+                        className="ide-git-text"
+                        onClick={() =>
+                          void openExternal(
+                            "https://github.com/settings/tokens/new?scopes=repo&description=Lantas",
+                          )
+                        }
+                      >
+                        Create token
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="ide-gh-account">
+                      <span className="ide-gh-account-name">@{ghLogin || "github"}</span>
+                      <button
+                        type="button"
+                        className="ide-git-text is-quiet"
+                        onClick={() => {
+                          setGithubToken("");
+                          setGhToken("");
+                          setGhLogin("");
+                          setGhRepos([]);
+                        }}
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+
+                    {!origin && (
+                      <>
+                        <div className="ide-gh-subhead">
+                          <span>Choose a repository</span>
+                          <button
+                            type="button"
+                            className="ide-git-text"
+                            onClick={() => void loadGithub()}
+                          >
+                            {ghBusy === "account" ? "Loading…" : "Refresh"}
+                          </button>
+                        </div>
+                        <div className="ide-gh-repos">
+                          {ghRepos.slice(0, 12).map((repo) => (
+                            <button
+                              key={repo.full_name}
+                              type="button"
+                              className="ide-gh-repo"
+                              onClick={() => void connectRepo(repo)}
+                              title={repo.clone_url}
+                            >
+                              <span>{repo.full_name}</span>
+                              <small>{repo.private ? "private" : repo.default_branch}</small>
+                            </button>
+                          ))}
+                          {ghRepos.length === 0 && ghBusy !== "account" && (
+                            <p className="ide-side-note">No repositories returned for this token.</p>
+                          )}
+                        </div>
+
+                        <div className="ide-gh-create">
+                          <input
+                            value={ghNewRepo}
+                            onChange={(event) => setGhNewRepo(event.target.value)}
+                            placeholder="new-repository"
+                            spellCheck={false}
+                          />
+                          <label className="ide-gh-private">
+                            <input
+                              type="checkbox"
+                              checked={ghPrivate}
+                              onChange={(event) => setGhPrivate(event.target.checked)}
+                            />
+                            Private
+                          </label>
+                          <button
+                            type="button"
+                            className="button-quiet small"
+                            disabled={!ghNewRepo.trim() || Boolean(ghBusy)}
+                            onClick={() => void makeRepo()}
+                          >
+                            {ghBusy === "create" ? "Creating…" : "Create"}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+                {ghError && <p className="ide-git-error">{ghError}</p>}
+              </div>
+            )}
           </div>
 
           {status.remotes.length === 0 || remoteOpen ? (
@@ -516,7 +737,9 @@ export function GitPanel({
           )}
 
           <p className="ide-side-note">
-            Push uses the git credentials already on this Mac. Lantas never stores a token.
+            Push uses the connected GitHub token for HTTPS remotes, or the git credentials
+            already on this Mac. The token is passed to git for that one command and is never
+            written into the repository.
           </p>
         </>
       )}

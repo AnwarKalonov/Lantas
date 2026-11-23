@@ -85,7 +85,12 @@ export function Composer({
   const mentionMatches = useMemo(() => {
     if (mentionQuery === null) return [];
     return state.workspace
-      .filter((file) => file.path.toLowerCase().includes(mentionQuery))
+      .filter(
+        (file) =>
+          !file.dir &&
+          !file.binary &&
+          file.path.toLowerCase().includes(mentionQuery),
+      )
       .slice(0, 6);
   }, [mentionQuery, state.workspace]);
 

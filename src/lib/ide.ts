@@ -11,11 +11,36 @@ export interface TreeNode {
 export function buildTree(files: WorkspaceFile[]): TreeNode[] {
   const root: TreeNode[] = [];
   const dirs = new Map<string, TreeNode[]>();
+  const dirNodes = new Map<string, TreeNode>();
   dirs.set("", root);
+
+  const ensureDir = (path: string): TreeNode => {
+    const existing = dirNodes.get(path);
+    if (existing) return existing;
+    const parts = path.split("/").filter(Boolean);
+    const name = parts.pop() ?? path;
+    const parent = parts.join("/");
+    const siblings = dirs.get(parent) ?? root;
+    if (!dirs.has(parent)) dirs.set(parent, siblings);
+    const node: TreeNode = { name, path, dir: true, children: [] };
+    siblings.push(node);
+    dirNodes.set(path, node);
+    dirs.set(path, node.children);
+    return node;
+  };
 
   const sorted = [...files].sort((a, b) => a.path.localeCompare(b.path));
   for (const file of sorted) {
     const parts = file.path.split("/").filter(Boolean);
+    if (file.dir) {
+      // Explicit directory entries keep empty folders visible.
+      let prefix = "";
+      for (const part of parts) {
+        prefix = prefix ? `${prefix}/${part}` : part;
+        ensureDir(prefix);
+      }
+      continue;
+    }
     let prefix = "";
     for (let index = 0; index < parts.length; index += 1) {
       const name = parts[index];
@@ -34,6 +59,7 @@ export function buildTree(files: WorkspaceFile[]): TreeNode[] {
           siblings.push(node);
         }
         dirs.set(path, node.children);
+        dirNodes.set(path, node);
       }
       prefix = path;
     }
@@ -81,7 +107,7 @@ export function searchWorkspace(
   }
   const hits: SearchHit[] = [];
   for (const file of files) {
-    if (file.binary || !file.text) continue;
+    if (file.dir || file.binary || !file.text) continue;
     const lines = file.text.split("\n");
     for (let index = 0; index < lines.length; index += 1) {
       if (!matcher.test(lines[index])) continue;
@@ -99,8 +125,9 @@ export function searchWorkspace(
 /** Ranked quick-open: exact basename first, then prefix, then path substring. */
 export function quickOpen(files: WorkspaceFile[], query: string, limit = 30): WorkspaceFile[] {
   const term = query.trim().toLowerCase();
-  if (!term) return files.slice(0, limit);
+  if (!term) return files.filter((file) => !file.dir).slice(0, limit);
   const scored = files
+    .filter((file) => !file.dir)
     .map((file) => {
       const name = file.name.toLowerCase();
       const path = file.path.toLowerCase();

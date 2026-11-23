@@ -94,6 +94,15 @@ async function walk(dir: any, prefix: string, out: WorkspaceFile[]) {
     const path = prefix ? `${prefix}/${name}` : name;
 
     if (entry.kind === "directory") {
+      out.push({
+        id: path,
+        name,
+        path,
+        size: 0,
+        added: 0,
+        text: "",
+        dir: true,
+      });
       await walk(entry, path, out);
       continue;
     }
@@ -131,6 +140,15 @@ async function openWithTauri() {
       const child = `${path}/${entry.name}`;
       const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
       if (entry.isDirectory) {
+        files.push({
+          id: relative,
+          name: entry.name,
+          path: relative,
+          size: 0,
+          added: 0,
+          text: "",
+          dir: true,
+        });
         await readDir(child, relative);
         continue;
       }
@@ -168,6 +186,84 @@ async function openWithTauri() {
     root: dir,
     files,
   };
+}
+
+/** Re-reads an already-picked desktop folder without opening another dialog. */
+export async function readWorkspaceAt(root: string): Promise<OpenedWorkspace | null> {
+  if (!root || !isTauri()) return null;
+  const fs = await import("@tauri-apps/plugin-fs");
+  const files: WorkspaceFile[] = [];
+  const readDir = async (path: string, prefix: string) => {
+    const entries = await fs.readDir(path);
+    for (const entry of entries) {
+      if (files.length >= MAX_FILES) return;
+      if (SKIP.has(entry.name)) continue;
+      const child = `${path}/${entry.name}`;
+      const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory) {
+        files.push({ id: relative, name: entry.name, path: relative, size: 0, added: 0, text: "", dir: true });
+        await readDir(child, relative);
+        continue;
+      }
+      const kind = fileKind(entry.name);
+      if (kind !== "text") {
+        files.push({ id: relative, name: entry.name, path: relative, size: 0, added: 0, text: "", binary: true });
+        continue;
+      }
+      const text = await fs.readTextFile(child).catch(() => "");
+      files.push({
+        id: relative,
+        name: entry.name,
+        path: relative,
+        size: text.length,
+        added: 0,
+        text: text.length <= TEXT_LIMIT ? text : text.slice(0, TEXT_LIMIT),
+      });
+    }
+  };
+  await readDir(root, "");
+  files.sort((a, b) => a.path.localeCompare(b.path));
+  return {
+    name: root.split("/").filter(Boolean).pop() ?? "Workspace",
+    root,
+    files,
+  };
+}
+
+/** Creates a folder (and its parents) inside the open desktop workspace. */
+export async function createWorkspaceFolder(root: string, path: string): Promise<boolean> {
+  if (!root || !isTauri()) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("workspace_create_dir", { root, path });
+  return true;
+}
+
+/** Creates a new text file, including any folders in its path. */
+export async function createWorkspaceFile(root: string, path: string, text = ""): Promise<boolean> {
+  if (!root || !isTauri()) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("workspace_create_file", { root, path, text });
+  return true;
+}
+
+/** Renames one file or folder inside the open desktop workspace. */
+export async function renameWorkspacePath(
+  root: string,
+  from: string,
+  to: string,
+): Promise<boolean> {
+  if (!root || !isTauri()) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("workspace_rename", { root, from, to });
+  return true;
+}
+
+/** Deletes one file or folder inside the open desktop workspace. */
+export async function deleteWorkspacePath(root: string, path: string): Promise<boolean> {
+  if (!root || !isTauri()) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("workspace_delete", { root, path });
+  return true;
 }
 
 /**
@@ -210,9 +306,9 @@ export function canWriteWorkspace(root: string): boolean {
  * returns text only; Chrome returns a full element snapshot separately.
  */
 export function workspaceStats(files: WorkspaceFile[]) {
-  const text = files.filter((file) => !file.binary);
+  const text = files.filter((file) => !file.dir && !file.binary);
   return {
-    files: files.length,
+    files: files.filter((file) => !file.dir).length,
     text: text.length,
     bytes: files.reduce((total, file) => total + (file.size || file.text.length), 0),
   };

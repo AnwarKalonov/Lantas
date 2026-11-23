@@ -1,7 +1,9 @@
 mod bookmarks;
 mod bridge;
 mod git;
+mod terminal;
 mod vscode;
+mod workspace;
 
 use std::path::PathBuf;
 
@@ -374,6 +376,7 @@ pub fn run() {
         // release, and every bundle is checked against the key in tauri.conf.json.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .manage(terminal::TerminalState::default())
         // Loopback WebSocket the Lantas Chrome extension connects to.
         .setup(|_app| {
             bridge::start();
@@ -408,6 +411,14 @@ pub fn run() {
             git::git_set_remote,
             git::git_branches,
             git::git_checkout,
+            workspace::workspace_create_dir,
+            workspace::workspace_create_file,
+            workspace::workspace_rename,
+            workspace::workspace_delete,
+            terminal::terminal_start,
+            terminal::terminal_cli,
+            terminal::terminal_write,
+            terminal::terminal_stop,
             vscode::vscode_import,
             bookmarks::browser_bookmarks,
             bookmarks::browser_profile_paths

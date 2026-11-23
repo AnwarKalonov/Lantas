@@ -1,4 +1,4 @@
-/* Residual · Pulse — motion, plots, interactions */
+/* Lantas — motion, plots, interactions */
 
 document.documentElement.classList.add("js");
 
@@ -326,7 +326,7 @@ function initDiff() {
     if (undo)
       undo.addEventListener("click", () => {
         win.classList.remove("applied");
-        if (status) status.textContent = "clean · + 0.5 back on line 12";
+        if (status) status.textContent = "clean · #buy back on line 12";
         $(".state", win)?.classList.remove("on");
         apply.setAttribute("aria-pressed", "false");
       });
@@ -436,6 +436,14 @@ function initResidual() {
     for (const k in a) node.setAttribute(k, a[k]);
     return node;
   };
+  const WANT = [
+    "place order", "apply coupon", "order total", "download invoice", "next", "save changes",
+    "email", "password", "search", "cart", "back", "help", "sign in", "continue",
+  ];
+  const SAYS = [
+    "Place order", "Apply coupon", "Order total", "Download invoice", "Next", "Save changes",
+    "Email address", "Password", "Search", "Cart", "Back", "Help", "Sign in", "Continue",
+  ];
   const r = mulberry32(42);
   const pts = [];
   for (let i = 0; i < 14; i++) {
@@ -485,7 +493,7 @@ function initResidual() {
       "data-i": i,
       tabindex: "0",
       role: "button",
-      "aria-label": `prediction ${i + 1}, residual ${p.e.toFixed(2)}`,
+      "aria-label": `control ${i + 1}, gap ${p.e.toFixed(2)}`,
     });
     group.append(seg, tick, dot);
     const on = () => {
@@ -493,9 +501,9 @@ function initResidual() {
       seg.setAttribute("opacity", "1");
       dot.classList.add("on");
       if (out)
-        out.innerHTML = `point <b>${i + 1}</b> · predicted ${p.pred.toFixed(2)} · actual ${p.truth.toFixed(
-          2
-        )} · residuum <b>${p.e >= 0 ? "+" : "−"}${Math.abs(p.e).toFixed(2)}</b>`;
+        out.innerHTML = `control <b>${i + 1}</b> · asked “${WANT[i]}” · page says “${SAYS[i]}” · gap <b>${
+          p.e >= 0 ? "+" : "−"
+        }${Math.abs(p.e).toFixed(2)}</b>`;
     };
     dot.addEventListener("mouseenter", on);
     dot.addEventListener("focus", on);
@@ -514,7 +522,7 @@ function initResidual() {
   svg.append(axis);
 
   if (out)
-    out.innerHTML = `hover a point · green is the residual`;
+    out.innerHTML = `hover a control · green is the gap`;
 
   const paths = $$("path", svg);
   paths.forEach((path) => {
@@ -594,7 +602,7 @@ function initDownload() {
   const rows = $$("tr[data-os]", root);
   const buttons = $$(".seg button[data-os]", root);
   const count = $(".count", root);
-  const platNames = { linux: "Linux · glibc", musl: "Linux · musl", win: "Windows" };
+  const platNames = { arm: "Apple silicon", intel: "Intel", src: "source" };
 
   const pick = (os) => {
     buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.os === os)));
@@ -620,8 +628,8 @@ function initDownload() {
 
   const guess = () => {
     const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes("windows")) return "win";
-    return "linux";
+    if (ua.includes("intel mac") || ua.includes("x86_64")) return "intel";
+    return "arm";
   };
   pick(guess());
 }
@@ -768,7 +776,7 @@ function initSpot() {
 
 function initTheme() {
   const root = document.documentElement;
-  const KEY = "residual-theme";
+  const KEY = "lantas-theme";
 
   const apply = (theme) => {
     root.dataset.theme = theme;

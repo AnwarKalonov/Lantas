@@ -1,5 +1,5 @@
 /* ============================================================
-   Residual · Pulse — daylight above the machines
+   Lantas — daylight above the machines
    warm paper, forest ink, one green accent, soft 3D cloud.
    ============================================================ */
 
@@ -1725,6 +1725,14 @@ h3 {
   background: var(--ink-4);
 }
 
+.legend .c i {
+  background: var(--ink-3);
+}
+
+.bench-row .d.anti {
+  background: var(--ink-3);
+}
+
 .bench-row {
   display: grid;
   grid-template-columns: minmax(0, 230px) minmax(0, 1fr) 116px;
@@ -1788,7 +1796,7 @@ h3 {
   transition: transform 460ms var(--ease);
 }
 
-.bench-row .d.pulse {
+.bench-row .d.us {
   width: 9px;
   height: 9px;
   margin: -4.5px 0 0 -4.5px;
@@ -3995,7 +4003,7 @@ main,
   50% { background-color: rgba(61, 129, 99, 0.16); }
 }
 
-.bench-row .d.pulse {
+.bench-row .d.us {
   animation: sev-pulse 3.4s ease-in-out infinite;
 }
 
@@ -4046,7 +4054,7 @@ main,
   .findings .sev i,
   .mbp-cam i,
   .code-body .code-line.add,
-  .bench-row .d.pulse,
+  .bench-row .d.us,
   .live i,
   .fc-k i {
     animation: none;
@@ -4442,8 +4450,8 @@ main,
 .di.term { background: #1c1c1e; }
 .di.term i { font-family: var(--mono); font-size: 9.5px; font-weight: 700; color: #6ee39a; letter-spacing: -0.6px; line-height: 1; }
 
-.di.pulse { background: linear-gradient(180deg, #3d8163, #245a41); }
-.di.pulse svg { width: 17px; height: 10px; color: #eafaf1; }
+.di.lantas { background: linear-gradient(180deg, #3d8163, #245a41); }
+.di.lantas svg { width: 17px; height: 10px; color: #eafaf1; }
 
 .di.notes { background: linear-gradient(180deg, #ffe27a, #ffc63d); }
 .di.notes i { width: 13px; height: 13px; border-top: 1.5px solid rgba(120, 85, 0, 0.55); border-bottom: 1.5px solid rgba(120, 85, 0, 0.55); }
@@ -6160,3 +6168,12 @@ body {
     #000 88%
   );
 }
+
+/* ---- the logo is a PNG, square ---- */
+img.mark {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+.nav .brand img.mark { width: 32px; height: 32px; }
+.foot-mark img.mark { width: 24px; height: 24px; }

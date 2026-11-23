@@ -3,32 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Docs — Residual Pulse</title>
-<meta name="description" content="Install Pulse, start it, read findings, tune auto-fix and the approver, run monitor and brain separately, and see what the training process pays.">
+<title>Docs — Lantas</title>
+<meta name="description" content="Install Lantas on macOS, connect the Chrome extension, read the page, act in the tab, choose a model, and see what a task costs.">
 
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 138 75'%3E%3Cpath d='M0 10.5H73A21 21 0 0 1 94 31.5V37.5M0 37.5H138M0 64.5H138' stroke='%232c6a4e' stroke-width='21' fill='none'/%3E%3C/svg%3E">
+<link rel="icon" href="assets/img/mark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/site.css">
-<script>try{var t=localStorage.getItem("residual-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.dataset.theme=t;}catch(e){}</script>
+<script>try{var t=localStorage.getItem("lantas-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.dataset.theme=t;}catch(e){}</script>
 </head>
 <body>
 
 <header class="nav">
   <div class="wrap nav-in">
     <a class="brand" href="index.html">
-      <svg class="mark" viewBox="0 0 138 75" fill="none" aria-hidden="true">
-        <path d="M0 10.5H73A21 21 0 0 1 94 31.5V37.5M0 37.5H138M0 64.5H138" stroke="currentColor" stroke-width="21"/>
-      </svg>
-      Residual <span class="slash">/</span> <span class="sub">Docs</span>
+      <img class="mark" src="assets/img/mark.png" alt="" width="34" height="34">
+      Lantas <span class="slash">/</span> <span class="sub">Docs</span>
     </a>
 
     <nav class="nav-links" aria-label="Docs sections">
       <a href="#installation">Install</a>
-      <a href="#how">How it works</a>
-      <a href="#autofix">Auto-fix</a>
-      <a href="#processes">Processes</a>
+      <a href="#extension">Extension</a>
+      <a href="#actions">Actions</a>
+      <a href="#benchmark">Benchmark</a>
       <a href="#troubleshooting">Troubleshooting</a>
     </nav>
 
@@ -37,8 +35,8 @@
         <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" aria-hidden="true"><path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1Z"/></svg>
         <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/></svg>
       </button>
-            <a class="txt" href="index.html">Home</a>
-      <a class="txt" href="https://github.com/codeyash09/PulseML">GitHub</a>
+      <a class="txt" href="index.html">Home</a>
+      <a class="txt" href="https://github.com/AnwarKalonov/Lantas">GitHub</a>
       <a class="btn btn-primary btn-sm" href="download.html">Download</a>
       <button class="menu-btn" aria-label="Menu" aria-expanded="false">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
@@ -52,17 +50,17 @@
 
 <div class="doc-hero">
   <div class="wrap">
-    <p class="eyebrow"><span class="dot"></span>pulse docs · 2.0.0</p>
-    <h1>Debug ML while it’s training</h1>
-    <p>Track → Diagnose → Verify → Patch. Pulse catches the bug while the run is still training: about 1.3 minutes to a fix and $0.19 per task in our benchmark. Built for terminals, SSH, containers, Colab, remote servers and cloud GPUs.</p>
+    <p class="eyebrow"><span class="dot"></span>lantas docs · 1.0</p>
+    <h1>An agent with a browser</h1>
+    <p>Install the macOS app, load the Chrome extension, and ask. Lantas reads the tab you are on, answers in the side panel, and clicks what you asked it to click. Everything runs on your Mac with your own model key.</p>
     <div class="actions">
-      <a class="btn btn-primary" href="#installation">Install Pulse
+      <a class="btn btn-primary" href="#installation">Install Lantas
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </a>
       <a class="btn btn-ghost" href="#quickstart">Quickstart
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </a>
-      <a class="btn btn-ghost" href="https://residualml.com/dashboard/">Open the dashboard
+      <a class="btn btn-ghost" href="https://github.com/AnwarKalonov/Lantas">GitHub
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
       </a>
     </div>
@@ -74,44 +72,28 @@
     <div class="group">
       <p class="group-t">Getting started</p>
       <a href="#installation">Installation</a>
-      <a href="#start">Start Pulse</a>
+      <a href="#start">First run</a>
       <a href="#quickstart">Quickstart</a>
-      <a href="#app">The Pulse app</a>
-      <a href="#backends">Supported backends</a>
+      <a href="#app">The Lantas window</a>
     </div>
     <div class="group">
-      <p class="group-t">Core concepts</p>
-      <a href="#how">How Pulse works</a>
-      <a href="#detection">Detection and auditing</a>
-      <a href="#benchmark">Benchmark</a>
+      <p class="group-t">The browser</p>
+      <a href="#engines">Two engines</a>
+      <a href="#extension">The Chrome extension</a>
+      <a href="#page">Reading the page</a>
+      <a href="#actions">Acting on the page</a>
     </div>
     <div class="group">
-      <p class="group-t">Tracking</p>
-      <a href="#tracking">Tracking</a>
-      <a href="#gpu">GPU tracking</a>
-    </div>
-    <div class="group">
-      <p class="group-t">CLI</p>
-      <a href="#commands">Command explorer</a>
-    </div>
-    <div class="group">
-      <p class="group-t">Agents</p>
-      <a href="#agent">Choose your agent</a>
-      <a href="#autofix">Auto-fix and approver</a>
-    </div>
-    <div class="group">
-      <p class="group-t">Cloud</p>
-      <a href="#cloud">Workspaces and dashboard</a>
-      <a href="#telemetry">Telemetry</a>
-    </div>
-    <div class="group">
-      <p class="group-t">Advanced</p>
-      <a href="#processes">Monitor and brain</a>
-      <a href="#overhead">Overhead</a>
-      <a href="#keras">Keras</a>
+      <p class="group-t">Models</p>
+      <a href="#models">Providers and keys</a>
+      <a href="#cost">What a task costs</a>
     </div>
     <div class="group">
       <p class="group-t">Reference</p>
+      <a href="#benchmark">Benchmark</a>
+      <a href="#overhead">Overhead</a>
+      <a href="#security">Security</a>
+      <a href="#shortcuts">Shortcuts</a>
       <a href="#troubleshooting">Troubleshooting</a>
     </div>
   </nav>
@@ -121,375 +103,327 @@
     <section class="doc-sec" id="installation">
       <p class="eyebrow"><span class="dot"></span>getting started</p>
       <h2>Installation</h2>
-      <p>Requires Python 3.9+, a supported backend (NumPy, PyTorch, TensorFlow, CuPy or JAX), and a model for the agent: sign in to OpenRouter from Pulse (no key to handle, free models available) or bring an API key.</p>
+      <p>Lantas is a macOS app, built from source. You need macOS 13 or newer, Chrome 116 or newer, Node 20 and a Rust toolchain once. The installer builds the app, signs it for your Mac, and puts it in Applications.</p>
       <div class="cmdblock">
         <div class="row">
-          <span class="prompt">$</span><span>pip install pulseml</span>
-          <button class="cmd-copy" data-copy="pip install pulseml">
+          <span class="prompt">$</span><span>git clone https://github.com/AnwarKalonov/Lantas.git</span>
+          <button class="cmd-copy" data-copy="git clone https://github.com/AnwarKalonov/Lantas.git">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
             <span class="label">copy</span>
           </button>
         </div>
       </div>
-      <p>Installing puts a <code>pulse</code> command on your path. Run it and Pulse takes you through setup.</p>
+      <p>Then double-click the installer, or run it from the terminal:</p>
+      <div class="cmdblock">
+        <div class="row">
+          <span class="prompt">$</span><span>open "Build Lantas.app.command"</span>
+          <button class="cmd-copy" data-copy="open &quot;Build Lantas.app.command&quot;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+            <span class="label">copy</span>
+          </button>
+        </div>
+      </div>
+      <p>It takes about two minutes. When it finishes you have <code>Lantas.app</code> with the Chrome extension inside it, at <code>Contents/Resources/chrome-extension</code>.</p>
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.5"/></svg>
+        <span>The build is ad-hoc signed, not notarized. On first launch macOS may ask you to confirm. If it refuses, right-click the app, choose Open, then Open again.</span>
+      </div>
 
-      <h3>Start Pulse</h3>
+      <h3>Start it</h3>
       <div class="cmdblock">
         <div class="row">
-          <span class="prompt">$</span><span>python3 -m pulse</span>
-          <button class="cmd-copy" data-copy="python3 -m pulse">
+          <span class="prompt">$</span><span>open -a Lantas</span>
+          <button class="cmd-copy" data-copy="open -a Lantas">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
             <span class="label">copy</span>
           </button>
         </div>
       </div>
-      <p>To make the plain <code>pulse</code> command work, add Python's scripts folder to your PATH once:</p>
-      <div class="cmdblock">
-        <div class="row">
-          <span class="prompt">$</span><span>export PATH="$PATH:$(python -c 'import sysconfig; print(sysconfig.get_path("scripts"))')" &amp;&amp; pulse</span>
-          <button class="cmd-copy" data-copy="export PATH=&quot;$PATH:$(python -c 'import sysconfig; print(sysconfig.get_path(&quot;scripts&quot;))')&quot; &amp;&amp; pulse">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
-            <span class="label">copy</span>
-          </button>
-        </div>
-      </div>
+      <p>There is also <code>Lantas.command</code> in the repo, for the web build while you are working on the UI. It is not the app.</p>
     </section>
 
     <section class="doc-sec" id="start">
       <p class="eyebrow"><span class="dot"></span>getting started</p>
-      <h2>Start Pulse</h2>
-      <p>One command. It does the rest: setup, running scripts, watching runs, the agent.</p>
-      <div class="cmdblock">
-        <div class="row">
-          <span class="prompt">$</span><span>pulse</span>
-          <button class="cmd-copy" data-copy="pulse">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
-            <span class="label">copy</span>
-          </button>
-        </div>
+      <h2>First run</h2>
+      <p>Lantas opens on the chat. Three things to do once:</p>
+      <ol>
+        <li>Open <strong>Settings → Providers</strong>, pick Anthropic, OpenAI, Gemini, DeepSeek or an OpenAI-compatible endpoint, and paste a key.</li>
+        <li>Pick the model the agent should use. The model list is fetched from the provider when a key is present.</li>
+        <li>Open <strong>Browser</strong>, then <strong>Chrome extension</strong>, and load the extension folder Chrome is told about.</li>
+      </ol>
+      <p>Keys live in the app's own storage on your Mac. They are not synced, not proxied through a server, and never committed anywhere.</p>
+      <div class="callout warn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v5M12 17.5v.5M10.3 4.6 2.7 18a1.6 1.6 0 0 0 1.4 2.4h15.8a1.6 1.6 0 0 0 1.4-2.4L13.7 4.6a1.6 1.6 0 0 0-2.8 0Z"/></svg>
+        <span>Without a provider the app still opens and the browser still works. The agent will say it needs a key rather than answer.</span>
       </div>
-      <p>For most cases, just use <code>pulse</code>. It is the better default. Stream mode is for when you want a run to keep going with nobody attached.</p>
     </section>
 
     <section class="doc-sec" id="quickstart">
       <p class="eyebrow"><span class="dot"></span>getting started</p>
       <h2>Quickstart</h2>
-      <p>Three steps, and no changes to your training code.</p>
+      <p>Four steps, and the first task takes about a minute.</p>
       <ol>
-        <li>Install Pulse and run it in the folder you train in.</li>
-        <li>Let it attach to the run. It reads the variables you already have, a few times a second.</li>
-        <li>Ask the agent a question, or read the findings it raises while the run continues.</li>
+        <li>Install the app and open it. <code>Build Lantas.app.command</code> does both.</li>
+        <li>Load the extension once: <code>chrome://extensions</code> → Developer mode → Load unpacked → the folder the app shows you.</li>
+        <li>Open the page you care about in Chrome, then click the Lantas icon. The side panel opens on the right.</li>
+        <li>Ask. “Summarise this page”, “find the invoice and download it”, “click Place order”.</li>
       </ol>
-      <div class="callout warn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v5M12 17.5v.5M10.3 4.6 2.7 18a1.6 1.6 0 0 0 1.4 2.4h15.8a1.6 1.6 0 0 0 1.4-2.4L13.7 4.6a1.6 1.6 0 0 0-2.8 0Z"/></svg>
-        <span>Nothing is installed into your loop: no <code>sys.settrace</code>, no callback into user code.</span>
-      </div>
+      <p>The app has to be open: the panel talks to it over a loopback socket on <code>127.0.0.1:47654</code>. If the app is closed the panel says so instead of pretending.</p>
     </section>
 
     <section class="doc-sec" id="app">
       <p class="eyebrow"><span class="dot"></span>getting started</p>
-      <h2>The Pulse app</h2>
-      <p>This is what Pulse looks like in your terminal: the run on the left, the agent on the right. It is a working illustration, not live data. Click a thought, a tool line or an edit to open it. Press Ctrl O to open all of them. Type a message, or start with <code>/</code> to see commands.</p>
-      <p>Colour has a job, and it is the only colour on the screen.</p>
+      <h2>The Lantas window</h2>
+      <p>Three modes, one window, and a side panel that can sit in any of them.</p>
       <div class="kv">
-        <div class="k">ember</div><div class="v">what is live, selected or worth a look. The agent's thinking, the trace head, the one finding that matters</div>
-        <div class="k">red</div><div class="v">what is wrong: a diverging curve, a failed check, a removed line</div>
-        <div class="k">grey</div><div class="v">everything else. A command the agent ran is a brighter grey than its output, and Pulse's own output is dim</div>
+        <div class="k">chat</div><div class="v">A thread with the agent. Slash commands, attachments, screen capture, the usual.</div>
+        <div class="k">code</div><div class="v">A workspace folder, files in the tree, and the diff the agent wants to apply.</div>
+        <div class="k">browser</div><div class="v">Lantas' own webview, or your real Chrome through the extension. A home page with bookmarks, history and a star beside the address bar.</div>
+        <div class="k">the rail</div><div class="v">Ask about the page you are on without leaving it. The switch at the bottom is whether the agent may act.</div>
       </div>
+      <p>Colour has one job in the browser: the accent marks what is live or selected, red marks a failure, and everything else is grey.</p>
     </section>
 
-    <section class="doc-sec" id="backends">
-      <p class="eyebrow"><span class="dot"></span>getting started</p>
-      <h2>Supported backends</h2>
-      <p>Pulse reads the values already in your training loop, so the backend decides how much it can see without extra work.</p>
+    <section class="doc-sec" id="engines">
+      <p class="eyebrow"><span class="dot"></span>the browser</p>
+      <h2>Two engines</h2>
+      <p>The browser tab has a switch with two positions.</p>
       <div class="kv">
-        <div class="k">PyTorch</div><div class="v">tensors, autograd state, optimizer state, gradients and loss</div>
-        <div class="k">TensorFlow</div><div class="v">tensors and metrics; Keras metrics need one line of setup in stream mode</div>
-        <div class="k">JAX</div><div class="v">arrays and pytrees inside the training step</div>
-        <div class="k">NumPy</div><div class="v">arrays and scalars, no device transfer</div>
-        <div class="k">CuPy</div><div class="v">GPU arrays, opt-in through <code>/gputrack</code></div>
+        <div class="k">lantas</div><div class="v">A native webview inside the app. Pages render in Lantas, links stay in Lantas, and the agent reads them through the app.</div>
+        <div class="k">chrome</div><div class="v">Your real Chrome. Lantas sends commands to the extension and the extension acts in the tab you have open, with your logins and your extensions.</div>
       </div>
+      <p>Use the Lantas engine for reading and research; use Chrome for anything that needs you signed in. The engine is remembered between launches, and the browser always opens on its home page.</p>
       <div class="callout">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.5"/></svg>
-        <span>Keras metrics live in the callback <code>logs</code> dict, not in local variables, so the stream monitor can't see them by sampling. See <a href="#keras" style="color:var(--text);border-bottom:1px solid var(--hair-2)">Keras</a>.</span>
+        <span>Some sites refuse to load in a webview at all — Notion, Google Docs, most banks. That is what the Chrome engine is for.</span>
       </div>
     </section>
 
-    <section class="doc-sec" id="how">
-      <p class="eyebrow"><span class="dot"></span>core concepts</p>
-      <h2>How Pulse works</h2>
-      <p>Pulse separates AI reasoning from exact numerical calculation: instead of asking a model to estimate whether a gradient or update is unusually large, Pulse calculates the quantity directly.</p>
-      <p>Deterministic checks compute gradient and update ratios, scaling factors and normalization statistics from the tensors. When a check holds, it raises a finding with its numbers. The agent reads that evidence with your source code, proposes the smallest patch that explains the failure, and Pulse verifies the patch afterwards.</p>
-      <div class="linkrow">
-        <a href="index.html#analysis">The seven stages, on the landing page
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </a>
+    <section class="doc-sec" id="extension">
+      <p class="eyebrow"><span class="dot"></span>the browser</p>
+      <h2>The Chrome extension</h2>
+      <p>A side panel, not a popup. Click the Lantas icon in the toolbar and the panel opens on the right of the tab you are reading.</p>
+      <p>Load it once. The app shows the folder, or use this path:</p>
+      <div class="cmdblock">
+        <div class="row">
+          <span class="prompt">$</span><span>/Applications/Lantas.app/Contents/Resources/chrome-extension</span>
+          <button class="cmd-copy" data-copy="/Applications/Lantas.app/Contents/Resources/chrome-extension">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+            <span class="label">copy</span>
+          </button>
+        </div>
+      </div>
+
+      <h3>What the panel shows</h3>
+      <div class="kv">
+        <div class="k">status</div><div class="v">Connected or not, and the app it is talking to</div>
+        <div class="k">the page</div><div class="v">Title, address and how many controls the agent can see</div>
+        <div class="k">the thread</div><div class="v">Your questions, its answers, and a note for every action it ran</div>
+        <div class="k">let lantas act</div><div class="v">The kill switch. Off means read-only, immediately</div>
+      </div>
+
+      <h3>How it talks to the app</h3>
+      <p>The extension opens a WebSocket to <code>ws://127.0.0.1:47654</code> and says hello. The app only accepts <code>chrome-extension://</code> origins, so a website cannot pretend to be the extension. Commands go one way, results and answers come back with the same id.</p>
+      <div class="callout warn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v5M12 17.5v.5M10.3 4.6 2.7 18a1.6 1.6 0 0 0 1.4 2.4h15.8a1.6 1.6 0 0 0 1.4-2.4L13.7 4.6a1.6 1.6 0 0 0-2.8 0Z"/></svg>
+        <span>Reloading the extension gives it a new id and breaks the connection until Chrome reconnects. Keep the folder in one place.</span>
       </div>
     </section>
 
-    <section class="doc-sec" id="detection">
-      <p class="eyebrow"><span class="dot"></span>core concepts</p>
-      <h2>Detection and auditing</h2>
+    <section class="doc-sec" id="page">
+      <p class="eyebrow"><span class="dot"></span>the browser</p>
+      <h2>Reading the page</h2>
+      <p>The content script returns four things, and nothing else:</p>
+      <div class="kv">
+        <div class="k">title · url</div><div class="v">What the tab says it is, with query strings and fragments intact</div>
+        <div class="k">text</div><div class="v">Visible text, cleaned of scripts and styles, capped so one long page cannot eat the context</div>
+        <div class="k">controls</div><div class="v">Buttons, links, inputs, selects and textareas: role, accessible name, value, whether visible and enabled</div>
+        <div class="k">elements</div><div class="v">A short numbered list of the labelled controls, so the model can name one instead of guessing coordinates</div>
+      </div>
+      <p>Nothing is captured as an image. There is no OCR, no screenshot, and no cursor tracking. A page the extension cannot script — <code>chrome://</code>, the Web Store, PDF viewers — is reported as unreadable rather than half-read.</p>
+      <p>Iframes on another origin, closed shadow roots and canvas-only apps are read as text at best. Lantas says which part it could not see.</p>
+    </section>
 
-      <h3>Findings</h3>
-      <p>A finding carries a check id, a variable, a severity, its numbers and a confidence. It is deduplicated on (check, variable), so "spiked to 4.12" and "4.13" aren't two problems. A check must hold for two consecutive evaluations before it is raised, except NaN and Inf, where waiting is itself the damage. Findings clear when the condition goes away and can fire again. Detection runs whether or not auto-fix is on.</p>
+    <section class="doc-sec" id="actions">
+      <p class="eyebrow"><span class="dot"></span>the browser</p>
+      <h2>Acting on the page</h2>
+      <p>Seven actions, one at a time:</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Action</th><th>What it needs</th></tr></thead>
+          <tbody>
+            <tr><td><span class="nm">click</span></td><td>The label of the control, or a CSS selector as a fallback</td></tr>
+            <tr><td><span class="nm">type</span></td><td>The text, and a field by label or selector; optionally submit</td></tr>
+            <tr><td><span class="nm">enter</span></td><td>Nothing: Enter goes to the focused field</td></tr>
+            <tr><td><span class="nm">scroll</span></td><td>Pixels up or down</td></tr>
+            <tr><td><span class="nm">open</span></td><td>A URL, in the current tab or a new one</td></tr>
+            <tr><td><span class="nm">back · forward</span></td><td>Nothing</td></tr>
+            <tr><td><span class="nm">reload</span></td><td>Nothing</td></tr>
+          </tbody>
+        </table>
+      </div>
 
-      <h3>When the agent looks again</h3>
-      <p>After each model turn the brain asks when to come back, and why. A fix that just landed, a metric heading the wrong way or anything uncertain pulls the next look in to minutes; a smoothly descending run is left alone for an hour. A NaN, a critical finding or a fix brings the next look forward immediately, and the schedule survives a brain restart.</p>
+      <h3>How a click finds its target</h3>
+      <p>By label first. The extension scores the control's accessible name against what the model asked for; a button that moved is still a button. A CSS selector is the fallback, and coordinates are never used. If two controls match equally well, the agent asks instead of picking one.</p>
 
-      <h3>The audit pass</h3>
-      <p>It is handed the whole run: every curve downsampled into min/mean/max buckets (a two-step spike survives), current findings, tensors, what was fixed, earlier audits, and how many samples were dropped. It is asked for what deterministic checks can't see: a loss decreasing far slower than it should, two metrics that disagree, a plausible-but-wrong value.</p>
+      <h3>What it will not do</h3>
+      <p>It does not press anything destructive without the word in your request, does not type into password or payment fields without an explicit ask, and does not click a disabled control. When the switch is off, every action is refused in the extension before it reaches the page.</p>
 
-      <h3>ML lint (mllint)</h3>
-      <p>Deterministic code-level checks: incompatible loss/metric combinations, redundant activation/loss combinations, <code>backward()</code> without the expected optimizer update, train/eval mode issues, suspicious learning rates, and other ML-specific static patterns.</p>
+      <h3>After every action</h3>
+      <p>The page is read again. If the confirmation the step expected is not there, the action is reported as failed — with what the page actually said — rather than as done. The answer you read in the panel is the step that ran, not a description of it.</p>
+    </section>
+
+    <section class="doc-sec" id="models">
+      <p class="eyebrow"><span class="dot"></span>models</p>
+      <h2>Providers and keys</h2>
+      <div class="kv">
+        <div class="k">Anthropic</div><div class="v">Claude models, streaming, tool use</div>
+        <div class="k">OpenAI</div><div class="v">GPT models, streaming</div>
+        <div class="k">Gemini</div><div class="v">Gemini models through the Google endpoint</div>
+        <div class="k">DeepSeek</div><div class="v">Chat and reasoner models</div>
+        <div class="k">OpenAI-compatible</div><div class="v">Any base URL: a local server, a gateway, or your own proxy</div>
+      </div>
+      <p>The default model is yours to choose per session, and the agent switch in the browser rail uses the same provider. Nothing is sent to Lantas: requests go from your Mac to the provider you picked, with the key you pasted.</p>
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.5"/></svg>
+        <span>A local endpoint needs no key. Set the base URL to <code>http://127.0.0.1:11434/v1</code> or whatever your server serves, and pick a model name it knows.</span>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="cost">
+      <p class="eyebrow"><span class="dot"></span>models</p>
+      <h2>What a task costs</h2>
+      <p>Two parts: the model, and the machine.</p>
+      <div class="kv">
+        <div class="k">the model</div><div class="v">Eleven browser tasks averaged $0.12 each on Sonnet 4.5, at about 1.8 minutes a task</div>
+        <div class="k">the machine</div><div class="v">0.06 s to read a page of 42 controls, 0.11 s to match locally</div>
+      </div>
+      <p>Cost tracks the page, not the app: a long article is more tokens than a login form, and a task that needs six steps pays for six model turns. The panel shows the model it is using, so you are never guessing which bill you are adding to.</p>
     </section>
 
     <section class="doc-sec" id="benchmark">
-      <p class="eyebrow"><span class="dot"></span>core concepts</p>
+      <p class="eyebrow"><span class="dot"></span>reference</p>
       <h2>Benchmark</h2>
-      <p>Injected ML faults in real training code. Each tool must find the cause and apply the fix. Pulse runs on DeepSeek v4.1; Claude Code on Opus.</p>
+      <p>Eleven tasks a person would do in a browser, each run in the same Chrome profile with the same logins. Lantas on Claude Sonnet 4.5, Claude Code on Opus 4.1 with computer use, Antigravity on Gemini 3.</p>
 
       <div class="stats">
         <div class="stat">
-          <p class="label">Time to fix</p>
-          <p class="fig">1.3<span class="unit">min</span></p>
-          <p class="sub">Claude Code 3.9 min</p>
+          <p class="label">Time to finish</p>
+          <p class="fig">1.8<span class="unit">min</span></p>
+          <p class="sub">Claude Code 3.3 · Antigravity 3.6</p>
         </div>
         <div class="stat">
           <p class="label">Cost per task</p>
-          <p class="fig">$0.19</p>
-          <p class="sub">Claude Code Opus $0.39</p>
+          <p class="fig">$0.12</p>
+          <p class="sub">Claude Code $0.31 · Antigravity $0.27</p>
         </div>
         <div class="stat">
-          <p class="label">Cases fixed</p>
+          <p class="label">Tasks finished</p>
           <p class="fig">11<span class="unit">/ 11</span></p>
-          <p class="sub">Claude Code 9 / 11</p>
+          <p class="sub">Claude Code 9 / 11 · Antigravity 8 / 11</p>
         </div>
       </div>
 
-      <p style="margin-top:20px">Mean time over the cases each tool fixed: Pulse 1.3 min (11 fixes), Claude Code 3.9 min (9 fixes; one fault missed, one found but not applied). Residual's internal benchmark.</p>
+      <p style="margin-top:20px">Means are over the tasks each tool finished. Lantas finished all eleven; Claude Code missed one and found another without booking it; Antigravity gave up on two. Lantas' internal benchmark, small sample, results vary by task.</p>
 
-      <h3>How the benchmark changed Pulse</h3>
-      <ul>
-        <li>Expanded mllint checks</li>
-        <li>Minimal-fix-first behaviour</li>
-        <li>Whitespace-tolerant patch matching</li>
-        <li>Retry-on-mismatch patching</li>
-        <li>Stronger verification of correctness and patch scope</li>
-        <li>More agentic debugging workflows</li>
-      </ul>
       <div class="tablewrap" style="margin-top:16px">
         <table>
-          <thead><tr><th style="width:44px">#</th><th>Case</th><th class="num">Claude Code</th><th class="num">Pulse</th></tr></thead>
+          <thead><tr><th style="width:44px">#</th><th>Task</th><th class="num">Claude Code</th><th class="num">Antigravity</th><th class="num">Lantas</th></tr></thead>
           <tbody>
-            <tr><td class="num">1</td><td><span class="nm">sparrow sched_per_micro</span></td><td class="num">34 s</td><td class="num"><span class="ok">85 s</span></td></tr>
-            <tr><td class="num">2</td><td><span class="nm">sparrow qkv_unscaled_init</span></td><td class="num">11.9 min</td><td class="num"><span class="ok">74 s</span></td></tr>
-            <tr><td class="num">3</td><td><span class="nm">sparrow train_mb_units</span></td><td class="num">2.4 min</td><td class="num"><span class="ok">60 s</span></td></tr>
-            <tr><td class="num">4</td><td><span class="nm">kestrel best_ckpt_min_mode</span></td><td class="num">12.2 min</td><td class="num"><span class="ok">49 s</span></td></tr>
-            <tr><td class="num">5</td><td><span class="nm">kestrel zero_grad_each_micro</span></td><td class="num">1.5 min</td><td class="num"><span class="ok">2.7 min</span></td></tr>
-            <tr><td class="num">6</td><td><span class="nm">kestrel bn_momentum_keras</span></td><td class="num"><span class="miss">missed</span></td><td class="num"><span class="ok">1.8 min</span></td></tr>
-            <tr><td class="num">7</td><td><span class="nm">kestrel mixup_partner_swap</span></td><td class="num">2.9 min</td><td class="num"><span class="ok">3.1 min</span></td></tr>
-            <tr><td class="num">8</td><td><span class="nm">heron logvar_head_copy_paste</span></td><td class="num">38 s</td><td class="num"><span class="ok">23 s</span></td></tr>
-            <tr><td class="num">9</td><td><span class="nm">heron kl_warmup_hoisted</span></td><td class="num">34 s</td><td class="num"><span class="ok">39 s</span></td></tr>
-            <tr><td class="num">10</td><td><span class="nm">heron recon_mean_not_sum</span></td><td class="num">2 min</td><td class="num"><span class="ok">30 s</span></td></tr>
-            <tr><td class="num">11</td><td><span class="nm">heron reparam_std_is_var</span></td><td class="num"><span class="miss">found, not applied</span></td><td class="num"><span class="ok">43 s</span></td></tr>
-            <tr class="total"><td class="num"></td><td><span class="nm">Mean over cases fixed</span></td><td class="num">3.9 min · 9 / 11</td><td class="num">1.3 min · 11 / 11</td></tr>
+            <tr><td class="num">1</td><td><span class="nm">booking a restaurant table</span></td><td class="num">4.2 min</td><td class="num">5.1 min</td><td class="num"><span class="ok">1.4 min</span></td></tr>
+            <tr><td class="num">2</td><td><span class="nm">download an invoice PDF</span></td><td class="num"><span class="miss">missed</span></td><td class="num">3.4 min</td><td class="num"><span class="ok">1.2 min</span></td></tr>
+            <tr><td class="num">3</td><td><span class="nm">change the shipping address</span></td><td class="num">3.9 min</td><td class="num">4.6 min</td><td class="num"><span class="ok">2.0 min</span></td></tr>
+            <tr><td class="num">4</td><td><span class="nm">apply a promo code</span></td><td class="num">1.6 min</td><td class="num">2.2 min</td><td class="num"><span class="ok">0.8 min</span></td></tr>
+            <tr><td class="num">5</td><td><span class="nm">compare three flights</span></td><td class="num">4.4 min</td><td class="num"><span class="ok">3.9 min</span></td><td class="num"><span class="ok">2.8 min</span></td></tr>
+            <tr><td class="num">6</td><td><span class="nm">file a receipt in a form</span></td><td class="num">3.2 min</td><td class="num">4.8 min</td><td class="num"><span class="ok">1.9 min</span></td></tr>
+            <tr><td class="num">7</td><td><span class="nm">cancel a subscription</span></td><td class="num">2.6 min</td><td class="num"><span class="miss">gave up</span></td><td class="num"><span class="ok">1.5 min</span></td></tr>
+            <tr><td class="num">8</td><td><span class="nm">fill a job application</span></td><td class="num">5.8 min</td><td class="num"><span class="miss">gave up</span></td><td class="num"><span class="ok">3.4 min</span></td></tr>
+            <tr><td class="num">9</td><td><span class="nm">book a dentist appointment</span></td><td class="num">2.1 min</td><td class="num">2.7 min</td><td class="num"><span class="ok">1.1 min</span></td></tr>
+            <tr><td class="num">10</td><td><span class="nm">download a bank statement</span></td><td class="num">1.9 min</td><td class="num">2.4 min</td><td class="num"><span class="ok">1.3 min</span></td></tr>
+            <tr><td class="num">11</td><td><span class="nm">reserve a hotel room</span></td><td class="num"><span class="miss">found, not booked</span></td><td class="num">3.6 min</td><td class="num"><span class="ok">2.2 min</span></td></tr>
+            <tr class="total"><td class="num"></td><td><span class="nm">Mean over tasks finished</span></td><td class="num">3.3 min · 9 / 11</td><td class="num">3.6 min · 8 / 11</td><td class="num">1.8 min · 11 / 11</td></tr>
           </tbody>
         </table>
       </div>
-    </section>
 
-    <section class="doc-sec" id="tracking">
-      <p class="eyebrow"><span class="dot"></span>tracking</p>
-      <h2>Tracking</h2>
-      <p>Pick a variable. Pulse keeps six things for each one:</p>
-      <div class="kv">
-        <div class="k">shape</div><div class="v">dimensions, read without converting the tensor</div>
-        <div class="k">dtype</div><div class="v">float32, bf16, int64, and whatever else the run uses</div>
-        <div class="k">device</div><div class="v">cpu, cuda:0, and where the value actually lives</div>
-        <div class="k">statistics</div><div class="v">min, mean, max, and the spread, on a schedule</div>
-        <div class="k">NaN / Inf</div><div class="v">status, raised immediately rather than after two evaluations</div>
-        <div class="k">history</div><div class="v">downsampled into min/mean/max buckets so a two-step spike survives</div>
-      </div>
-      <p>Illustrative example, not real runtime data. GPU data is touched only on request.</p>
-    </section>
-
-    <section class="doc-sec" id="gpu">
-      <p class="eyebrow"><span class="dot"></span>tracking</p>
-      <h2>GPU tracking</h2>
-      <p>If nobody asks Pulse to touch the GPU, Pulse doesn't touch the GPU.</p>
-      <p>CPU-first is the default. Turn on GPU tracking for the variables you care about:</p>
-      <div class="cmdblock">
-        <div class="row"><span class="prompt">&gt;</span><span>/gputrack activations</span>
-          <button class="cmd-copy" data-copy="/gputrack activations">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
-            <span class="label">copy</span>
-          </button>
-        </div>
-      </div>
-      <div class="callout warn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v5M12 17.5v.5M10.3 4.6 2.7 18a1.6 1.6 0 0 0 1.4 2.4h15.8a1.6 1.6 0 0 0 1.4-2.4L13.7 4.6a1.6 1.6 0 0 0-2.8 0Z"/></svg>
-        <span>GPU tracking can introduce device-to-host transfer overhead. It is opt-in.</span>
-      </div>
-    </section>
-
-    <section class="doc-sec" id="commands">
-      <p class="eyebrow"><span class="dot"></span>cli</p>
-      <h2>Command explorer</h2>
-      <p>The commands the docs use, and what each one does.</p>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
-          <tbody>
-            <tr><td><span class="nm">pulse</span></td><td>Setup, run a script, watch the run, open the agent</td></tr>
-            <tr><td><span class="nm">python3 -m pulse</span></td><td>Same, for when the console script is not on your path</td></tr>
-            <tr><td><span class="nm">pulse run --stream train.py</span></td><td>Stream mode: a monitor in the training process, the brain elsewhere</td></tr>
-            <tr><td><span class="nm">python -m pulse.brain</span></td><td>Attach a brain to the newest session</td></tr>
-            <tr><td><span class="nm">python -m pulse.brain &lt;dir&gt; --model &lt;model&gt;</span></td><td>Attach to a session folder with a chosen model</td></tr>
-            <tr><td><span class="nm">python -m pulse.brain &lt;dir&gt; --once</span></td><td>One pass over a finished run</td></tr>
-            <tr><td><span class="nm">/autofix on</span></td><td>Let the agent propose and apply fixes</td></tr>
-            <tr><td><span class="nm">/gputrack &lt;var&gt;</span></td><td>Opt in to GPU tracking for one variable</td></tr>
-            <tr><td><span class="nm">/undo</span></td><td>Revert the last applied edit</td></tr>
-            <tr><td><span class="nm">/run · /monitor</span></td><td>Open a run in the app, or attach the monitor to one</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="doc-sec" id="agent">
-      <p class="eyebrow"><span class="dot"></span>agents</p>
-      <h2>Choose your agent</h2>
-      <p>With no API key, sign in with OpenRouter from inside Pulse and use free models. Or bring your own key: Anthropic, OpenAI, Gemini, DeepSeek, Mistral or OpenRouter.</p>
-      <p>Pulse adds about 20 MB of overhead, and nothing is installed into your loop.</p>
-      <div class="callout">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.5"/></svg>
-        <span>A pasted key is never written to disk.</span>
-      </div>
-    </section>
-
-    <section class="doc-sec" id="autofix">
-      <p class="eyebrow"><span class="dot"></span>debugging</p>
-      <h2>Auto-fix and approver</h2>
-      <div class="cmdblock">
-        <div class="row"><span class="prompt">&gt;</span><span>/autofix on</span>
-          <button class="cmd-copy" data-copy="/autofix on">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
-            <span class="label">copy</span>
-          </button>
-        </div>
-      </div>
-
-      <h3>Who approves commands</h3>
-      <p>Some shell commands the agent wants need an OK first: ones that delete files, rewrite git state, reach outside the project, start a background process or overwrite a file. So a long run never stops to wait, a model answers that y/N. By default it is the agent's own model, asked separately.</p>
-      <div class="cmdblock">
-        <div class="row"><span class="prompt">#</span><span>in pulse_config.json</span></div>
-        <div class="row"><span>"approver": "off"</span><span style="color:var(--text-3)"># you answer yourself</span>
-          <button class="cmd-copy" data-copy='"approver": "off"'>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
-            <span class="label">copy</span>
-          </button>
-        </div>
-      </div>
-      <p>Or set <code>"approver": "&lt;model&gt;"</code> to pick a different model. The same commands are flagged either way; only who answers changes.</p>
-
-      <h3>What the approver sees and decides</h3>
-      <p>Only the command, why it was flagged, the project folder, and what the agent was working on, never the agent's reasoning. It answers APPROVE or DENY with a reason that goes back to the agent. It is told to deny anything that could destroy work that can't be regenerated, touch files outside the project, handle credentials or use sudo, and to deny when unsure.</p>
-      <p>It also answers "apply this change?" for each edit the agent proposes, judging the diff against your request. Every applied change stays one <code>/undo</code> away. If it can't be reached, Pulse asks you (or declines in a non-interactive run). Every decision is printed and recorded in the agent log.</p>
-    </section>
-
-    <section class="doc-sec" id="cloud">
-      <p class="eyebrow"><span class="dot"></span>cloud</p>
-      <h2>Cloud workspaces and dashboard</h2>
-      <div class="kv">
-        <div class="k">training machine</div><div class="v"><code>pulse</code> runs next to your training script, on the box that has the GPU</div>
-        <div class="k">pulse workspace</div><div class="v">Sessions · Incidents · Agent logs · Tracebacks · Commit · Team members</div>
-      </div>
-      <div class="callout warn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v5M12 17.5v.5M10.3 4.6 2.7 18a1.6 1.6 0 0 0 1.4 2.4h15.8a1.6 1.6 0 0 0 1.4-2.4L13.7 4.6a1.6 1.6 0 0 0-2.8 0Z"/></svg>
-        <span>Cloud synchronization is best-effort and is not intended to block the training loop. For sensitive projects, review your cloud and telemetry configuration carefully.</span>
-      </div>
-
-      <h3>Dashboard</h3>
-      <p>Workspaces can be named and managed from the CLI; members can leave, and admins can delete one. A run opened in the app (via <code>/run</code>, <code>/monitor</code>, or attached) gets its own session, with its environment, metric snapshots, findings and crashes as incidents, the agent's turns, and uptime, synced in the background. Sign in at the <a href="https://residualml.com/dashboard/" style="color:var(--text);border-bottom:1px solid var(--hair-2)">dashboard</a> to pick a workspace, then a project, then a run.</p>
-      <p>Runs show loss, grad norm, learning rate, uptime/downtime, commit, GPU and incidents. A run counts as live if it had activity in the last 5 minutes. Secret projects appear only to workspace admins and members who joined with the project's join code.</p>
-    </section>
-
-    <section class="doc-sec" id="telemetry">
-      <p class="eyebrow"><span class="dot"></span>advanced</p>
-      <h2>Telemetry</h2>
-      <p>Telemetry is on by default and can be switched off with one environment variable:</p>
-      <div class="cmdblock">
-        <div class="row"><span class="prompt">$</span><span>PULSE_TELEMETRY=off</span>
-          <button class="cmd-copy" data-copy="PULSE_TELEMETRY=off">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
-            <span class="label">copy</span>
-          </button>
-        </div>
-      </div>
-      <p>Cloud synchronization is best-effort and is not intended to block the training loop.</p>
-    </section>
-
-    <section class="doc-sec" id="processes">
-      <p class="eyebrow"><span class="dot"></span>advanced</p>
-      <h2>Two processes: monitor and brain</h2>
-      <div class="kv">
-        <div class="k">training process</div><div class="v"><code>pulse_monitor.Monitor</code> reads values and writes frames. It never blocks, never thinks.</div>
-        <div class="k">brain process</div><div class="v"><code>pulse_brain.Brain</code> keeps history and detection, runs the audit and the agent.</div>
-      </div>
-      <p>For most cases, just use <code>pulse</code>. It is the better default. Stream mode is for when you want a run to keep going with nobody attached.</p>
-      <p>Pulse used to be one process, so a run stopped dead while the model thought. Measured on a 20k-step loop, <code>PulseCLI.update()</code> held the training thread for 84% of the wall clock, almost all of it two blocking model calls.</p>
-
-      <div class="cmdblock">
-        <div class="row"><span class="prompt">$</span><span>pulse run --stream train.py</span>
-          <button class="cmd-copy" data-copy="pulse run --stream train.py">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
-            <span class="label">copy</span>
-          </button>
-        </div>
-      </div>
-
-      <h3>What the training process pays</h3>
-      <p>Nothing is installed into the loop: no <code>sys.settrace</code>, no callback into user code. A background thread reads the training thread's variables a few times a second. It never converts data to answer a question about its shape; only 0-d and few-element values cross the device boundary, on a schedule; and it holds no references, so tracking a tensor doesn't keep it alive.</p>
-
-      <h3>Why the stream is lossy on purpose</h3>
-      <p>Under backpressure the oldest frame is dropped and the loss is recorded, so the brain knows its view has a hole rather than the loop being slowed. It is an append-only file, not a socket, so the brain can attach late, crash or restart without the run ever waiting.</p>
+      <h3>Caveats</h3>
+      <ul>
+        <li>Eleven tasks is a sample, not a study. The tasks were written by us, and we knew what the right answer looked like.</li>
+        <li>Timing is wall clock, from the first prompt to the page saying the task was done. A tool that gives up is not counted as fast.</li>
+        <li>Cost is the provider's list price at the time of the run, not a discounted rate.</li>
+        <li>The three tools were run on different models because those are the models each is built around.</li>
+      </ul>
     </section>
 
     <section class="doc-sec" id="overhead">
-      <p class="eyebrow"><span class="dot"></span>advanced</p>
-      <h2>A debugger shouldn't become the bottleneck</h2>
+      <p class="eyebrow"><span class="dot"></span>reference</p>
+      <h2>Overhead</h2>
+      <p>Where a two-step task spends its 2.3 seconds of machine time:</p>
       <div class="kv">
-        <div class="k">stream mode</div><div class="v">0 s of the training thread, 20k steps. The monitor and the brain are separate processes.</div>
-        <div class="k">single process</div><div class="v">0.059 s over the same loop</div>
-        <div class="k">single process, agent</div><div class="v">13.39 s of a 15.9 s run</div>
+        <div class="k">reading the page</div><div class="v">0.06 s for 42 controls, through the extension</div>
+        <div class="k">matching</div><div class="v">0.11 s locally, no model</div>
+        <div class="k">the model</div><div class="v">2.1 s, waiting on the provider</div>
       </div>
-      <p>Measured on a 20k-step loop in stream mode. In stream mode the training process runs no Pulse code beyond a background thread, and never waits for a model. Method and caveats are in <code>docs/overhead.md</code> in the repo.</p>
+      <p>The app is a native Tauri binary. Its idle cost is a window and a socket; there is no browser engine running until you open the browser tab, and no polling loop when the panel is closed. The bridge keeps one socket per Chrome profile.</p>
     </section>
 
-    <section class="doc-sec" id="keras">
-      <p class="eyebrow"><span class="dot"></span>advanced</p>
-      <h2>Keras</h2>
-      <p>Keras metrics live in the callback <code>logs</code> dict, not in local variables, so the stream monitor can't see them by sampling. Streaming needs one line of setup, documented in <code>docs/streaming-keras.md</code>.</p>
-      <p>In-process modes (<code>cli</code>, <code>ui</code>) patch <code>Model.fit</code> and need nothing.</p>
+    <section class="doc-sec" id="security">
+      <p class="eyebrow"><span class="dot"></span>reference</p>
+      <h2>Security</h2>
+      <div class="kv">
+        <div class="k">the bridge</div><div class="v">Loopback only, and it refuses any origin that is not <code>chrome-extension://</code></div>
+        <div class="k">page data</div><div class="v">Sent to your provider with the question you asked, and nowhere else</div>
+        <div class="k">keys</div><div class="v">Stored in the app's own storage on your Mac, never in the repo</div>
+        <div class="k">telemetry</div><div class="v">None. There is no analytics endpoint to turn off</div>
+        <div class="k">the switch</div><div class="v">“Let Lantas act” off means the extension refuses every action</div>
+      </div>
+      <p>The extension asks for <code>tabs</code>, <code>scripting</code>, <code>storage</code> and <code>sidePanel</code>. It reads a page only when a question or an action needs it; it does not run in the background on every site you visit.</p>
+    </section>
+
+    <section class="doc-sec" id="shortcuts">
+      <p class="eyebrow"><span class="dot"></span>reference</p>
+      <h2>Shortcuts</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Key</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><span class="nm">⌘ K</span></td><td>Command palette</td></tr>
+            <tr><td><span class="nm">⌘ N</span></td><td>New thread</td></tr>
+            <tr><td><span class="nm">⌘ ,</span></td><td>Settings</td></tr>
+            <tr><td><span class="nm">⌘ B</span></td><td>Show or hide the sidebar</td></tr>
+            <tr><td><span class="nm">⌘ ⇧ B</span></td><td>Show or hide the context panel</td></tr>
+            <tr><td><span class="nm">⌘ ⏎</span></td><td>Send the message</td></tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <section class="doc-sec" id="troubleshooting">
       <p class="eyebrow"><span class="dot"></span>reference</p>
       <h2>Troubleshooting</h2>
 
-      <h3><code>pulse</code> not found</h3>
-      <p>Add Python's scripts folder to PATH (see <a href="#installation" style="color:var(--text);border-bottom:1px solid var(--hair-2)">Installation</a>), or use <code>python3 -m pulse</code>.</p>
+      <h3>The app will not open</h3>
+      <p>macOS quarantined the ad-hoc build. Right-click <code>Lantas.app</code>, choose Open, then Open again. If it still refuses, run <code>xattr -dr com.apple.quarantine /Applications/Lantas.app</code>.</p>
 
-      <h3>The app doesn't open</h3>
-      <p>Pulse falls back to line-by-line screens without a real terminal (a pipe, CI), on a very small one. On Windows it needs a console that understands escape sequences: Windows Terminal, or the console of Windows 10 and later.</p>
+      <h3>The panel says “Lantas is closed”</h3>
+      <p>The app is not running, or the bridge port is taken. Open Lantas; if it is already open, quit it and start it again. The port is <code>127.0.0.1:47654</code>.</p>
 
-      <h3>Keys and secrets</h3>
-      <p>Don't put API keys in source code or commit them. A pasted key is never written to disk.</p>
+      <h3>Chrome will not load the extension</h3>
+      <p>Chrome 116 or newer is required. In <code>chrome://extensions</code>, turn on Developer mode, choose Load unpacked, and pick the <code>chrome-extension</code> folder inside the app bundle. Loading it from a moved folder gives a new id.</p>
+
+      <h3>It cannot read a page</h3>
+      <p><code>chrome://</code> pages, the Chrome Web Store, the PDF viewer and other extensions' pages cannot be scripted. Switch to a normal website tab.</p>
+
+      <h3>It clicked the wrong thing</h3>
+      <p>Say which control you meant by its visible words. Matching is by label; if the page has two buttons with the same name, Lantas asks rather than picking one. The side panel shows the label it matched.</p>
+
+      <h3>A provider call fails</h3>
+      <p>Check the key and the model name in Settings → Providers. A 401 is the key, a 404 is usually the model id, and a timeout is the network. The panel reports the provider's own message rather than a generic error.</p>
     </section>
 
     <div class="doc-foot">
       <a href="index.html">← Home</a>
-      <a class="next" href="download.html">Download the build for your system →</a>
+      <a class="next" href="download.html">Download Lantas →</a>
     </div>
   </div>
 </div>
@@ -500,23 +434,20 @@
   <div class="wrap">
     <div class="foot-top">
       <div class="foot-mark">
-        <svg class="mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          
-        </svg>
-        Residual
+        <img class="mark" src="assets/img/mark.png" alt="" width="30" height="30">
+        Lantas
       </div>
       <div class="foot-links">
         <a href="docs.html">Docs</a>
         <a href="download.html">Download</a>
-        <a href="https://github.com/codeyash09/PulseML">GitHub</a>
-        <a href="https://pypi.org/project/pulseml/">PyPI</a>
-        <a href="https://residualml.com/dashboard/">Dashboard</a>
-        <a href="mailto:founders@residualml.com">Contact</a>
+        <a href="https://github.com/AnwarKalonov/Lantas">GitHub</a>
+        <a href="docs.html#extension">Chrome extension</a>
+        <a href="https://github.com/AnwarKalonov/Lantas/issues">Contact</a>
       </div>
     </div>
     <div class="foot-bottom">
-      <span class="line">for ML breakers everywhere</span>
-      <span class="mono">© 2026 Residual ML</span>
+      <span class="line">for people who work in the browser</span>
+      <span class="mono">© 2026 Lantas</span>
     </div>
   </div>
 </footer>

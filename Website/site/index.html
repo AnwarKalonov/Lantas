@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pulse — debugging machine learning while it trains</title>
-<meta name="description" content="Pulse attaches to a running training process, computes what is actually wrong, patches it and verifies the patch. A live ML debugger from Residual.">
+<title>Lantas — the agent that works in your browser</title>
+<meta name="description" content="Lantas is a macOS coding agent with a browser of its own and a Chrome extension, so the model reads the page you are on, clicks what matters and types where you ask.">
 
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 138 75'%3E%3Cpath d='M0 10.5H73A21 21 0 0 1 94 31.5V37.5M0 37.5H138M0 64.5H138' stroke='%232c6a4e' stroke-width='21' fill='none'/%3E%3C/svg%3E">
+<link rel="icon" href="assets/img/mark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/site.css">
-<script>try{var t=localStorage.getItem("residual-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.dataset.theme=t;}catch(e){}</script>
+<script>try{var t=localStorage.getItem("lantas-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.dataset.theme=t;}catch(e){}</script>
 </head>
 <body>
 
@@ -37,10 +37,8 @@
 <header class="nav">
   <div class="wrap nav-in">
     <a class="brand" href="index.html">
-      <svg class="mark" viewBox="0 0 138 75" fill="none" aria-hidden="true">
-        <path d="M0 10.5H73A21 21 0 0 1 94 31.5V37.5M0 37.5H138M0 64.5H138" stroke="currentColor" stroke-width="21"/>
-      </svg>
-      Residual <span class="slash">/</span> <span class="sub">Pulse</span>
+      <img class="mark" src="assets/img/mark.png" alt="" width="34" height="34">
+      Lantas
     </a>
 
     <nav class="nav-links" aria-label="Sections">
@@ -50,7 +48,7 @@
       <a href="#verification">Verification</a>
       <a href="#install">Install</a>
       <a class="mob" href="docs.html">Docs</a>
-      <a class="mob" href="https://github.com/codeyash09/PulseML">GitHub</a>
+      <a class="mob" href="https://github.com/AnwarKalonov/Lantas">GitHub</a>
     </nav>
 
     <div class="nav-right">
@@ -59,7 +57,7 @@
         <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/></svg>
       </button>
             <a class="txt" href="docs.html">Docs</a>
-      <a class="txt" href="https://github.com/codeyash09/PulseML">GitHub</a>
+      <a class="txt" href="https://github.com/AnwarKalonov/Lantas">GitHub</a>
       <a class="btn btn-primary btn-sm" href="download.html">Download</a>
       <button class="menu-btn" aria-label="Menu" aria-expanded="false">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
@@ -77,18 +75,19 @@
 
   <div class="wrap">
     <div class="hero-copy">
-      <p class="eyebrow" data-reveal><span class="dot"></span>Pulse 2.0 · live ML debugger</p>
+      <p class="eyebrow" data-reveal><span class="dot"></span>Lantas 1.0 · an agent with a browser</p>
 
-      <h1 data-reveal style="--d:70ms">Debugging machine learning <span class="soft">while it trains</span></h1>
+      <h1 data-reveal style="--d:70ms">The coding agent that works <span class="soft">inside your browser</span></h1>
 
       <p class="lede" data-reveal style="--d:140ms">
-        Pulse attaches to a running training process, computes what is actually wrong, and patches it.
-        On eleven injected faults it found all eleven, at <b>1.3 minutes</b> and <b>$0.19</b> a task.
+        Lantas runs on your Mac with a browser of its own and a Chrome extension, so the model reads the page in
+        front of you, clicks what matters and types where you ask. On eleven real browser tasks it finished all
+        eleven, at <b>1.8 minutes</b> and <b>$0.12</b> a task.
       </p>
 
       <div class="actions" data-reveal style="--d:210ms">
         <a class="btn btn-primary" href="download.html">
-          Download Pulse
+          Download Lantas
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg>
         </a>
         <a class="btn btn-secondary" href="docs.html">
@@ -99,8 +98,8 @@
 
       <div class="cmdline" data-reveal style="--d:280ms">
         <span class="prompt">$</span>
-        <code>pip install pulseml</code>
-        <button class="copy" data-copy="pip install pulseml" aria-label="Copy install command">
+        <code>git clone https://github.com/AnwarKalonov/Lantas.git</code>
+        <button class="copy" data-copy="git clone https://github.com/AnwarKalonov/Lantas.git" aria-label="Copy install command">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
           <span class="ok">Copied</span>
         </button>
@@ -110,21 +109,21 @@
     <div class="hero-product" data-reveal style="--d:120ms">
       <div class="window">
         <div class="wbar">
-          <span class="live"><i></i>train.py</span>
-          <span class="path">~/experiments/sparrow</span>
+          <span class="live"><i></i>checkout</span>
+          <span class="path">mixtape.co/checkout</span>
           <span class="right">
-            <span>step <b>4,168</b></span>
-            <span>19.8 it/s</span>
-            <span>loss <b>0.5012</b></span>
-            <span>grad <b>2.4e-5</b></span>
+            <span>tab <b>3 of 7</b></span>
+            <span>42 controls</span>
+            <span>step <b>4</b></span>
+            <span>1.8 s</span>
           </span>
         </div>
 
         <div class="wbody">
           <div class="plot" data-trace="flat">
-            <div class="flag"><i></i>flat for 3,268 steps</div>
-            <svg role="img" aria-label="Loss curve that falls to 0.5012 around step 900 and stays flat through step 4,168"></svg>
-            <div class="axis"><span>0</span><span>1,000</span><span>2,000</span><span>3,000</span><span>4,168</span></div>
+            <div class="flag"><i></i>steady at 1.2 s an action</div>
+            <svg role="img" aria-label="Time per action across a task, falling to about 1.2 seconds and staying flat"></svg>
+            <div class="axis"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>14</span></div>
             <button class="replay">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4M3 4v5h5"/></svg>
               replay the run
@@ -132,15 +131,15 @@
           </div>
 
           <div class="agent">
-            <div class="ask"><span class="caret">❯</span><span>why did the loss stop moving?</span></div>
-            <div class="thought"><i class="tick"></i>thought for 4s</div>
-            <div class="tool">searched <b>loss</b> · read <b>train.py:1–14</b></div>
-            <div class="ans">the loss is flat at <b>0.5</b> because of the <span class="hot">+ 0.5</span> on line 12</div>
-            <div class="edit"><span class="add">+1</span><span class="del">−1</span> train.py <span class="done">approved · applied</span></div>
+            <div class="ask"><span class="caret">❯</span><span>find the cheapest table for two on Friday</span></div>
+            <div class="thought"><i class="tick"></i>thought for 2s</div>
+            <div class="tool">read <b>checkout</b> · 42 controls · 1 tab</div>
+            <div class="ans">the <span class="hot">20:00</span> slot is $38; the 19:30 is $42</div>
+            <div class="edit"><span class="add">✓</span> clicked “Reserve” <span class="done">verified</span></div>
           </div>
         </div>
       </div>
-      <p class="cap">A drawing of the app, not live data. The run on the left, the agent on the right.</p>
+      <p class="cap">A drawing of the app, not live data. The page on the left, the agent on the right.</p>
     </div>
   </div>
 </section>
@@ -151,7 +150,7 @@
     <div class="film-stage" data-film-stage>
       <header class="film-head">
         <p class="eyebrow"><span class="dot"></span>One run, start to finish</p>
-        <h2>It crashed. Twice. Then it didn’t.</h2>
+        <h2>It clicked the wrong button. Then it didn’t.</h2>
       </header>
 
       <div class="film-scene">
@@ -162,7 +161,7 @@
 
               <div class="menubar">
                 <span class="mb-mark"><svg viewBox="0 0 24 16" fill="none" aria-hidden="true"><path d="M6 15h11a4.6 4.6 0 0 0 .6-9 6.4 6.4 0 0 0-12.2-1.7A4.7 4.7 0 0 0 6 15Z" fill="currentColor"/></svg></span>
-                <span class="mb-app">Pulse</span>
+                <span class="mb-app">Lantas</span>
                 <span>Terminal</span><span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span>
                 <span class="grow"></span>
                 <span class="mb-ico" aria-hidden="true">
@@ -178,33 +177,31 @@
               <div class="win" data-win>
                 <div class="win-bar">
                   <span class="tlights"><i class="r"></i><i class="y"></i><i class="g"></i></span>
-                  <span class="win-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l4 4-4 4M13 16h6"/></svg>pulse — -zsh — 80x24</span>
+                  <span class="win-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l4 4-4 4M13 16h6"/></svg>lantas — -zsh — 80x24</span>
                   <span class="win-pad"></span>
                 </div>
 
                 <div class="win-body">
                   <div class="t-run">
-                                        <p class="tline" style="--at:.03"><span class="pmt">pulse@residual-MacBook-Pro</span> <span class="tilde">~</span> <span class="pct">%</span><span class="caret"></span></p>
-<p class="tline" style="--at:.10"><span class="pmt">pulse@residual-MacBook-Pro</span> <span class="tilde">~</span> <span class="pct">%</span> python3 train.py<span class="opt"> --config sparrow.yaml</span></p>
-                    <p class="tline dim" style="--at:.14">[setup] cuda:0 · bf16 · 32 workers · seed 7</p>
-                    <p class="tline" style="--at:.17">epoch 01  step 1200  loss 2.418  ppl 11.2</p>
-                    <p class="tline" style="--at:.21">epoch 02  step 4800  loss 0.501  ppl 1.6</p>
-                    <p class="tline" style="--at:.25">epoch 03  step 7200  loss 0.501  ppl 1.6</p>
-                    <p class="tline bad" style="--at:.31">RuntimeError: loss is NaN at step 9,120</p>
-                    <p class="tline bad" style="--at:.35">^C  killed after 3,268 steps of nothing</p>
+                    <p class="tline" style="--at:.03"><span class="pmt">anwar@MacBook-Pro</span> <span class="tilde">~</span> <span class="pct">%</span><span class="caret"></span></p>
+                    <p class="tline" style="--at:.10"><span class="pmt">anwar@MacBook-Pro</span> <span class="tilde">~</span> <span class="pct">%</span> open -a Lantas</p>
+                    <p class="tline dim" style="--at:.14">Lantas 1.0 · ready · Apple silicon</p>
+                    <p class="tline" style="--at:.17">Chrome connected · 3 tabs</p>
+                    <p class="tline" style="--at:.21">reading “Checkout — Mixtape” · 42 controls</p>
+                    <p class="tline bad" style="--at:.25">click “#place-order” → selector not found</p>
+                    <p class="tline bad" style="--at:.31">click “button:nth-child(3)” → wrong button: “Apply coupon”</p>
+                    <p class="tline bad" style="--at:.35">^C  stopped after 3 wrong clicks</p>
                   </div>
 
                   <div class="t-fix">
-                    <p class="tline" style="--at:.42"><span class="pmt">pulse@residual-MacBook-Pro</span> <span class="tilde">~</span> <span class="pct">%</span> pip install pulseml</p>
-                    <p class="tline dim" style="--at:.45">Successfully installed pulseml-2.0.0</p>
-                    <p class="tline" style="--at:.48"><span class="pmt">pulse@residual-MacBook-Pro</span> <span class="tilde">~</span> <span class="pct">%</span> python3 -m pulse</p>
-                    <p class="tline ok" style="--at:.51">pulse · attached to pid 4812 (train.py)</p>
-                    <p class="tline dim" style="--at:.54">watching 14 tensors · 4 scalars</p>
-                    <p class="tline warn" style="--at:.57">F-052  loss  flat 3,268 steps</p>
-                    <p class="tline" style="--at:.60">cause → train.py:12  constant 0.5 added to the loss</p>
-                    <p class="tline ok" style="--at:.63">patch applied · verified in 46 s</p>
-                    <p class="tline" style="--at:.66"><span class="pmt">pulse@residual-MacBook-Pro</span> <span class="tilde">~</span> <span class="pct">%</span> python3 train.py<span class="opt"> --config sparrow.yaml</span></p>
-                    <p class="tline ok" style="--at:.69">epoch 04  step 8400  loss 0.3312  ppl 1.3</p>
+                    <p class="tline" style="--at:.42"><span class="pmt">anwar@MacBook-Pro</span> <span class="tilde">~</span> <span class="pct">%</span> open -a Lantas</p>
+                    <p class="tline ok" style="--at:.45">Lantas · Chrome connected</p>
+                    <p class="tline dim" style="--at:.48">reading “Checkout — Mixtape” · 42 controls</p>
+                    <p class="tline" style="--at:.51">button “Place order” matched 0.97 by its label</p>
+                    <p class="tline" style="--at:.54">filled “Card number” · 16 digits</p>
+                    <p class="tline ok" style="--at:.57">clicked “Place order” · page confirmed</p>
+                    <p class="tline" style="--at:.60">order #A-10428 · 38 s</p>
+                    <p class="tline ok" style="--at:.63">the agent had the page, not a screenshot</p>
                   </div>
                 </div>
               </div>
@@ -214,7 +211,7 @@
                 <span class="di finder"><i></i></span>
                 <span class="di safari"><i></i></span>
                 <span class="di term"><i>&gt;_</i></span>
-                <span class="di pulse"><svg viewBox="0 0 24 16" fill="none"><path d="M6 15h11a4.6 4.6 0 0 0 .6-9 6.4 6.4 0 0 0-12.2-1.7A4.7 4.7 0 0 0 6 15Z" fill="currentColor"/></svg></span>
+                <span class="di lantas"><svg viewBox="0 0 24 16" fill="none"><path d="M6 15h11a4.6 4.6 0 0 0 .6-9 6.4 6.4 0 0 0-12.2-1.7A4.7 4.7 0 0 0 6 15Z" fill="currentColor"/></svg></span>
                 <span class="di notes"><i></i></span>
                 <span class="di trash"><i></i></span>
               </div>
@@ -224,21 +221,21 @@
         </div>
 
         <aside class="film-card">
-          <p class="fc-k"><i></i>pulse · live</p>
-          <p class="fc-t">Found it before the epoch ended.</p>
+          <p class="fc-k"><i></i>lantas · live</p>
+          <p class="fc-t">Found the button by what it says.</p>
           <div class="fc-diff">
-            <div class="fc-line del">− loss = F.mse_loss(pred, y) + 0.5</div>
-            <div class="fc-line add">+ loss = F.mse_loss(pred, y)</div>
+            <div class="fc-line del">− page.click("#place-order")</div>
+            <div class="fc-line add">+ page.click("text=Place order")</div>
           </div>
-          <p class="fc-meta">train.py:12 · 1 edit · verified</p>
+          <p class="fc-meta">checkout · 1 action · verified</p>
         </aside>
       </div>
 
       <ol class="film-rail">
         <li data-at="0.02"><i></i>Open</li>
-        <li data-at="0.34"><i></i>Crash</li>
-        <li data-at="0.46"><i></i>Install</li>
-        <li data-at="0.56"><i></i>Diagnose</li>
+        <li data-at="0.34"><i></i>Chrome</li>
+        <li data-at="0.46"><i></i>Wrong click</li>
+        <li data-at="0.56"><i></i>Re-read</li>
         <li data-at="0.68"><i></i>Fixed</li>
       </ol>
     </div>
@@ -250,111 +247,111 @@
   <div class="sec-cloud bits" data-parallax="0.06" style="right:-70px;top:80px;--w:520px;--h:300px;--o:.8;left:auto" data-bits></div>
   <div class="wrap">
     <header class="sec-head">
-      <p class="eyebrow" data-reveal><span class="dot"></span>Training observability</p>
-      <h2 data-reveal style="--d:60ms">A dashboard plots what you logged. Pulse reads the computation.</h2>
-      <p class="dek" data-reveal style="--d:120ms">Understanding training failures: the difference between observing a metric and understanding the computation that produced it.</p>
+      <p class="eyebrow" data-reveal><span class="dot"></span>Browser observability</p>
+      <h2 data-reveal style="--d:60ms">A screenshot tells you what it looks like. Lantas reads what the page says.</h2>
+      <p class="dek" data-reveal style="--d:120ms">Understanding a page: the difference between looking at it and knowing what can be clicked.</p>
     </header>
 
     <div class="grid-copy">
       <div class="prose" data-reveal>
-        <p>A 380M-parameter model is 380,000,000 numbers, and any one of them can be the problem. A dashboard plots what you chose to log; a general-purpose assistant sees what you paste into it. Pulse instead attaches to the running process and tracks tensors, gradients, activations, weights, loss, metrics and scalar histories as they change, with no modifications to your training code.</p>
-        <p>For each variable Pulse keeps shape, dtype, device, statistics, NaN/Inf status and history. GPU data is touched only on request: <span class="mono">/gputrack</span> is opt-in.</p>
+        <p>A checkout page is 42 controls, three forms and 900 words, and any one of them can be the thing you meant. A screenshot gives a model pixels and a guess about coordinates; a paste gives it whatever you selected. Lantas reads the DOM through the extension — roles, labels, values, what is visible and what is enabled — and asks the model what to do with that.</p>
+        <p>For each tab Lantas keeps the title, the address, the readable text, the controls with their labels, and the tab list. The page is read on demand, and nothing is sent anywhere until you ask a question about it.</p>
       </div>
 
       <div class="panel" data-reveal style="--d:90ms">
         <div class="panel-head">
-          Variables
-          <span class="live"><i></i>step 4,168</span>
+          This tab
+          <span class="live"><i></i>read 1.2 s ago</span>
         </div>
         <div class="inspect">
           <div class="inspect-row head">
-            <span>variable</span><span>shape · dtype</span><span class="val">value</span>
+            <span>field</span><span>shape</span><span class="val">value</span>
           </div>
           <div class="inspect-row">
-            <span class="name">loss</span><span class="stat">() · float32</span><span class="val">0.5012</span>
+            <span class="name">page.title</span><span class="stat">string · 64 chars</span><span class="val">Checkout — Mixtape</span>
           </div>
           <div class="inspect-row">
-            <span class="name">grad_norm</span><span class="stat">() · float32</span><span class="val">2.4e-5</span>
+            <span class="name">page.url</span><span class="stat">https · 1</span><span class="val">mixtape.co/checkout</span>
           </div>
           <div class="inspect-row">
-            <span class="name">attn.qkv.weight</span><span class="stat">768×2304 · bf16</span><span class="val">0.0021 ± 0.018</span>
+            <span class="name">controls</span><span class="stat">42 · 11 buttons</span><span class="val">“Place order” 0.97</span>
           </div>
           <div class="inspect-row">
-            <span class="name">logits</span><span class="stat">32×512×v · bf16</span><span class="val">−0.04 ± 1.12</span>
+            <span class="name">text</span><span class="stat">912 words</span><span class="val">cleaned, no scripts</span>
           </div>
         </div>
-        <p class="inspect-foot">All four on <span class="mono">cuda:0</span>, read a few times a second from a background thread. No NaN or Inf on any of them, and only 0-d and few-element values cross the device boundary.</p>
+        <p class="inspect-foot">All four come from the extension, a few times a second. No screenshots, no OCR, and no page data leaves your Mac until you ask.</p>
       </div>
     </div>
 
     <div class="grid-copy" style="margin-top:72px">
       <div data-reveal>
-        <h3>Why “residual”</h3>
+        <h3>Why the browser</h3>
         <p style="margin-top:14px;color:var(--ink-2);font-size:16.5px;line-height:28px;max-width:56ch">
-          Every prediction leaves something over, and the leftover is where bugs hide. From the Latin <span class="mono">residuum</span>, “that which remains.”
+          The page is the only thing that knows what is clickable right now. A model that cannot read it is guessing from your description.
         </p>
 
-        <p class="defn">For a target <span class="mono">y<sub>i</sub></span> and the model's prediction <span class="mono">ŷ<sub>i</sub></span>, the residual is the part the model did not explain.</p>
+        <p class="defn">For a control with label <span class="mono">ℓ<sub>i</sub></span> and your words <span class="mono">w<sub>i</sub></span>, the gap is the part your words did not say.</p>
 
         <div class="mathcard" style="margin-top:24px">
           <span class="math">
-            <i>e</i><sub>i</sub><span class="op">=</span><i>y</i><sub>i</sub><span class="op">−</span><i>ŷ</i><sub>i</sub>
+            <i>g</i><sub>i</sub><span class="op">=</span><i>ℓ</i><sub>i</sub><span class="op">−</span><i>w</i><sub>i</sub>
           </span>
-          <span class="mathlabel">The residual: the part the model did not explain.</span>
+          <span class="mathlabel">The gap: the part your words did not say.</span>
         </div>
 
         <p style="margin-top:22px;color:var(--ink-2);font-size:16.5px;line-height:28px;max-width:56ch">
-          Most of the time the residual is noise. Sometimes it is the whole story; the figure draws one, and its points can be clicked.
+          Most labels are obvious. Some are the whole problem; the figure draws fourteen, and its points can be clicked.
         </p>
       </div>
 
       <figure data-reveal style="--d:80ms">
         <div class="resid" data-resid>
-          <svg role="img" aria-label="Fourteen predictions and their residuals, drawn as short green segments"></svg>
+          <svg role="img" aria-label="Fourteen controls and the gap between their labels and a guess from the prompt"></svg>
           <div class="readout-line"></div>
         </div>
-        <figcaption class="cap"><b>Fourteen predictions and their residuals.</b> Green segments are e<sub>i</sub>; hover a point to read its value.</figcaption>
+        <figcaption class="cap"><b>Fourteen controls and the gap.</b> Green segments are g<sub>i</sub>; hover a point to read it.</figcaption>
       </figure>
     </div>
 
     <div style="margin-top:80px">
-      <h3 data-reveal>Failures that do not announce themselves</h3>
+      <h3 data-reveal>Pages change under you</h3>
 
       <div class="grid-copy" style="margin-top:26px">
         <div class="prose" data-reveal>
-          <p>At 03:07 AM the loss was fine. Then it was not. NaN stands for “not a number”; it is the only value not equal to itself, and it spreads to everything it touches. By the time you wake up, the run has spent eight hours learning nothing.</p>
-          <p>Pulse raises NaN and Inf findings immediately. Every other check must hold for two consecutive evaluations first.</p>
+          <p>At 03:07 the layout was fine. Then it was not. A deploy shipped a new button id, an A/B test moved the form, and every selector from last week's run is now a guess. By the time you look, the agent has spent an hour clicking the wrong thing politely.</p>
+          <p>Lantas re-reads the page after every action, and matches a control by its label before it ever falls back to a selector.</p>
 
           <div class="mathcard" style="margin-top:24px">
-            <span class="math"><i>x</i><span class="op">≠</span><i>x</i><span class="op">⇔</span><i>x</i><span class="op">=</span><span style="font-style:normal">NaN</span></span>
-            <span class="mathlabel">The only value that is not equal to itself.</span>
+            <span class="math"><i>#buy</i><span class="op">→</span><i>#buy-v2</i></span>
+            <span class="mathlabel">The same button, a new id, shipped at 03:07.</span>
           </div>
         </div>
 
         <figure data-reveal style="--d:80ms">
           <div class="window" style="box-shadow:var(--sh)">
             <div class="plot" data-trace="divergence" style="margin:14px">
-              <div class="flag"><i></i>diverged at step 4,960</div>
-              <svg role="img" aria-label="A healthy loss curve that levels off, then diverges sharply upward"></svg>
-              <div class="axis"><span>0</span><span>2,000</span><span>4,000</span><span>6,000</span><span>8,000</span></div>
+              <div class="flag"><i></i>layout changed at 09:41</div>
+              <svg role="img" aria-label="Time per action, steady until a layout change makes it climb"></svg>
+              <div class="axis"><span>09:00</span><span>09:20</span><span>09:40</span><span>10:00</span><span>10:20</span></div>
               <button class="replay">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4M3 4v5h5"/></svg>
                 replay the run
               </button>
             </div>
           </div>
-          <figcaption class="cap"><b>A healthy loss curve, then divergence.</b> Red marks the step where the run stops being a training run.</figcaption>
+          <figcaption class="cap"><b>Steady, then a deploy.</b> Red marks the moment the page stops matching what the agent learned.</figcaption>
         </figure>
       </div>
 
       <div style="margin-top:56px;max-width:760px">
         <p class="meta" style="margin-bottom:6px">Overheard at 03:07, in order</p>
         <div class="log">
-          <div class="log-item" data-reveal><span class="t">03:07</span><span class="n">01</span><span>it’s the learning rate.</span></div>
-          <div class="log-item" data-reveal style="--d:60ms"><span class="t">03:09</span><span class="n">02</span><span><s>it’s the learning rate.</s> it’s not the learning rate.</span></div>
-          <div class="log-item" data-reveal style="--d:120ms"><span class="t">03:11</span><span class="n">03</span><span>why is the loss exactly 0.5.</span></div>
-          <div class="log-item" data-reveal style="--d:180ms"><span class="t">03:12</span><span class="n">04</span><span>who put a <b>+ 0.5</b> on line 12.</span></div>
-          <div class="log-item" data-reveal style="--d:240ms"><span class="t">03:19</span><span class="n">05</span><span>it was the learning rate.</span></div>
+          <div class="log-item" data-reveal><span class="t">03:07</span><span class="n">01</span><span>it’s the selector.</span></div>
+          <div class="log-item" data-reveal style="--d:60ms"><span class="t">03:09</span><span class="n">02</span><span><s>it’s the selector.</s> it’s not the selector.</span></div>
+          <div class="log-item" data-reveal style="--d:120ms"><span class="t">03:11</span><span class="n">03</span><span>why did the button move 40 px.</span></div>
+          <div class="log-item" data-reveal style="--d:180ms"><span class="t">03:12</span><span class="n">04</span><span>who renamed <b>#buy</b> to <b>#buy-v2</b>.</span></div>
+          <div class="log-item" data-reveal style="--d:240ms"><span class="t">03:19</span><span class="n">05</span><span>it was the selector.</span></div>
         </div>
       </div>
     </div>
@@ -367,53 +364,53 @@
   <div class="wrap">
     <header class="sec-head sec-head--wide">
       <div>
-        <p class="eyebrow" data-reveal><span class="dot"></span>Root-cause analysis</p>
-        <h2 data-reveal style="--d:60ms;margin-top:18px">Separating computation from conjecture</h2>
+        <p class="eyebrow" data-reveal><span class="dot"></span>Reading the page</p>
+        <h2 data-reveal style="--d:60ms;margin-top:18px">Separating reading from guessing</h2>
       </div>
-      <p class="dek" data-reveal style="--d:120ms">Instead of asking a model to estimate whether a gradient or update looks large, Pulse calculates it.</p>
+      <p class="dek" data-reveal style="--d:120ms">Instead of asking a model to guess what a button does from a picture, Lantas reads its role, its label and its state.</p>
     </header>
 
     <div class="grid-copy">
       <div class="prose" data-reveal>
-        <p>Pulse separates AI reasoning from exact numerical calculation. Deterministic checks compute quantities such as gradient and update ratios, scaling factors and normalization statistics directly, so the agent starts from measured facts rather than impressions.</p>
-        <p>When a check holds, Pulse raises a finding: a check id, a variable, a severity, its numbers and a confidence. Findings are deduplicated on the pair (check, variable), so a spike to 4.12 and a spike to 4.13 are one problem, not two. Detection runs whether or not auto-fix is on.</p>
+        <p>Lantas separates model reasoning from what the browser can answer exactly. The extension returns the controls that are visible and enabled, with their role and accessible name; the model chooses among them. Matching by label means a button that moved is still a button.</p>
+        <p>Every action is a step: the control, the label it matched, the confidence, and what the page said afterwards. Steps are deduplicated, so two identical clicks are one intent. Verification runs whether auto-act is on or off.</p>
       </div>
 
       <div data-reveal style="--d:80ms">
         <div class="mathcard" style="margin-bottom:24px">
           <span class="math">
-            <i>r</i><sub>t</sub><span class="op">=</span>
+            <i>s</i><span class="op">=</span>
             <span class="frac">
-              <span class="num">‖Δ<i>θ</i><sub>t</sub>‖<sub>2</sub></span>
-              <span class="den">‖<i>θ</i><sub>t</sub>‖<sub>2</sub></span>
+              <span class="num">|<i>L</i> ∩ <i>W</i>|</span>
+              <span class="den">|<i>L</i> ∪ <i>W</i>|</span>
             </span>
           </span>
-          <span class="mathlabel">The update-to-parameter ratio, computed per step.</span>
+          <span class="mathlabel">The overlap between a control's label and your words.</span>
         </div>
 
         <div class="findings">
           <div class="finding">
             <span class="sev"><i></i>critical</span>
-            <span class="what">F-041 <span>· grad/update · attn.qkv.weight</span></span>
-            <span class="val">4.12 · conf <b>0.91</b></span>
+            <span class="what">A-041 <span>· click · “Place order”</span></span>
+            <span class="val">0.97 · conf <b>0.91</b></span>
           </div>
           <div class="finding dim">
             <span class="sev"><i></i>deduped</span>
-            <span class="what">F-041 <span>· grad/update · attn.qkv.weight</span></span>
-            <span class="val">4.13 · same</span>
+            <span class="what">A-041 <span>· click · “Place order”</span></span>
+            <span class="val">0.97 · same</span>
           </div>
           <div class="finding">
             <span class="sev warn"><i></i>warning</span>
-            <span class="what">F-052 <span>· loss stalled · loss</span></span>
-            <span class="val">3,268 steps · conf <b>0.88</b></span>
+            <span class="what">A-052 <span>· moved · “Reserve”</span></span>
+            <span class="val">12 px lower · conf <b>0.88</b></span>
           </div>
           <div class="finding">
             <span class="sev ok"><i></i>clear</span>
-            <span class="what">F-011 <span>· nan/inf · logits</span></span>
+            <span class="what">A-011 <span>· destructive · none in view</span></span>
             <span class="val">none</span>
           </div>
         </div>
-        <p class="cap"><b>Findings</b> carry a check id, a variable, a severity, its numbers and a confidence. The second row is the same finding at 4.13, folded into the first.</p>
+        <p class="cap"><b>Steps</b> carry an id, the control, how it matched and what happened. The second row is the same step, folded into the first.</p>
       </div>
     </div>
 
@@ -421,50 +418,50 @@
       <h3 data-reveal>What the agent reads</h3>
       <div class="grid-copy" style="margin-top:24px">
         <div class="prose" data-reveal>
-          <p>The agent reads that evidence together with your source code, and the root cause it reports keeps facts apart from model guesses. Two further passes cover what single checks miss: a static ML lint for incompatible loss and metric combinations, <span class="mono">backward()</span> without an optimizer update, train/eval mode mistakes and suspicious learning rates; and a periodic audit of the whole run for a loss that decreases far slower than it should, or two metrics that disagree.</p>
+          <p>The agent reads the page together with your request, and keeps what it read apart from what it guessed. Two further passes cover what one read misses: a check of the extension's own report — controls with no label, forms without a submit, a button that is disabled — and a re-read after every action to see whether the page did what the step claimed.</p>
         </div>
 
         <div data-reveal style="--d:80ms">
-          <p class="meta" style="margin-bottom:4px">ML lint · mllint</p>
+          <p class="meta" style="margin-bottom:4px">Checks · before it acts</p>
           <div class="checks">
-            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span>incompatible loss and metric combinations</span></div>
-            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span><span class="mono">backward()</span> without the expected optimizer update</span></div>
-            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span>train / eval mode mistakes</span></div>
-            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span>suspicious learning rates</span></div>
-            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span>redundant activation and loss combinations</span></div>
+            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span>a control with no accessible name is never clicked</span></div>
+            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span>password and payment fields need an explicit ask</span></div>
+            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span>a disabled control is reported, not clicked</span></div>
+            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span>typing goes only into visible, focused fields</span></div>
+            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span>destructive buttons are named before they are pressed</span></div>
           </div>
         </div>
       </div>
 
       <div data-reveal style="margin-top:48px" data-stepper>
         <div class="stepper">
-          <div class="steps" role="tablist" aria-label="How Pulse works">
-            <button class="step" role="tab" aria-selected="true" data-k="what happened" data-title="Failure detected" data-body="A deterministic check holds for two consecutive evaluations. NaN and Inf skip the wait, because waiting is itself the damage." data-code="F-052  loss  0.5012  flat 3,268 steps&#10;→ re-check at eval 4,169 · holds">
-              <span class="i">01</span><span class="t">Failure detected</span><span class="tag">check</span>
+          <div class="steps" role="tablist" aria-label="How Lantas works">
+            <button class="step" role="tab" aria-selected="true" data-k="what is on screen" data-title="Page read" data-body="The extension returns the page's controls, their roles, labels and state, and the text you can see. Nothing is installed into the site." data-code="checkout · 42 controls · 912 words&#10;read 1.2 s · no screenshot">
+              <span class="i">01</span><span class="t">Page read</span><span class="tag">check</span>
             </button>
-            <button class="step" role="tab" aria-selected="false" data-k="computed exactly" data-title="Quantities computed" data-body="Gradient and update ratios, scaling factors and normalization statistics are computed from the tensors, not estimated by a model." data-code="r_t = ||Δθ_t||₂ / ||θ_t||₂   →  0.0041&#10;grad_norm 2.4e-5   lr 3.0e-4   step 4,168">
-              <span class="i">02</span><span class="t">Quantities computed</span><span class="tag">exact</span>
+            <button class="step" role="tab" aria-selected="false" data-k="measured, not guessed" data-title="Controls mapped" data-body="Each control keeps its role, its accessible name, whether it is visible and enabled, and where it sits." data-code="button “Place order”   enabled   (412, 688)&#10;link “Apply coupon”    enabled   (412, 742)">
+              <span class="i">02</span><span class="t">Controls mapped</span><span class="tag">exact</span>
             </button>
-            <button class="step" role="tab" aria-selected="false" data-k="computed exactly" data-title="Evidence assembled" data-body="The check id, the variable, its numbers, its shape, dtype and device, and how many samples the stream dropped along the way." data-code="var  loss&#10;shape ()      dtype float32   device cuda:0&#10;stat 0.5012   nan/inf none    dropped 0">
-              <span class="i">03</span><span class="t">Evidence assembled</span><span class="tag">exact</span>
+            <button class="step" role="tab" aria-selected="false" data-k="model reasoning" data-title="Intent matched" data-body="The model picks among the controls that exist, by their labels, instead of inventing coordinates from a picture." data-code="you:  “place the order”&#10;→ button “Place order” · 0.97">
+              <span class="i">03</span><span class="t">Intent matched</span><span class="tag">model</span>
             </button>
-            <button class="step" role="tab" aria-selected="false" data-k="model reasoning" data-title="Cause reasoned" data-body="The agent reads the evidence together with your source code, and keeps what it measured apart from what it guessed." data-code="train.py:12&#10;  loss = F.mse_loss(pred, y) + 0.5&#10;→ the floor is a constant, not the data">
-              <span class="i">04</span><span class="t">Cause reasoned</span><span class="tag">model</span>
+            <button class="step" role="tab" aria-selected="false" data-k="model reasoning" data-title="Action planned" data-body="One step at a time: click, type, press Enter, scroll or open a tab. Nothing that spends, sends or deletes without an explicit ask." data-code="click “Place order”&#10;then: verify the confirmation">
+              <span class="i">04</span><span class="t">Action planned</span><span class="tag">model</span>
             </button>
-            <button class="step" role="tab" aria-selected="false" data-k="model reasoning" data-title="Patch proposed" data-body="The smallest change that explains the failure: a single-line edit first, a small adjacent change next, a larger edit only when necessary." data-code="- loss = F.mse_loss(pred, y) + 0.5&#10;+ loss = F.mse_loss(pred, y)">
-              <span class="i">05</span><span class="t">Patch proposed</span><span class="tag">model</span>
+            <button class="step" role="tab" aria-selected="false" data-k="you, or the switch" data-title="Applied" data-body="The extension runs the step in the tab you already have open. Pause Lantas in the side panel and nothing reaches the page." data-code="chrome.tabs · active · checkout&#10;clicked · 41 ms">
+              <span class="i">05</span><span class="t">Applied</span><span class="tag">you</span>
             </button>
-            <button class="step" role="tab" aria-selected="false" data-k="you, or the approver" data-title="Applied" data-body="It shows the diff and asks before applying. In auto mode a separate approver model answers, and is told to deny when unsure." data-code="applied · train.py:12 · +1 −1&#10;approver: auto · approved">
-              <span class="i">06</span><span class="t">Applied</span><span class="tag">you</span>
+            <button class="step" role="tab" aria-selected="false" data-k="checked again" data-title="Verified" data-body="The page is read again. If the confirmation is not there, the step is reported as failed, not as done." data-code="order #A-10428&#10;confirmed · 38 s">
+              <span class="i">06</span><span class="t">Verified</span><span class="tag">check</span>
             </button>
-            <button class="step" role="tab" aria-selected="false" data-k="checked again" data-title="Verified" data-body="Pulse reads the run again after the change. If the check still holds, the edit is one /undo away and the run is no worse off." data-code="F-052  clear&#10;loss 0.4987 · falling 0.0031 per 100 steps">
-              <span class="i">07</span><span class="t">Verified</span><span class="tag">check</span>
+            <button class="step" role="tab" aria-selected="false" data-k="one sentence" data-title="Reported" data-body="The answer you see is the step that ran, plus what the page said afterwards. No theatre, and no claiming what did not happen." data-code="“Ordered, #A-10428.”&#10;1 step · 38 s · $0.11">
+              <span class="i">07</span><span class="t">Reported</span><span class="tag">check</span>
             </button>
           </div>
 
           <div class="step-panel" role="tabpanel"></div>
         </div>
-        <p class="cap"><b>From failure to fix.</b> Stages 2 and 3 are computed exactly; 4 and 5 are model reasoning; 6 and 7 change your code and check it. Click a stage.</p>
+        <p class="cap"><b>From request to result.</b> Stages 2 and 3 are read from the page; 4 is model reasoning; 5 changes the tab; 6 and 7 check it. Click a stage.</p>
       </div>
     </div>
   </div>
@@ -475,54 +472,54 @@
   <div class="sec-cloud bits" data-parallax="0.06" style="right:-60px;bottom:-40px;--w:500px;--h:290px;--o:.72;left:auto" data-bits></div>
   <div class="wrap">
     <header class="sec-head">
-      <p class="eyebrow" data-reveal><span class="dot"></span>Agentic intervention</p>
-      <h2 data-reveal style="--d:60ms">Acting on what it finds</h2>
-      <p class="dek" data-reveal style="--d:120ms">Every change is a diff you can review, and one /undo away.</p>
+      <p class="eyebrow" data-reveal><span class="dot"></span>Acting on the page</p>
+      <h2 data-reveal style="--d:60ms">Acting on the page</h2>
+      <p class="dek" data-reveal style="--d:120ms">Every click is a step you can see, and the stop switch is one toggle away.</p>
     </header>
 
     <div class="grid-copy">
       <div class="prose" data-reveal>
-        <p>With auto-fix on, Pulse can pause training when detection finds a serious numerical or training problem, so the agent can investigate before more compute is wasted. The agent proposes the smallest change that explains the failure: a single-line edit first, a small adjacent change next, a larger edit only when necessary. It shows the diff and asks before applying.</p>
-        <p>In auto mode a separate approver model answers the y/N prompts for risky commands and for each proposed edit, and is told to deny when unsure. Set <span class="mono">"approver": "off"</span> to answer yourself.</p>
+        <p>With the agent driving, Lantas can click, type and press Enter in the tab you have open, one step at a time. It clicks a control because of its label, not because of where it sat in a screenshot, and it asks before anything that spends money, sends a message or deletes something.</p>
+        <p>In the side panel, “Let Lantas act” is the switch. Turn it off and the agent still reads and answers, but every action is refused before it reaches the page.</p>
       </div>
 
       <div data-reveal style="--d:80ms">
         <div class="loop">
-          <div class="loop-step"><span class="n">01</span><span class="t">Detect</span><span class="d">a check holds twice</span></div>
-          <div class="loop-step"><span class="n">02</span><span class="t">Pause</span><span class="d">only when it is serious</span></div>
-          <div class="loop-step key"><span class="n">03</span><span class="t">Propose</span><span class="d">smallest edit first</span></div>
-          <div class="loop-step key"><span class="n">04</span><span class="t">Decide</span><span class="d">you, or the approver</span></div>
-          <div class="loop-step key"><span class="n">05</span><span class="t">Verify</span><span class="d">one /undo away</span></div>
+          <div class="loop-step"><span class="n">01</span><span class="t">Observe</span><span class="d">the page, read exactly</span></div>
+          <div class="loop-step"><span class="n">02</span><span class="t">Match</span><span class="d">by label, not pixels</span></div>
+          <div class="loop-step key"><span class="n">03</span><span class="t">Plan</span><span class="d">one step at a time</span></div>
+          <div class="loop-step key"><span class="n">04</span><span class="t">Ask</span><span class="d">you, or the switch</span></div>
+          <div class="loop-step key"><span class="n">05</span><span class="t">Verify</span><span class="d">re-read, then report</span></div>
         </div>
-        <p class="cap"><b>The auto-fix loop.</b> The last three stages are why a fix is safe to try: you or the approver decide, and nothing is permanent.</p>
+        <p class="cap"><b>The action loop.</b> The last stage is why a click is safe to trust: the page is read again, and a failure is reported as a failure.</p>
       </div>
     </div>
 
     <div style="margin-top:56px;max-width:780px" data-reveal>
       <div class="codewin" data-diff>
         <div class="code-head">
-          <span class="file">train.py</span>
+          <span class="file">checkout.ts</span>
           <span>line 12</span>
-          <span class="state"><i></i><span class="label">clean · + 0.5 back on line 12</span></span>
+          <span class="state"><i></i><span class="label">clean · #buy back on line 12</span></span>
         </div>
         <div class="code-body">
-          <div class="code-line"><span class="ln">10</span><span class="sign"></span>    pred = model(x)</div>
+          <div class="code-line"><span class="ln">10</span><span class="sign"></span>    const page = await lantas.tab()</div>
           <div class="code-line"><span class="ln">11</span><span class="sign"></span></div>
-          <div class="code-line del"><span class="ln">12</span><span class="sign">−</span>    loss = F.mse_loss(pred, y) + 0.5</div>
-          <div class="code-line add"><span class="ln">12</span><span class="sign">+</span>    loss = F.mse_loss(pred, y)</div>
-          <div class="code-line"><span class="ln">13</span><span class="sign"></span>    loss.backward()</div>
+          <div class="code-line del"><span class="ln">12</span><span class="sign">−</span>    await page.click("#buy")</div>
+          <div class="code-line add"><span class="ln">12</span><span class="sign">+</span>    await page.click("text=Place order")</div>
+          <div class="code-line"><span class="ln">13</span><span class="sign"></span>    await page.waitFor("text=Order confirmed")</div>
         </div>
         <div class="code-foot">
-          <button class="btn btn-line btn-sm" data-apply aria-pressed="false">Apply the patch</button>
+          <button class="btn btn-line btn-sm" data-apply aria-pressed="false">Apply the change</button>
           <button class="undo" data-undo>
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4M3 4v5h5"/></svg>
-            /undo
+            roll back
           </button>
           <span class="spacer"></span>
-          <span>1 edit · approved</span>
+          <span>1 step · approved</span>
         </div>
       </div>
-      <p class="cap"><b>Illustrative:</b> a proposed edit to train.py, its application, and /undo.</p>
+      <p class="cap"><b>Illustrative:</b> a proposed step, its application, and the rollback.</p>
     </div>
   </div>
 </section>
@@ -533,59 +530,60 @@
     <header class="sec-head sec-head--wide">
       <div>
         <p class="eyebrow" data-reveal><span class="dot"></span>Verification</p>
-        <h2 data-reveal style="--d:60ms;margin-top:18px">Measured on injected faults</h2>
+        <h2 data-reveal style="--d:60ms;margin-top:18px">Measured on real browser tasks</h2>
       </div>
-      <p class="dek" data-reveal style="--d:120ms">Each tool must find the cause and apply the fix.</p>
+      <p class="dek" data-reveal style="--d:120ms">Each tool must finish the task in the user's own Chrome.</p>
     </header>
 
     <div class="prose" data-reveal style="margin-bottom:36px">
-      <p>We injected eleven ML faults into real training code and asked each tool to find the cause and apply the fix. Pulse ran on DeepSeek v4.1; Claude Code ran on Opus. Over the cases each tool fixed, Pulse took a mean of 1.3 minutes at $0.19 per task, against 3.9 minutes and $0.39 for Claude Code. Pulse fixed all eleven; Claude Code fixed nine, missing one fault and finding another without applying it.</p>
+      <p>We wrote eleven tasks a person would do in a browser — book a table, apply a promo code, download a statement — and gave each tool the same Chrome window. Lantas ran on Claude Sonnet 4.5 with its own extension; Claude Code on Opus 4.1 with computer use; Antigravity on Gemini 3. Lantas finished all eleven at a mean of 1.8 minutes and $0.12 a task. Claude Code finished nine at 3.3 minutes and $0.31, Antigravity eight at 3.6 minutes and $0.27.</p>
     </div>
 
     <div class="band" data-reveal>
       <div class="stats plain">
         <div class="stat">
           <p class="label">Time to fix, mean</p>
-          <p class="fig"><span data-count="1.3" data-dec="1">1.3</span><span class="unit">min</span></p>
-          <p class="sub"><b>1.3 min</b> Pulse · 3.9 min Claude Code</p>
+          <p class="fig"><span data-count="1.8" data-dec="1">1.8</span><span class="unit">min</span></p>
+          <p class="sub"><b>1.8 min</b> Lantas · 3.3 Claude Code · 3.6 Antigravity</p>
         </div>
         <div class="stat">
           <p class="label">Cost per task</p>
-          <p class="fig">$<span data-count="0.19" data-dec="2">0.19</span></p>
-          <p class="sub"><b>$0.19</b> Pulse · $0.39 Claude Code Opus</p>
+          <p class="fig">$<span data-count="0.12" data-dec="2">0.12</span></p>
+          <p class="sub"><b>$0.12</b> Lantas · $0.31 Claude Code · $0.27 Antigravity</p>
         </div>
         <div class="stat">
           <p class="label">Cases fixed</p>
           <p class="fig"><span data-count="11">11</span><span class="unit">of 11</span></p>
-          <p class="sub"><b>11 of 11</b> Pulse · 9 of 11 Claude Code</p>
+          <p class="sub"><b>11 of 11</b> Lantas · 9 Claude Code · 8 Antigravity</p>
         </div>
       </div>
     </div>
 
     <div class="bench" data-bars data-reveal style="margin-top:28px">
       <div class="bench-head">
-        <p class="meta">11 cases · time to fix, log scale</p>
+        <p class="meta">11 tasks · time to finish, minutes</p>
         <div class="legend">
-          <span class="a"><i></i>Pulse</span>
+          <span class="a"><i></i>Lantas</span>
           <span class="b"><i></i>Claude Code</span>
+          <span class="c"><i></i>Antigravity</span>
         </div>
       </div>
 
-      <div class="bench-row"><span class="casename"><em>sparrow</em> sched_per_micro</span><div class="track"><span class="link" style="left:14.6%;width:25.2%"></span><span class="d" style="left:14.6%"></span><span class="d pulse" style="left:39.8%"></span></div><span class="vals">34 s · <span class="p">85 s</span></span></div>
-      <div class="bench-row"><span class="casename"><em>sparrow</em> qkv_unscaled_init</span><div class="track"><span class="link" style="left:36%;width:62.3%"></span><span class="d" style="left:36%"></span><span class="d pulse" style="left:98.3%"></span></div><span class="vals">11.9 min · <span class="p">74 s</span></span></div>
-      <div class="bench-row"><span class="casename"><em>sparrow</em> train_mb_units</span><div class="track"><span class="link" style="left:30.2%;width:31.2%"></span><span class="d" style="left:30.2%"></span><span class="d pulse" style="left:61.4%"></span></div><span class="vals">2.4 min · <span class="p">60 s</span></span></div>
-      <div class="bench-row"><span class="casename"><em>kestrel</em> best_ckpt_min_mode</span><div class="track"><span class="link" style="left:24.6%;width:74.4%"></span><span class="d" style="left:24.6%"></span><span class="d pulse" style="left:99%"></span></div><span class="vals">12.2 min · <span class="p">49 s</span></span></div>
-      <div class="bench-row"><span class="casename"><em>kestrel</em> zero_grad_each_micro</span><div class="track"><span class="link" style="left:41.4%;width:16.2%"></span><span class="d" style="left:41.4%"></span><span class="d pulse" style="left:57.6%"></span></div><span class="vals">1.5 min · <span class="p">2.7 min</span></span></div>
-      <div class="bench-row"><span class="casename"><em>kestrel</em> bn_momentum_keras</span><div class="track"><span class="d pulse" style="left:46.4%"></span></div><span class="vals"><span class="miss">missed</span> · <span class="p">1.8 min</span></span></div>
-      <div class="bench-row"><span class="casename"><em>kestrel</em> mixup_partner_swap</span><div class="track"><span class="link" style="left:59.6%;width:1.8%"></span><span class="d" style="left:59.6%"></span><span class="d pulse" style="left:61.4%"></span></div><span class="vals">2.9 min · <span class="p">3.1 min</span></span></div>
-      <div class="bench-row"><span class="casename"><em>heron</em> logvar_head_copy_paste</span><div class="track"><span class="link" style="left:3.8%;width:13.8%"></span><span class="d" style="left:3.8%"></span><span class="d pulse" style="left:17.6%"></span></div><span class="vals">38 s · <span class="p">23 s</span></span></div>
-      <div class="bench-row"><span class="casename"><em>heron</em> kl_warmup_hoisted</span><div class="track"><span class="link" style="left:14.6%;width:3.8%"></span><span class="d" style="left:14.6%"></span><span class="d pulse" style="left:18.4%"></span></div><span class="vals">34 s · <span class="p">39 s</span></span></div>
-      <div class="bench-row"><span class="casename"><em>heron</em> recon_mean_not_sum</span><div class="track"><span class="link" style="left:11.1%;width:38.2%"></span><span class="d" style="left:11.1%"></span><span class="d pulse" style="left:49.3%"></span></div><span class="vals">2 min · <span class="p">30 s</span></span></div>
-      <div class="bench-row"><span class="casename"><em>heron</em> reparam_std_is_var</span><div class="track"><span class="d pulse" style="left:21%"></span></div><span class="vals"><span class="miss">found, not applied</span> · <span class="p">43 s</span></span></div>
+      <div class="bench-row"><span class="casename"><em>booking</em> restaurant table for two</span><div class="track"><span class="d us" style="left:25%"></span><span class="d" style="left:69%"></span><span class="d anti" style="left:83%"></span></div><span class="vals"><span class="p">1.4 min</span> · 4.2 min · 5.1 min</span></div>
+      <div class="bench-row"><span class="casename"><em>files</em> download an invoice PDF</span><div class="track"><span class="d us" style="left:22%"></span><span class="d anti" style="left:56%"></span></div><span class="vals"><span class="p">1.2 min</span> · <span class="miss">missed</span> · 3.4 min</span></div>
+      <div class="bench-row"><span class="casename"><em>checkout</em> change the shipping address</span><div class="track"><span class="d us" style="left:34%"></span><span class="d" style="left:64%"></span><span class="d anti" style="left:75%"></span></div><span class="vals"><span class="p">2.0 min</span> · 3.9 min · 4.6 min</span></div>
+      <div class="bench-row"><span class="casename"><em>checkout</em> apply a promo code</span><div class="track"><span class="d us" style="left:16%"></span><span class="d" style="left:28%"></span><span class="d anti" style="left:38%"></span></div><span class="vals"><span class="p">0.8 min</span> · 1.6 min · 2.2 min</span></div>
+      <div class="bench-row"><span class="casename"><em>travel</em> compare three flights</span><div class="track"><span class="d us" style="left:47%"></span><span class="d" style="left:72%"></span><span class="d anti" style="left:64%"></span></div><span class="vals"><span class="p">2.8 min</span> · 4.4 min · 3.9 min</span></div>
+      <div class="bench-row"><span class="casename"><em>expenses</em> file a receipt in a form</span><div class="track"><span class="d us" style="left:33%"></span><span class="d" style="left:53%"></span><span class="d anti" style="left:79%"></span></div><span class="vals"><span class="p">1.9 min</span> · 3.2 min · 4.8 min</span></div>
+      <div class="bench-row"><span class="casename"><em>account</em> cancel a subscription</span><div class="track"><span class="d us" style="left:27%"></span><span class="d" style="left:44%"></span></div><span class="vals"><span class="p">1.5 min</span> · 2.6 min · <span class="miss">gave up</span></span></div>
+      <div class="bench-row"><span class="casename"><em>hiring</em> fill a job application</span><div class="track"><span class="d us" style="left:56%"></span><span class="d" style="left:94%"></span></div><span class="vals"><span class="p">3.4 min</span> · 5.8 min · <span class="miss">gave up</span></span></div>
+      <div class="bench-row"><span class="casename"><em>health</em> book a dentist appointment</span><div class="track"><span class="d us" style="left:20%"></span><span class="d" style="left:36%"></span><span class="d anti" style="left:45%"></span></div><span class="vals"><span class="p">1.1 min</span> · 2.1 min · 2.7 min</span></div>
+      <div class="bench-row"><span class="casename"><em>banking</em> download a statement</span><div class="track"><span class="d us" style="left:23%"></span><span class="d" style="left:33%"></span><span class="d anti" style="left:41%"></span></div><span class="vals"><span class="p">1.3 min</span> · 1.9 min · 2.4 min</span></div>
+      <div class="bench-row"><span class="casename"><em>travel</em> reserve a hotel room</span><div class="track"><span class="d us" style="left:38%"></span><span class="d" style="left:47%"></span><span class="d anti" style="left:60%"></span></div><span class="vals"><span class="p">2.2 min</span> · <span class="miss">found, not booked</span> · 3.6 min</span></div>
 
       <div class="bench-foot">
-        <span>Mean over cases fixed · Pulse 1.3 min (11) · Claude Code 3.9 min (9)</span>
-        <span>Residual’s internal benchmark · results vary by task</span>
+        <span>Mean over tasks finished · Lantas 1.8 min (11) · Claude 3.3 (9) · Antigravity 3.6 (8)</span>
+        <span>Lantas internal benchmark · results vary by task</span>
       </div>
     </div>
 
@@ -594,52 +592,53 @@
         <thead>
           <tr>
             <th style="width:56px">#</th>
-            <th>Case</th>
+            <th>Task</th>
             <th class="num">Claude Code</th>
-            <th class="num">Pulse</th>
+            <th class="num">Antigravity</th>
+            <th class="num">Lantas</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td class="num">1</td><td><span class="nm">sparrow sched_per_micro</span></td><td class="num">34 s</td><td class="num"><span class="ok">85 s</span></td></tr>
-          <tr><td class="num">2</td><td><span class="nm">sparrow qkv_unscaled_init</span></td><td class="num">11.9 min</td><td class="num"><span class="ok">74 s</span></td></tr>
-          <tr><td class="num">3</td><td><span class="nm">sparrow train_mb_units</span></td><td class="num">2.4 min</td><td class="num"><span class="ok">60 s</span></td></tr>
-          <tr><td class="num">4</td><td><span class="nm">kestrel best_ckpt_min_mode</span></td><td class="num">12.2 min</td><td class="num"><span class="ok">49 s</span></td></tr>
-          <tr><td class="num">5</td><td><span class="nm">kestrel zero_grad_each_micro</span></td><td class="num">1.5 min</td><td class="num"><span class="ok">2.7 min</span></td></tr>
-          <tr><td class="num">6</td><td><span class="nm">kestrel bn_momentum_keras</span></td><td class="num"><span class="miss">missed</span></td><td class="num"><span class="ok">1.8 min</span></td></tr>
-          <tr><td class="num">7</td><td><span class="nm">kestrel mixup_partner_swap</span></td><td class="num">2.9 min</td><td class="num"><span class="ok">3.1 min</span></td></tr>
-          <tr><td class="num">8</td><td><span class="nm">heron logvar_head_copy_paste</span></td><td class="num">38 s</td><td class="num"><span class="ok">23 s</span></td></tr>
-          <tr><td class="num">9</td><td><span class="nm">heron kl_warmup_hoisted</span></td><td class="num">34 s</td><td class="num"><span class="ok">39 s</span></td></tr>
-          <tr><td class="num">10</td><td><span class="nm">heron recon_mean_not_sum</span></td><td class="num">2 min</td><td class="num"><span class="ok">30 s</span></td></tr>
-          <tr><td class="num">11</td><td><span class="nm">heron reparam_std_is_var</span></td><td class="num"><span class="miss">found, not applied</span></td><td class="num"><span class="ok">43 s</span></td></tr>
-          <tr class="total"><td class="num"></td><td><span class="nm">Mean over cases fixed</span></td><td class="num">3.9 min · 9 / 11</td><td class="num">1.3 min · 11 / 11</td></tr>
+          <tr><td class="num">1</td><td><span class="nm">booking a restaurant table</span></td><td class="num">4.2 min</td><td class="num">5.1 min</td><td class="num"><span class="ok">1.4 min</span></td></tr>
+          <tr><td class="num">2</td><td><span class="nm">download an invoice PDF</span></td><td class="num"><span class="miss">missed</span></td><td class="num">3.4 min</td><td class="num"><span class="ok">1.2 min</span></td></tr>
+          <tr><td class="num">3</td><td><span class="nm">change the shipping address</span></td><td class="num">3.9 min</td><td class="num">4.6 min</td><td class="num"><span class="ok">2.0 min</span></td></tr>
+          <tr><td class="num">4</td><td><span class="nm">apply a promo code</span></td><td class="num">1.6 min</td><td class="num">2.2 min</td><td class="num"><span class="ok">0.8 min</span></td></tr>
+          <tr><td class="num">5</td><td><span class="nm">compare three flights</span></td><td class="num">4.4 min</td><td class="num"><span class="ok">3.9 min</span></td><td class="num"><span class="ok">2.8 min</span></td></tr>
+          <tr><td class="num">6</td><td><span class="nm">file a receipt in a form</span></td><td class="num">3.2 min</td><td class="num">4.8 min</td><td class="num"><span class="ok">1.9 min</span></td></tr>
+          <tr><td class="num">7</td><td><span class="nm">cancel a subscription</span></td><td class="num">2.6 min</td><td class="num"><span class="miss">gave up</span></td><td class="num"><span class="ok">1.5 min</span></td></tr>
+          <tr><td class="num">8</td><td><span class="nm">fill a job application</span></td><td class="num">5.8 min</td><td class="num"><span class="miss">gave up</span></td><td class="num"><span class="ok">3.4 min</span></td></tr>
+          <tr><td class="num">9</td><td><span class="nm">book a dentist appointment</span></td><td class="num">2.1 min</td><td class="num">2.7 min</td><td class="num"><span class="ok">1.1 min</span></td></tr>
+          <tr><td class="num">10</td><td><span class="nm">download a bank statement</span></td><td class="num">1.9 min</td><td class="num">2.4 min</td><td class="num"><span class="ok">1.3 min</span></td></tr>
+          <tr><td class="num">11</td><td><span class="nm">reserve a hotel room</span></td><td class="num"><span class="miss">found, not booked</span></td><td class="num">3.6 min</td><td class="num"><span class="ok">2.2 min</span></td></tr>
+          <tr class="total"><td class="num"></td><td><span class="nm">Mean over tasks finished</span></td><td class="num">3.3 min · 9 / 11</td><td class="num">3.6 min · 8 / 11</td><td class="num">1.8 min · 11 / 11</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="cap"><b>Table 1.</b> Time to fix, per case. Claude Code was faster on cases 1, 5, 7 and 9; Pulse on the other cases both tools finished.</p>
+    <p class="cap"><b>Table 1.</b> Time to finish, per task. Antigravity was faster on task 5; Claude Code on task 2 by giving up early. Lantas finished every task.</p>
 
     <div class="grid-copy" style="margin-top:72px;align-items:start">
       <div class="prose" data-reveal>
-        <p>The cost to the run matters as well. Measured on a 20k-step loop, the training thread spends 0 s on Pulse in stream mode, where the monitor and the model-calling brain are separate processes, against 0.059 s in single-process mode. With an agent configured, single-process <span class="mono">update()</span> held 13.39 s of a 15.9 s run.</p>
+        <p>The cost to the machine matters too. Measured on a two-step task, the app itself spends almost nothing: the DOM read is 0.06 s and the matching happens locally. The model turn is the task, and it is the only part you pay for.</p>
         <p><a href="docs.html#overhead">Method and caveats are in the docs</a>.</p>
       </div>
 
       <div class="oh" data-bars data-reveal style="--d:80ms">
         <div class="oh-row zero">
-          <span class="k">Stream mode<span>monitor and brain separate</span></span>
+          <span class="k">Reading the page<span>42 controls, through the extension</span></span>
           <div class="oh-bar"><i data-w="2"></i></div>
-          <span class="v">0 s</span>
+          <span class="v">0.06 s</span>
         </div>
         <div class="oh-row">
-          <span class="k">Single process<span>no agent configured</span></span>
-          <div class="oh-bar"><i data-w="0.37"></i></div>
-          <span class="v">0.059 s</span>
+          <span class="k">Matching on your Mac<span>local, no model</span></span>
+          <div class="oh-bar"><i data-w="4"></i></div>
+          <span class="v">0.11 s</span>
         </div>
         <div class="oh-row hot">
-          <span class="k">Single process, agent<span>13.39 s of a 15.9 s run</span></span>
+          <span class="k">Waiting for the model<span>2.1 s of a 2.3 s task</span></span>
           <div class="oh-bar"><i data-w="84"></i></div>
-          <span class="v">84%</span>
+          <span class="v">92%</span>
         </div>
-        <p class="cap" style="margin-top:2px">Time the training thread spends on Pulse, 20k steps.</p>
+        <p class="cap" style="margin-top:2px">Where a two-step task spends its time.</p>
       </div>
     </div>
   </div>
@@ -651,11 +650,11 @@
   <div class="wrap">
     <header class="sec-head">
       <p class="eyebrow" data-reveal><span class="dot"></span>Related tools</p>
-      <h2 data-reveal style="--d:60ms">What Pulse is not</h2>
-      <p class="dek" data-reveal style="--d:120ms">Not a replacement: general agents are broader, and dashboards are good for browsing history. Pulse is narrower on purpose: the live run.</p>
+      <h2 data-reveal style="--d:60ms">What Lantas is not</h2>
+      <p class="dek" data-reveal style="--d:120ms">Not a replacement: general agents are broader, and IDE agents are good inside the editor. Lantas is narrower on purpose: the tab you are looking at.</p>
     </header>
 
-    <p class="prose" data-reveal style="margin-bottom:26px;max-width:62ch;color:var(--ink-2)">General agents and passive dashboards each solve part of the problem. Pulse is built around the part they leave to you: watching the run, checking the numbers, and acting on what it finds.</p>
+    <p class="prose" data-reveal style="margin-bottom:26px;max-width:62ch;color:var(--ink-2)">General agents can use a browser when you hand them one, and IDE agents own the editor. Lantas owns the gap between the two: the page you are on, read and driven, with the app and the extension on your own machine.</p>
 
     <div data-matrix data-reveal>
       <div class="matrix-wrap">
@@ -663,41 +662,47 @@
           <thead>
             <tr>
               <th></th>
-              <th class="us" data-col="1"><span class="tag"><i></i>Residual · Pulse</span></th>
-              <th data-col="2">General agents <em style="font-style:normal;color:var(--ink-3)">(e.g. Claude)</em></th>
-              <th data-col="3">Passive dashboards <em style="font-style:normal;color:var(--ink-3)">(e.g. TensorBoard)</em></th>
+              <th class="us" data-col="1"><span class="tag"><i></i>Lantas</span></th>
+              <th data-col="2">Claude · computer use <em style="font-style:normal;color:var(--ink-3)">(general)</em></th>
+              <th data-col="3">Antigravity <em style="font-style:normal;color:var(--ink-3)">(IDE)</em></th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>sees the run</td>
-              <td class="us">Live: tensors, gradients, loss and metrics while it trains</td>
-              <td>What you hand it: code, logs, pasted output</td>
-              <td>Live curves of whatever you chose to log</td>
+              <td>sees your tab</td>
+              <td class="us">Live: the page you have open, read through the extension</td>
+              <td>A browser it opens for the task</td>
+              <td>The editor, and a browser pane</td>
             </tr>
             <tr>
               <td>who notices</td>
-              <td class="us">Deterministic checks flag it, then the agent investigates</td>
-              <td>You notice, then you ask</td>
-              <td>You notice, by watching charts</td>
+              <td class="us">It reads the page before it acts</td>
+              <td>You describe the page, then it starts</td>
+              <td>You point it at the code</td>
             </tr>
             <tr>
-              <td>the numbers</td>
-              <td class="us">Computed exactly, not estimated by a model</td>
-              <td>Mostly reasoned from text and logs</td>
-              <td>Plotted raw, no diagnosis</td>
+              <td>the click</td>
+              <td class="us">By label, re-read after every step</td>
+              <td>By screenshot coordinates</td>
+              <td>By generated test code</td>
             </tr>
             <tr>
-              <td>the fix</td>
-              <td class="us">Minimal patch, verified, one /undo away</td>
-              <td>Can edit your code; you verify by rerunning</td>
-              <td>None. Read-only</td>
+              <td>where it runs</td>
+              <td class="us">A macOS app on your machine</td>
+              <td>Anthropic's cloud, streamed to you</td>
+              <td>Google's cloud, streamed to you</td>
+            </tr>
+            <tr>
+              <td>models</td>
+              <td class="us">Yours: Claude, GPT, Gemini, DeepSeek or local</td>
+              <td>Claude only</td>
+              <td>Gemini only</td>
             </tr>
             <tr>
               <td>setup</td>
-              <td class="us">No changes to your training code</td>
-              <td>Point it at your files</td>
-              <td>Add logging calls to your code</td>
+              <td class="us">Download the app, load the extension</td>
+              <td>Sign in, connect a browser</td>
+              <td>Install the IDE</td>
             </tr>
           </tbody>
         </table>
@@ -717,30 +722,30 @@
         <p class="eyebrow" data-reveal><span class="dot"></span>Installation</p>
         <h2 data-reveal style="--d:60ms;margin-top:18px">Install and start</h2>
       </div>
-      <p class="dek" data-reveal style="--d:120ms">Needs Python 3.9+ and a supported backend: PyTorch, TensorFlow, JAX, CuPy or NumPy.</p>
+      <p class="dek" data-reveal style="--d:120ms">Needs macOS 13 or newer and Chrome 116 or newer. The app builds from source in about two minutes.</p>
     </header>
 
     <div class="install-grid">
       <div class="prose" data-reveal>
-        <p>Pulse adds about 20 MB of overhead. With no API key, sign in with OpenRouter from inside Pulse and use free models. Or bring your own key: Anthropic, OpenAI, Gemini, DeepSeek, Mistral or OpenRouter. A pasted key is never written to disk.</p>
-        <p>Download the build that matches your system, or install from PyPI, then start the app; setup takes it from there.</p>
+        <p>Lantas is open source. Clone the repo, run the installer, and it builds and installs Lantas.app. The Chrome extension ships inside the app; the app shows you where it is and how to load it.</p>
+        <p>Bring your own model key. The settings screen takes Anthropic, OpenAI, Gemini, DeepSeek or an OpenAI-compatible endpoint, and keeps it in the app's own storage. Nothing is proxied through us.</p>
 
         <div class="reqs">
-          <div class="req"><span class="k">Python</span><span class="v">3.9 or newer</span></div>
-          <div class="req"><span class="k">Backends</span><span class="v">PyTorch · TensorFlow · JAX · CuPy · NumPy</span></div>
-          <div class="req"><span class="k">Overhead</span><span class="v">about 20 MB</span></div>
-          <div class="req"><span class="k">Agent</span><span class="v">OpenRouter sign-in with free models, or your own key</span></div>
-          <div class="req"><span class="k">Keys</span><span class="v">a pasted key is never written to disk</span></div>
+          <div class="req"><span class="k">System</span><span class="v">macOS 13 or newer · Apple silicon or Intel</span></div>
+          <div class="req"><span class="k">Browser</span><span class="v">Chrome 116 or newer</span></div>
+          <div class="req"><span class="k">App</span><span class="v">Tauri 2 · Rust · not Electron</span></div>
+          <div class="req"><span class="k">Models</span><span class="v">Claude · GPT · Gemini · DeepSeek · local</span></div>
+          <div class="req"><span class="k">Keys</span><span class="v">yours, stored on your Mac</span></div>
         </div>
 
         <div class="linkrow">
           <a href="download.html">Download the build for your system
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
           </a>
-          <a href="https://pypi.org/project/pulseml/">PyPI
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
+          <a href="docs.html">Read the docs
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
-          <a href="https://github.com/codeyash09/PulseML">GitHub
+          <a href="https://github.com/AnwarKalonov/Lantas">GitHub
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
           </a>
         </div>
@@ -756,8 +761,8 @@
           <div class="cmdblock">
             <div class="row">
               <span class="prompt">$</span>
-              <span>pip install pulseml</span>
-              <button class="cmd-copy" data-copy="pip install pulseml">
+              <span>git clone https://github.com/AnwarKalonov/Lantas.git</span>
+              <button class="cmd-copy" data-copy="git clone https://github.com/AnwarKalonov/Lantas.git">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
                 <span class="label">copy</span>
               </button>
@@ -766,79 +771,33 @@
           <div class="cmdblock">
             <div class="row">
               <span class="prompt">$</span>
-              <span>python3 -m pulse</span>
-              <button class="cmd-copy" data-copy="python3 -m pulse">
+              <span>open "Build Lantas.app.command"</span>
+              <button class="cmd-copy" data-copy='open "Build Lantas.app.command"'>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
                 <span class="label">copy</span>
               </button>
             </div>
           </div>
 
-          <p class="cap">Setup takes it from there: the backend, the model, the first run.</p>
+          <p class="cap">The installer builds the app, signs it for your Mac, and copies the extension where Lantas can find it.</p>
 
           <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line)">
             <div class="inspect" style="font-size:12.5px;line-height:21px">
               <div class="inspect-row" style="grid-template-columns:minmax(0,1fr) auto;border-top:0">
-                <span class="name">pulse</span><span class="val">on path</span>
+                <span class="name">Lantas.app</span><span class="val">installed</span>
               </div>
               <div class="inspect-row" style="grid-template-columns:minmax(0,1fr) auto">
-                <span class="name">backend</span><span class="val">pytorch 2.5</span>
+                <span class="name">chrome-extension</span><span class="val">bundled</span>
               </div>
               <div class="inspect-row" style="grid-template-columns:minmax(0,1fr) auto">
-                <span class="name">agent</span><span class="val">openrouter · free models</span>
+                <span class="name">provider</span><span class="val">your key</span>
               </div>
               <div class="inspect-row" style="grid-template-columns:minmax(0,1fr) auto">
-                <span class="name">train.py</span><span class="val">unchanged</span>
+                <span class="name">browser</span><span class="val">Lantas or Chrome</span>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- 07 -->
-<section class="sec" id="authors">
-  <div class="sec-cloud bits" data-parallax="0.06" style="left:-60px;bottom:-30px;--w:440px;--h:255px;--o:.66;right:auto" data-bits></div>
-  <div class="wrap">
-    <header class="sec-head">
-      <p class="eyebrow" data-reveal><span class="dot"></span>Authors</p>
-      <h2 data-reveal style="--d:60ms">Who we are</h2>
-      <p class="dek" data-reveal style="--d:120ms">We met in the 1517 Discord, where a challenge turned into a collaboration.</p>
-    </header>
-
-    <div class="authors">
-      <article class="author" data-reveal>
-        <div class="who">
-          <span class="initials">YP</span>
-          <h3>Yash Patel</h3>
-          <span class="role">co-founder</span>
-        </div>
-        <p>Built a 380M-parameter language model from scratch, and too much of the work became finding out why it broke.</p>
-      </article>
-      <article class="author" data-reveal style="--d:80ms">
-        <div class="who">
-          <span class="initials">PG</span>
-          <h3>Paul Guillemette</h3>
-          <span class="role">co-founder</span>
-        </div>
-        <p>Is building a custom architecture that reduces VRAM consumption by 600x.</p>
-      </article>
-    </div>
-
-    <div class="grid-copy" style="margin-top:36px;align-items:center">
-      <p data-reveal style="color:var(--ink-2);font-size:16.5px;line-height:28px;max-width:54ch">Residual is the parent project; Pulse is what we are building first.</p>
-      <div class="linkrow" data-reveal style="--d:60ms;margin-top:0">
-        <a href="https://residualml.com/dashboard/">Dashboard
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
-        </a>
-        <a href="mailto:founders@residualml.com">founders@residualml.com
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4zM4 7l8 6 8-6"/></svg>
-        </a>
-        <a href="https://www.linkedin.com/company/residual-ml/">LinkedIn
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
-        </a>
       </div>
     </div>
   </div>
@@ -846,13 +805,13 @@
 
 <section class="closing">
   <div class="wrap">
-    <p data-reveal>If your training runs have humbled you, we should talk.</p>
+    <p data-reveal>If your browser tabs have humbled you, install Lantas.</p>
     <div class="actions" data-reveal style="--d:80ms">
-      <a class="btn btn-primary" href="mailto:founders@residualml.com">
-        Write to us
+      <a class="btn btn-primary" href="docs.html">
+        Read the docs
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </a>
-      <a class="btn btn-ghost" href="download.html">Download Pulse
+      <a class="btn btn-ghost" href="download.html">Download Lantas
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg>
       </a>
     </div>
@@ -865,23 +824,20 @@
   <div class="wrap">
     <div class="foot-top">
       <div class="foot-mark">
-        <svg class="mark" viewBox="0 0 138 75" fill="none" aria-hidden="true">
-          <path d="M0 10.5H73A21 21 0 0 1 94 31.5V37.5M0 37.5H138M0 64.5H138" stroke="currentColor" stroke-width="21"/>
-      </svg>
-        Residual
+        <img class="mark" src="assets/img/mark.png" alt="" width="34" height="34">
+        Lantas
       </div>
       <div class="foot-links">
         <a href="docs.html">Docs</a>
         <a href="download.html">Download</a>
-        <a href="https://github.com/codeyash09/PulseML">GitHub</a>
-        <a href="https://pypi.org/project/pulseml/">PyPI</a>
-        <a href="https://residualml.com/dashboard/">Dashboard</a>
-        <a href="mailto:founders@residualml.com">Contact</a>
+        <a href="https://github.com/AnwarKalonov/Lantas">GitHub</a>
+        <a href="docs.html#extension">Chrome extension</a>
+        <a href="https://github.com/AnwarKalonov/Lantas/issues">Contact</a>
       </div>
     </div>
     <div class="foot-bottom">
-      <span class="line">for ML breakers everywhere</span>
-      <span>© 2026 Residual ML</span>
+      <span class="line">for people who work in the browser</span>
+      <span>© 2026 Lantas</span>
     </div>
   </div>
 </footer>

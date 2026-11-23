@@ -1,14 +1,18 @@
 /**
  * Lantas Browser Bridge — service worker.
  *
- * Connects to the Lantas desktop app on 127.0.0.1:47654 and forwards commands
- * (navigate, read, click, type, scroll, back/forward, reload) to the Chrome tab
- * the user is looking at. Nothing leaves this machine.
+ * Two ways in, both local:
+ *   1. Lantas desktop connects to 127.0.0.1:47654 over a WebSocket.
+ *   2. Lantas running as a web page (Lantas.command / npm start) messages this
+ *      worker directly through chrome.runtime.sendMessage.
+ *
+ * Either way the commands act on the Chrome tab the user is looking at, and
+ * nothing leaves this machine.
  */
 
 const PORT = 47654;
 const ENDPOINT = `ws://127.0.0.1:${PORT}/lantas`;
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 
 let socket = null;
 let retry = 0;
@@ -66,7 +70,7 @@ function connect() {
     } catch {
       return;
     }
-    void handle(message);
+    void forward(message);
   };
 
   socket.onclose = () => {
@@ -109,7 +113,7 @@ function isWebTab(tab) {
   return /^https?:/i.test(tab?.url || "");
 }
 
-async function pushState() {
+function pushState() {
   if (stateTimer) return;
   stateTimer = setTimeout(() => {
     stateTimer = null;
@@ -129,10 +133,10 @@ async function collectState() {
   return { tabs: list, active };
 }
 
-chrome.tabs.onUpdated.addListener(() => void pushState());
-chrome.tabs.onActivated.addListener(() => void pushState());
-chrome.tabs.onRemoved.addListener(() => void pushState());
-chrome.windows.onFocusChanged.addListener(() => void pushState());
+chrome.tabs.onUpdated.addListener(() => pushState());
+chrome.tabs.onActivated.addListener(() => pushState());
+chrome.tabs.onRemoved.addListener(() => pushState());
+chrome.windows.onFocusChanged.addListener(() => pushState());
 
 /* ------------------------------------------------------------------- Commands */
 
@@ -177,25 +181,40 @@ async function actOnTab(tab) {
   }
 }
 
-async function handle(message) {
-  if (!message || typeof message.type !== "string") return;
-  const id = message.id;
-  const reply = (payload) => send({ id, type: "result", ...payload });
+/**
+ * One command in, one plain result out. The WebSocket path wraps this in a
+ * result frame; the web-page path returns it to the caller directly.
+ */
+async function execute(message) {
+  if (!message || typeof message.type !== "string") {
+    return { ok: false, error: "No command was given." };
+  }
 
   try {
     switch (message.type) {
       case "hello":
       case "ping": {
-        reply({ ok: true, detail: "pong", version: VERSION });
-        return;
+        return { ok: true, detail: "pong", version: VERSION };
+      }
+
+      case "status": {
+        const snapshot = await collectState();
+        state = { ...state, ...snapshot };
+        return {
+          ok: true,
+          connected: true,
+          version: VERSION,
+          ...snapshot,
+          page: state.page,
+          elements: state.elements,
+        };
       }
 
       case "tabs": {
         const snapshot = await collectState();
         state = { ...state, ...snapshot };
         send({ type: "state", ...snapshot });
-        reply({ ok: true, ...snapshot });
-        return;
+        return { ok: true, ...snapshot };
       }
 
       case "activate": {
@@ -206,23 +225,20 @@ async function handle(message) {
         const snapshot = await collectState();
         state = { ...state, ...snapshot };
         send({ type: "state", ...snapshot });
-        reply({ ok: true, detail: `Focused ${tab.title || tab.url}` });
-        return;
+        return { ok: true, detail: `Focused ${tab.title || tab.url}` };
       }
 
       case "close": {
         const tab = await targetTab(message.tabId);
         if (!tab) throw new Error("That Chrome tab is gone.");
         await chrome.tabs.remove(tab.id);
-        reply({ ok: true, detail: "Tab closed" });
-        return;
+        return { ok: true, detail: "Tab closed" };
       }
 
       case "focus": {
         const tab = await targetTab();
         if (tab?.windowId != null) await chrome.windows.update(tab.windowId, { focused: true });
-        reply({ ok: true });
-        return;
+        return { ok: true };
       }
 
       case "navigate": {
@@ -238,10 +254,9 @@ async function handle(message) {
           await chrome.tabs.update(tab.id, { url, active: true });
           if (tab.windowId != null) await chrome.windows.update(tab.windowId, { focused: true });
         }
-        reply({ ok: true, detail: `Opened ${url}` });
         await sleep(500);
-        await pushState();
-        return;
+        pushState();
+        return { ok: true, detail: `Opened ${url}` };
       }
 
       case "history": {
@@ -249,20 +264,18 @@ async function handle(message) {
         if (!tab) throw new Error("No Chrome tab is available.");
         if (message.direction === "forward") await chrome.tabs.goForward(tab.id);
         else await chrome.tabs.goBack(tab.id);
-        reply({ ok: true, detail: message.direction === "forward" ? "Went forward" : "Went back" });
         await sleep(500);
-        await pushState();
-        return;
+        pushState();
+        return { ok: true, detail: message.direction === "forward" ? "Went forward" : "Went back" };
       }
 
       case "reload": {
         const tab = await targetTab(message.tabId);
         if (!tab) throw new Error("No Chrome tab is available.");
         await chrome.tabs.reload(tab.id);
-        reply({ ok: true, detail: "Reloaded" });
         await sleep(600);
-        await pushState();
-        return;
+        pushState();
+        return { ok: true, detail: "Reloaded" };
       }
 
       case "read": {
@@ -276,8 +289,12 @@ async function handle(message) {
         const active = tabSummary(tab);
         state = { ...state, active, page: result.page, elements: result.elements };
         send({ type: "state", active, page: result.page, elements: result.elements });
-        reply({ ok: true, page: result.page, elements: result.elements, detail: `Read ${result.page.title}` });
-        return;
+        return {
+          ok: true,
+          page: result.page,
+          elements: result.elements,
+          detail: `Read ${result.page.title}`,
+        };
       }
 
       case "act": {
@@ -308,34 +325,45 @@ async function handle(message) {
             elements: result.elements || state.elements,
           });
         }
-        reply({
+        return {
           ok: true,
           detail: result.detail || "Done",
           page: result.page,
           elements: result.elements,
-        });
-        return;
+        };
       }
 
-      default: {
-        reply({ ok: false, error: `Unknown command: ${message.type}` });
-      }
+      default:
+        return { ok: false, error: `Unknown command: ${message.type}` };
     }
   } catch (error) {
-    reply({ ok: false, error: String(error?.message || error) });
+    return { ok: false, error: String(error?.message || error) };
   }
 }
 
-/* -------------------------------------------------------------- Popup support */
+async function forward(message) {
+  if (!message || typeof message.type !== "string") return;
+  const result = await execute(message);
+  send({ id: message.id, type: "result", ...result });
+}
+
+/* ------------------------------------------------------------------- Transports */
+
+chrome.runtime.onMessageExternal.addListener((message, _sender, respond) => {
+  if (!message || typeof message.type !== "string") return undefined;
+  void (async () => respond(await execute(message)))();
+  return true;
+});
 
 chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   if (!message || message.cmd !== "status") return undefined;
   respond({
-    connected: Boolean(socket && socket.readyState === WebSocket.OPEN),
+    connected: true,
     port: PORT,
     version: VERSION,
     active: state.active,
     tabs: state.tabs.length,
+    socket: Boolean(socket && socket.readyState === WebSocket.OPEN),
   });
   return true;
 });

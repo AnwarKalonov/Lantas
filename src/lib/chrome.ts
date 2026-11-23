@@ -3,9 +3,13 @@ import { inTauri } from "./native";
 
 export const CHROME_PORT = 47654;
 const ENGINE_KEY = "lantas.browser.engine.v1";
+const ID_KEY = "lantas.chrome.extension.v1";
 
 /** Which engine the browser tab uses: Lantas' own webview, or real Chrome. */
 export type BrowserEngine = "local" | "chrome";
+
+/** How Lantas reaches the extension: desktop bridge, page messaging, or not at all. */
+export type ChromeTransport = "bridge" | "extension" | "none";
 
 export interface ChromeTab {
   id: number;
@@ -44,6 +48,7 @@ export interface ChromeEvent {
 }
 
 export interface ChromeStatus {
+  transport: ChromeTransport;
   running: boolean;
   error: string;
   connected: boolean;
@@ -58,6 +63,7 @@ export interface ChromeStatus {
 }
 
 export const EMPTY_CHROME: ChromeStatus = {
+  transport: "none",
   running: false,
   error: "",
   connected: false,
@@ -87,9 +93,78 @@ export function setBrowserEngine(engine: BrowserEngine) {
   }
 }
 
+/* ------------------------------------------------------- the extension's ID */
+
+export function chromeExtensionId(): string {
+  try {
+    return localStorage.getItem(ID_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function setChromeExtensionId(raw: string) {
+  const value = raw.trim();
+  try {
+    if (value) localStorage.setItem(ID_KEY, value);
+    else localStorage.removeItem(ID_KEY);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+export function looksLikeExtensionId(value: string): boolean {
+  return /^[a-p]{32}$/i.test(value.trim());
+}
+
+/* ----------------------------------------- web page <-> extension messaging */
+
+interface PageRuntime {
+  sendMessage: (
+    extensionId: string,
+    message: unknown,
+    callback: (response: unknown) => void,
+  ) => void;
+  lastError?: { message?: string };
+}
+
+function pageRuntime(): PageRuntime | null {
+  if (typeof window === "undefined") return null;
+  const runtime = (window as unknown as { chrome?: { runtime?: PageRuntime } }).chrome?.runtime;
+  return runtime?.sendMessage ? runtime : null;
+}
+
+function pageSend(payload: unknown): Promise<Record<string, unknown>> {
+  const runtime = pageRuntime();
+  const id = chromeExtensionId();
+  if (!runtime || !id) {
+    return Promise.reject(new Error("Paste the Chrome extension ID in this panel first."));
+  }
+
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(
+      () => reject(new Error("The extension did not answer. Is it installed and enabled?")),
+      10000,
+    );
+    try {
+      runtime.sendMessage(id, payload, (response) => {
+        window.clearTimeout(timer);
+        const failure = runtime.lastError?.message;
+        if (failure) reject(new Error(failure));
+        else resolve((response ?? {}) as Record<string, unknown>);
+      });
+    } catch (error) {
+      window.clearTimeout(timer);
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+}
+
+/* --------------------------------------------------------------- transport */
+
 async function call<T>(name: string, args?: Record<string, unknown>): Promise<T> {
   if (!inTauri()) {
-    throw new Error("Chrome control runs in the desktop build, not the web preview.");
+    throw new Error("That needs the desktop build.");
   }
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<T>(name, args ?? {});
@@ -97,17 +172,41 @@ async function call<T>(name: string, args?: Record<string, unknown>): Promise<T>
 
 export async function chromeStatus(): Promise<ChromeStatus> {
   if (!inTauri()) {
-    return {
-      ...EMPTY_CHROME,
-      error: "Chrome control runs in the desktop build. The web preview has no bridge.",
-    };
+    if (!pageRuntime() || !chromeExtensionId()) {
+      return { ...EMPTY_CHROME, running: Boolean(pageRuntime()) };
+    }
+    try {
+      const response = await pageSend({ type: "status" });
+      const connected = Boolean(response.ok);
+      return {
+        ...EMPTY_CHROME,
+        transport: "extension",
+        running: true,
+        connected,
+        agent: String(response.version ?? ""),
+        tabs: (response.tabs as ChromeTab[]) ?? [],
+        active: (response.active as ChromeTab | null) ?? null,
+        page: (response.page as ChromePage | null) ?? null,
+        elements: (response.elements as ChromeElement[]) ?? [],
+      };
+    } catch (error) {
+      return {
+        ...EMPTY_CHROME,
+        transport: "extension",
+        running: true,
+        connected: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
+
   try {
     const raw = await call<string>("chrome_bridge_state");
     const parsed = JSON.parse(raw) as Partial<ChromeStatus>;
     return {
       ...EMPTY_CHROME,
       ...parsed,
+      transport: "bridge",
       tabs: parsed.tabs ?? [],
       elements: parsed.elements ?? [],
       events: parsed.events ?? [],
@@ -115,6 +214,7 @@ export async function chromeStatus(): Promise<ChromeStatus> {
   } catch (error) {
     return {
       ...EMPTY_CHROME,
+      transport: "bridge",
       error: error instanceof Error ? error.message : String(error),
     };
   }
@@ -127,9 +227,17 @@ export async function chromeCommand<T extends ChromeEvent = ChromeEvent>(
   timeoutMs = 9000,
 ): Promise<T> {
   const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-  await call<number>("chrome_bridge_send", {
-    payload: JSON.stringify({ id, type, ...args }),
-  });
+  const payload = { id, type, ...args };
+
+  if (!inTauri()) {
+    const response = (await pageSend(payload)) as unknown as ChromeEvent;
+    if (response.ok === false) {
+      throw new Error(response.error || "Chrome could not do that.");
+    }
+    return response as T;
+  }
+
+  await call<number>("chrome_bridge_send", { payload: JSON.stringify(payload) });
 
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {

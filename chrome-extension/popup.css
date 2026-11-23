@@ -124,6 +124,52 @@ h1 {
   text-overflow: ellipsis;
 }
 
+.id-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 11px;
+  margin-bottom: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.id-row > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.id-row code {
+  display: block;
+  margin-top: 2px;
+  font-family: "SF Mono", ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy {
+  flex: 0 0 auto;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid var(--line-strong);
+  background: #1c1c1a;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+}
+
+.id-hint {
+  margin: 0 2px 10px;
+  font-size: 10px;
+  color: var(--text-3);
+}
+
 .toggle {
   display: flex;
   align-items: center;

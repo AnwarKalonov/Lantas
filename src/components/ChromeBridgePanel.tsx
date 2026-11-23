@@ -7,6 +7,7 @@ import {
   type ChromeStatus,
 } from "../lib/chrome";
 import { hostOf } from "../lib/el";
+import { inTauri } from "../lib/native";
 import { cx } from "../lib/util";
 import { Icon } from "./Icons";
 
@@ -105,6 +106,26 @@ export function ChromeBridgePanel({
 
   const active = status.active;
   const connected = status.connected;
+
+  // The web build has no native bridge; the desktop app is the real thing.
+  if (!inTauri()) {
+    return (
+      <div className="el-chrome-panel">
+        <div className="el-chrome-statusbar">
+          <span className="el-chrome-dot" />
+          <span className="el-chrome-status-text">Desktop app required</span>
+        </div>
+        <div className="el-chrome-card">
+          <h2>Drive Chrome from the Lantas app</h2>
+          <p>
+            This is the browser preview. Install Lantas.app, open Browser → Chrome, and load the
+            extension once from the folder that panel shows. Chrome keeps your logins, and the
+            agent works in the tab you already have open.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="el-chrome-panel">

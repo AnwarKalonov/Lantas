@@ -692,6 +692,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
         </form>
 
         <div className="el-tools">
+          {native && (
           <div className="el-engine-switch" role="group" aria-label="Browser engine">
             <button
               type="button"
@@ -710,6 +711,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
               Chrome
             </button>
           </div>
+          )}
           <button
             type="button"
             className="el-round"

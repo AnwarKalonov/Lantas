@@ -36,6 +36,22 @@ async function renderStatus() {
   readButton.disabled = !web;
 }
 
+const extId = document.getElementById("ext-id");
+const copyId = document.getElementById("copy-id");
+
+extId.textContent = chrome.runtime.id;
+copyId.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(chrome.runtime.id);
+    copyId.textContent = "Copied";
+    setTimeout(() => {
+      copyId.textContent = "Copy";
+    }, 1200);
+  } catch {
+    setResult("Select the ID and copy it by hand.", true);
+  }
+});
+
 async function loadToggle() {
   const stored = await chrome.storage.local.get({ lantasDrive: true });
   drive.checked = Boolean(stored.lantasDrive);

@@ -27,6 +27,13 @@ jobs:
       - name: Build app
         run: npm run tauri build
 
+      - name: Bundle Chrome extension
+        run: |
+          APP="src-tauri/target/release/bundle/macos/Lantas.app"
+          mkdir -p "$APP/Contents/Resources"
+          rm -rf "$APP/Contents/Resources/chrome-extension"
+          cp -R chrome-extension "$APP/Contents/Resources/chrome-extension"
+
       - name: Ad-hoc sign
         run: |
           APP="src-tauri/target/release/bundle/macos/Lantas.app"

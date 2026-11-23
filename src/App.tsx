@@ -5,7 +5,8 @@ import { aiDriving } from "./lib/el";
 import { fetchInbox, getComposio, listConnections } from "./lib/composio";
 import { getElContext } from "./lib/el";
 import { consumeGoogleHash, getGoogleToken, listMail } from "./lib/google";
-import { elClick, elEval, elType, inTauri } from "./lib/native";
+import { inTauri } from "./lib/native";
+import { agentClick, agentEnter, agentScroll, agentType } from "./lib/browserAgent";
 import { buildHistory, buildSystemPrompt, parseImage } from "./lib/chat";
 import { isConfigured, streamChat } from "./lib/providers";
 import { useStore } from "./lib/store";
@@ -276,12 +277,51 @@ export function App() {
             notify("You have control — the agent is paused", "error");
             return true;
           }
-          void elClick(target).then((ok) =>
+          void agentClick(target).then((ok) =>
             notify(
-              ok ? `Clicked “${target}” in Lantas Browser` : "Open Lantas Browser on a page first",
+              ok ? `Clicked “${target}” in the browser` : "Open a page in Lantas Browser or Chrome first",
               ok ? "default" : "error",
             ),
           );
+          return true;
+        }
+        case "/type": {
+          const body = raw.slice(5).trim();
+          if (!body) {
+            notify("Usage: /type <text> into <selector>", "error");
+            return true;
+          }
+          if (!aiDriving()) {
+            notify("You have control — the agent is paused", "error");
+            return true;
+          }
+          const split = body.match(/^(.*?)\s+into\s+(\S+)$/i);
+          const field = split ? split[1] : body;
+          const selector = split ? split[2] : undefined;
+          void agentType(field, selector).then((ok) =>
+            notify(ok ? "Typed into the page" : "That field was not found", ok ? "default" : "error"),
+          );
+          return true;
+        }
+        case "/scroll": {
+          if (!aiDriving()) {
+            notify("You have control — the agent is paused", "error");
+            return true;
+          }
+          const up = raw.slice(7).trim().toLowerCase() === "up";
+          void agentScroll(up ? -600 : 600).then((ok) => {
+            if (!ok) notify("Open a page in Lantas Browser or Chrome first", "error");
+          });
+          return true;
+        }
+        case "/enter": {
+          if (!aiDriving()) {
+            notify("You have control — the agent is paused", "error");
+            return true;
+          }
+          void agentEnter().then((ok) => {
+            if (!ok) notify("That field was not found", "error");
+          });
           return true;
         }
         case "/compact":

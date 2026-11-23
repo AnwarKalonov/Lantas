@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Lantas Browser Bridge</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="head">
+      <span class="mark" aria-hidden="true"></span>
+      <div>
+        <h1>Lantas Browser Bridge</h1>
+        <p id="version">Chrome extension</p>
+      </div>
+    </header>
+
+    <section class="status" id="status">
+      <span class="dot" id="dot" aria-hidden="true"></span>
+      <div>
+        <strong id="status-title">Checking…</strong>
+        <small id="status-detail">Looking for Lantas on this Mac</small>
+      </div>
+    </section>
+
+    <section class="tab-card">
+      <p class="kicker">Current tab</p>
+      <p class="tab-title" id="tab-title">No website open</p>
+      <p class="tab-url" id="tab-url"></p>
+    </section>
+
+    <label class="toggle" for="drive">
+      <span>
+        <strong>Let Lantas drive Chrome</strong>
+        <small>Read this page, click, type and scroll</small>
+      </span>
+      <input type="checkbox" id="drive" checked />
+      <span class="track" aria-hidden="true"><span class="thumb"></span></span>
+    </label>
+
+    <button class="read" id="read" type="button">Read this tab</button>
+    <p class="result" id="result" role="status"></p>
+
+    <p class="foot">
+      Commands arrive only from Lantas on <code>127.0.0.1</code>. Close this tab to stop answering.
+    </p>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

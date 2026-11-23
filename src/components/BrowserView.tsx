@@ -3,18 +3,31 @@ import { useStore } from "../lib/store";
 import { getGoogleToken, listMail, type MailItem } from "../lib/google";
 import {
   elBounds,
-  elClick,
   elClose,
-  elEval,
-  elHistory,
   elLastError,
   elOpen,
-  elReload,
-  elWindow,
   elVisible,
+  elWindow,
   inTauri,
   openExternal,
 } from "../lib/native";
+import {
+  browserEngine,
+  openChromeUrl,
+  setBrowserEngine,
+  useChromeBridge,
+  type BrowserEngine,
+} from "../lib/chrome";
+import {
+  agentClick,
+  agentEnter,
+  agentHistory,
+  agentPage,
+  agentReload,
+  agentScroll,
+  agentType,
+} from "../lib/browserAgent";
+import { ChromeBridgePanel } from "./ChromeBridgePanel";
 import {
   EL_HOME,
   aiDriving,
@@ -71,6 +84,8 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
   const trail = useRef<string[]>([EL_HOME]);
   const trailIndex = useRef(0);
   const native = inTauri();
+  const [engine, setEngine] = useState<BrowserEngine>(() => browserEngine());
+  const bridge = useChromeBridge(engine === "chrome" && visible);
 
   const active = data.tabs.find((tab) => tab.id === data.active) ?? data.tabs[0];
   const atHome = active.url === EL_HOME;
@@ -95,6 +110,12 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
   // Attach or detach the native engine as tabs, modes and URLs change.
   useEffect(() => {
     if (!native) return;
+    // In Chrome mode the page lives in the user's browser, not in a child webview.
+    if (engine !== "local") {
+      setNativeReady(false);
+      void elClose();
+      return;
+    }
     if (!visible) {
       void elVisible(false);
       return;
@@ -116,7 +137,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
     setNativeReady(false);
     void elClose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [native, visible, active.url, mode, atHome, data.active, engineTick]);
+  }, [native, visible, active.url, mode, atHome, data.active, engineTick, engine]);
 
   useEffect(
     () => () => {
@@ -173,6 +194,23 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
             ].slice(0, 60),
     }));
     if (url !== EL_HOME) setBrowserUrl(url);
+    if (engine === "chrome" && url !== EL_HOME) {
+      void openChromeUrl(url).catch((error) =>
+        notify(error instanceof Error ? error.message : "Chrome did not answer", "error"),
+      );
+    }
+  };
+
+  /** Text for the model, from the active Chrome tab or the embedded engine. */
+  const pageFor = async (): Promise<ElPage> => {
+    if (engine === "chrome") {
+      const fromChrome = await agentPage();
+      if (!fromChrome) {
+        throw new Error("Chrome could not read that tab. Open a website in Chrome first.");
+      }
+      return fromChrome;
+    }
+    return readPage(active.url);
   };
 
   const newTab = (url = EL_HOME) => {
@@ -201,8 +239,14 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
   };
 
   const step = (direction: "back" | "forward") => {
+    if (engine === "chrome") {
+      void agentHistory(direction).then((ok) => {
+        if (!ok) notify("Chrome did not move — is the extension connected?", "error");
+      });
+      return;
+    }
     if (native) {
-      void elHistory(direction);
+      void agentHistory(direction);
       return;
     }
     const next = trailIndex.current + (direction === "back" ? -1 : 1);
@@ -221,7 +265,13 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
   const reload = () => {
     setError("");
     setPage(null);
-    if (native) void elReload();
+    if (engine === "chrome") {
+      void agentReload().then((ok) => {
+        if (!ok) notify("Chrome did not reload", "error");
+      });
+      return;
+    }
+    if (native) void agentReload();
     setReloadTick((tick) => tick + 1);
   };
 
@@ -230,7 +280,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
     setBusy(true);
     setError("");
     try {
-      const next = await readPage(active.url);
+      const next = await pageFor();
       setPage(next);
       setElContext(next);
       setMode("reader");
@@ -260,7 +310,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
   const ensurePage = async () => {
     if (atHome || page) return;
     try {
-      const next = await readPage(active.url);
+      const next = await pageFor();
       setPage(next);
       setElContext(next);
       patchTab(active.id, { title: next.title });
@@ -281,7 +331,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
       notify("Clicking needs the desktop app — the web preview cannot script pages", "error");
       return;
     }
-    const ok = await elClick(target.trim());
+    const ok = await agentClick(target.trim());
     notify(ok ? `Clicked “${target.trim()}”` : "That click did not land", ok ? "default" : "error");
   };
 
@@ -343,21 +393,8 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
       notify("Typing needs the desktop app", "error");
       return;
     }
-    const target = selector ? JSON.stringify(selector) : "document.activeElement";
-    const payload = JSON.stringify(value);
-    await elEval(
-      `(() => {
-        const el = ${target};
-        if (!el) return;
-        el.focus();
-        const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-        const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-        if (setter) setter.call(el, ${payload}); else el.value = ${payload};
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      })()`,
-    );
-    notify("Typed into the page");
+    const ok = await agentType(value, selector);
+    notify(ok ? "Typed into the page" : "That field was not found", ok ? "default" : "error");
   };
 
   const pressEnter = async () => {
@@ -365,20 +402,12 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
       notify("That needs the desktop app", "error");
       return;
     }
-    await elEval(
-      `(() => {
-        const el = document.activeElement;
-        if (!el) return;
-        for (const type of ["keydown", "keypress", "keyup"]) {
-          el.dispatchEvent(new KeyboardEvent(type, { key: "Enter", code: "Enter", bubbles: true }));
-        }
-        if (el.form && typeof el.form.requestSubmit === "function") el.form.requestSubmit();
-      })()`,
-    );
+    const ok = await agentEnter();
+    if (!ok) notify("Could not press Enter in Chrome", "error");
   };
 
   const scrollPage = async (pixels: number) => {
-    await elEval(`window.scrollBy({ top: ${pixels}, behavior: "smooth" })`);
+    await agentScroll(pixels);
   };
 
   /** Natural commands the agent (or you) can run without a round trip to a model. */
@@ -449,6 +478,35 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
     setDriving(next);
     setAiDriving(next);
     notify(next ? "Agent can drive the browser" : "You have control of the browser");
+  };
+
+  const switchEngine = (next: BrowserEngine) => {
+    if (next === engine) return;
+    setEngine(next);
+    setBrowserEngine(next);
+    setEngineError("");
+    setPage(null);
+    if (next === "chrome") {
+      notify("Chrome engine — connect the extension if this is the first time");
+      void bridge.refresh();
+    } else {
+      notify("Lantas Browser engine");
+    }
+  };
+
+  /** Opens the page in the user's Chrome (via the extension), or their default browser. */
+  const openOutside = async () => {
+    if (atHome) return;
+    if (engine === "chrome" || bridge.status.connected) {
+      try {
+        await openChromeUrl(active.url);
+        notify("Opened in Chrome");
+      } catch (error) {
+        notify(error instanceof Error ? error.message : "Chrome did not answer", "error");
+      }
+      return;
+    }
+    openExternal(active.url);
   };
 
   const bookmarked = data.bookmarks.some((item) => item.url === active.url);
@@ -634,6 +692,24 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
         </form>
 
         <div className="el-tools">
+          <div className="el-engine-switch" role="group" aria-label="Browser engine">
+            <button
+              type="button"
+              className={cx(engine === "local" && "is-on")}
+              onClick={() => switchEngine("local")}
+              title="Lantas Browser engine"
+            >
+              Lantas
+            </button>
+            <button
+              type="button"
+              className={cx(engine === "chrome" && "is-on")}
+              onClick={() => switchEngine("chrome")}
+              title="Drive Chrome through the Lantas extension"
+            >
+              Chrome
+            </button>
+          </div>
           <button
             type="button"
             className="el-round"
@@ -657,10 +733,10 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
           <button
             type="button"
             className="el-round"
-            onClick={() => !atHome && openExternal(active.url)}
+            onClick={() => void openOutside()}
             disabled={atHome}
-            title="Open in your default browser"
-            aria-label="Open externally"
+            title="Open in Chrome"
+            aria-label="Open in Chrome"
           >
             <Icon name="external" size={13} />
           </button>
@@ -681,14 +757,23 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
 
       <div className={cx("el-body", aiOpen && "has-ai")}>
         <div className="el-main">
-        {atHome ? (
+        {engine === "chrome" ? (
+          <ChromeBridgePanel
+            status={bridge.status}
+            onRefresh={bridge.refresh}
+            onAsk={(text) => {
+              void ask(text);
+            }}
+          />
+        ) : atHome ? (
           <div className="el-home">
             <div className="el-home-inner">
               <div className="el-greeting">
                 <h1>Search the web, or let the agent drive it</h1>
                 <p>
-                  Pages open in Lantas Browser's own engine, so the model can read them, click
-                  what matters and type where you ask.
+                  Pages open in Lantas Browser's own engine, or in your Chrome through the
+                  extension, so the model can read them, click what matters and type where you
+                  ask.
                 </p>
               </div>
 
@@ -818,6 +903,13 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
                       <button
                         type="button"
                         className="button-primary"
+                        onClick={() => switchEngine("chrome")}
+                      >
+                        Use Chrome engine
+                      </button>
+                      <button
+                        type="button"
+                        className="button-quiet"
                         onClick={() => {
                           setEngineError("");
                           setNativeReady(false);
@@ -830,16 +922,9 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
                       <button
                         type="button"
                         className="button-quiet"
-                        onClick={() => void elWindow(active.url)}
+                        onClick={() => void openOutside()}
                       >
-                        Open in a window
-                      </button>
-                      <button
-                        type="button"
-                        className="button-quiet"
-                        onClick={() => openExternal(active.url)}
-                      >
-                        Open in Safari
+                        Open in Chrome
                       </button>
                     </div>
                   </>
@@ -861,20 +946,20 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
                 </span>
                 <h2>{hostOf(active.url)}</h2>
                 <p>
-                  Sites like Notion and Google refuse to load inside a web frame. The desktop build
-                  opens them in Lantas Browser's own engine, where the agent can read and drive
-                  them.
+                  Sites like Notion and Google refuse to load inside a web frame. Use Lantas
+                  Browser's own engine, or the Chrome engine where Lantas drives the tab you
+                  already have open.
                 </p>
                 <div className="el-actions">
                   <button
                     type="button"
                     className="button-primary"
-                    onClick={() => openExternal(active.url)}
+                    onClick={() => switchEngine("chrome")}
                   >
-                    Open in Safari
+                    Use Chrome engine
                   </button>
-                  <button type="button" className="button-quiet" onClick={reload}>
-                    Retry
+                  <button type="button" className="button-quiet" onClick={() => void openOutside()}>
+                    Open in Chrome
                   </button>
                 </div>
               </div>
@@ -971,13 +1056,22 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
       </div>
 
       <div className="el-foot">
-        <span className={cx("el-dot", native && "is-native")} />
+        <span
+          className={cx(
+            "el-dot",
+            (engine === "chrome" ? bridge.status.connected : native) && "is-native",
+          )}
+        />
         <span className="el-foot-status">
           {page
             ? `“${page.title.slice(0, 40)}” ready for the model`
-            : native
-              ? "Native engine"
-              : "Web preview"}
+            : engine === "chrome"
+              ? bridge.status.connected
+                ? "Chrome connected"
+                : "Chrome extension offline"
+              : native
+                ? "Native engine"
+                : "Web preview"}
         </span>
         <button
           type="button"

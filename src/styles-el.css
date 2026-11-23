@@ -1704,3 +1704,382 @@
 .el-identity {
   flex: 0 0 auto;
 }
+
+/* ==========================================================================
+   Chrome engine — driving the user's own Chrome through the extension
+   ========================================================================== */
+
+.el-engine-switch {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.el-engine-switch button {
+  height: 21px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-3);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.el-engine-switch button:hover {
+  color: var(--text-2);
+}
+
+.el-engine-switch button.is-on {
+  background: var(--sel);
+  color: var(--text);
+}
+
+.el-chrome-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 22px 32px;
+}
+
+.el-chrome-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 2px 2px;
+}
+
+.el-chrome-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+
+.el-chrome-dot.is-on {
+  background: var(--ok);
+  box-shadow: 0 0 0 4px rgba(143, 191, 154, 0.12);
+}
+
+.el-chrome-status-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.el-chrome-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 16px;
+}
+
+.el-chrome-card h2 {
+  margin: 0 0 4px;
+  font-size: 13.5px;
+  font-weight: 560;
+  letter-spacing: -0.005em;
+}
+
+.el-chrome-card p {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.el-chrome-intro {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.el-chrome-glyph {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--chat-bg);
+  color: var(--text-2);
+}
+
+.el-chrome-steps {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.el-chrome-steps li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.el-chrome-steps li > span {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  color: var(--text-3);
+  font-size: 9.5px;
+}
+
+.el-chrome-steps strong {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 550;
+  color: var(--text);
+}
+
+.el-chrome-steps small {
+  display: block;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.el-chrome-steps code,
+.el-chrome-path code,
+.el-chrome-hint code {
+  font-family: "SF Mono", ui-monospace, monospace;
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--chat-bg);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+}
+
+.el-chrome-path {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--chat-bg);
+  margin-bottom: 12px;
+}
+
+.el-chrome-path code {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+
+.el-chrome-path .el-actions {
+  flex: 0 0 auto;
+}
+
+.el-chrome-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.el-chrome-muted {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.el-chrome-tabrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.el-chrome-favicon {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--chat-bg);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 550;
+}
+
+.el-chrome-tabtext {
+  flex: 1;
+  min-width: 0;
+}
+
+.el-chrome-tabtext strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 550;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.el-chrome-tabtext small {
+  display: block;
+  font-size: 10.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.el-chrome-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.el-chrome-section-head span {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.el-chrome-section-head small {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.el-chrome-snippet {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 11.5px;
+  line-height: 1.6;
+  margin-bottom: 12px !important;
+}
+
+.el-chrome-targets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 6px;
+}
+
+.el-chrome-target {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--chat-bg);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 10.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+.el-chrome-target:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.el-chrome-target span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.el-chrome-target small {
+  flex: 0 0 auto;
+  font-size: 9px;
+  color: var(--text-4, var(--text-3));
+}
+
+.el-chrome-target:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.el-chrome-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.el-chrome-log {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.el-chrome-logrow {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+
+.el-chrome-logrow.is-error {
+  border-color: rgba(211, 167, 113, 0.35);
+  color: var(--warn);
+}
+
+.el-chrome-logrow small {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.el-chrome-hint {
+  margin: 2px 2px 0;
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+
+.el-chrome-note {
+  margin: 0 2px;
+  font-size: 10.5px;
+  color: var(--ok);
+}
+
+.el-chrome-note.is-error {
+  color: var(--warn);
+}
+

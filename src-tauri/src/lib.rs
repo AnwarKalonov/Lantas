@@ -1,3 +1,7 @@
+mod bridge;
+
+use std::path::PathBuf;
+
 use tauri::{LogicalPosition, LogicalSize, Manager, WebviewUrl};
 
 /// A normal macOS Safari agent string. WKWebView's default agent names the app,
@@ -214,6 +218,80 @@ fn el_window(app: tauri::AppHandle, url: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Snapshot of the Chrome bridge: connection, live tab, page, elements.
+#[tauri::command]
+fn chrome_bridge_state() -> String {
+    bridge::state_json()
+}
+
+/// Forwards one JSON command to the connected Chrome extension.
+#[tauri::command]
+fn chrome_bridge_send(payload: String) -> Result<usize, String> {
+    bridge::send(&payload)
+}
+
+/// Finds the shipped extension folder, whether running from source or a bundle.
+fn find_extension_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    if let Ok(resources) = app.path().resource_dir() {
+        candidates.push(resources.join("chrome-extension"));
+        candidates.push(resources.join("_up_").join("chrome-extension"));
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            candidates.push(dir.join("chrome-extension"));
+            candidates.push(dir.join("../Resources/chrome-extension"));
+        }
+    }
+    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../chrome-extension"));
+    candidates.push(PathBuf::from("chrome-extension"));
+
+    candidates
+        .into_iter()
+        .find(|path| path.join("manifest.json").is_file())
+}
+
+/// Where the loadable Chrome extension lives on this machine.
+#[tauri::command]
+fn chrome_extension_dir(app: tauri::AppHandle) -> String {
+    find_extension_dir(&app)
+        .map(|path: PathBuf| path.to_string_lossy().to_string())
+        .unwrap_or_default()
+}
+
+/// Opens the extension folder in Finder so it can be loaded unpacked.
+#[tauri::command]
+fn chrome_extension_reveal(app: tauri::AppHandle) -> Result<String, String> {
+    let path = find_extension_dir(&app).ok_or_else(|| {
+        "The Chrome extension folder was not found next to the app.".to_string()
+    })?;
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|error| error.to_string())?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&path)
+            .spawn()
+            .map_err(|error| error.to_string())?;
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|error| error.to_string())?;
+    }
+
+    Ok(path.to_string_lossy().to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -223,6 +301,11 @@ pub fn run() {
         // Native folder picker and file reads for the Code tab.
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        // Loopback WebSocket the Lantas Chrome extension connects to.
+        .setup(|_app| {
+            bridge::start();
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             el_open,
             el_bounds,
@@ -234,7 +317,11 @@ pub fn run() {
             el_type,
             el_history,
             el_reload,
-            el_window
+            el_window,
+            chrome_bridge_state,
+            chrome_bridge_send,
+            chrome_extension_dir,
+            chrome_extension_reveal
         ])
         .run(tauri::generate_context!())
         .expect("error while running Lantas");

@@ -41,6 +41,28 @@ repository.
 4. **Turn on Pages** (optional): `Lantas-download` → Settings → Pages → Deploy from a
    branch → `main` / root. The download page works on Pages or from the repo view.
 
+## The versions page
+
+`versions.html` is the public changelog and the only place versions are listed. It
+reads the release list straight from GitHub when it loads, so **publishing a release
+is the whole update**: version, date, notes and download links appear on the page with
+no HTML to edit. A visitor's browser asks GitHub at most once per ten minutes (the page
+caches the answer), and anonymous GitHub reads are free.
+
+- Write real release notes in the release body. The page shows the first few lines;
+the rest stays on GitHub behind the release link.
+- Keep the asset names from the table above. The page labels builds by matching the
+file name (`arm64`, `x64`, `dmg`, `app.zip`, `chrome-extension.zip`), so a release
+with renamed assets still lists them, just without a platform label.
+- The app reads the same feed. With a newer tag published, Lantas shows
+`<version> available` in the title bar and Settings → About can check by hand.
+- Bump the version in both places before tagging: `src-tauri/tauri.conf.json` and
+`APP_VERSION` in `src/lib/updates.ts`.
+
+Nothing auto-installs. The notice opens the release; the person downloads it and
+replaces the copy in Applications, which keeps the app free of a signing key, an
+updater daemon and a server.
+
 ## After changing the site
 
 ```bash
@@ -59,5 +81,7 @@ asset survives.
 - The site no longer says "open source", "MIT" or "build from source"; keep it that way
   unless the source is published.
 - `public-repo/LICENSE` is freeware, not MIT: free to use, not free to copy or modify.
+- `versions.html` never hard-codes a release list. GitHub Releases is the source; a
+  hand-written list goes stale the first time a build is cut.
 - Release assets are the only binaries. Do not commit a dmg or an app bundle into the
   public repository.

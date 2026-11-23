@@ -9,6 +9,8 @@ import {
   testProvider,
 } from "../lib/providers";
 import { useStore } from "../lib/store";
+import { APP_VERSION, checkForUpdate } from "../lib/updates";
+import { openExternal } from "../lib/native";
 import type { AgentId, ProviderId, ProviderMeta, ThemeMode } from "../lib/types";
 import { cx, uid } from "../lib/util";
 import { Lockup, Wordmark } from "./Brand";
@@ -242,6 +244,7 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
   const [draft, setDraft] = useState({ name: "", description: "", template: "" });
   const [modelQuery, setModelQuery] = useState("");
   const [freeOnly, setFreeOnly] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
   const settings = state.settings;
 
   useEffect(() => {
@@ -258,6 +261,23 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
   }, [open, onClose]);
 
   if (!open) return null;
+
+  const checkUpdates = async () => {
+    setCheckingUpdate(true);
+    try {
+      const next = await checkForUpdate(APP_VERSION, { ignoreDismissed: true });
+      if (next) {
+        notify(`Lantas ${next.version} is available — opening the release`);
+        openExternal(next.url);
+      } else {
+        notify(`You are on the newest release (${APP_VERSION})`);
+      }
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Could not reach GitHub", "error");
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
 
   const favoriteKey = (provider: ProviderId, model: string) => `${provider}/${model}`;
   const isFavorite = (provider: ProviderId, model: string) =>
@@ -840,7 +860,20 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
               <div className="about-rows">
                 <div className="kv">
                   <span className="kv-key">Version</span>
-                  <span className="kv-val mono">0.1.0</span>
+                  <span className="kv-val mono">{APP_VERSION}</span>
+                </div>
+                <div className="kv">
+                  <span className="kv-key">Updates</span>
+                  <span className="kv-val">
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => void checkUpdates()}
+                      disabled={checkingUpdate}
+                    >
+                      {checkingUpdate ? "Checking…" : "Check for updates"}
+                    </button>
+                  </span>
                 </div>
                 <div className="kv">
                   <span className="kv-key">Runtime</span>

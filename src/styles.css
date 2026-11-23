@@ -289,6 +289,60 @@ code {
   white-space: nowrap;
 }
 
+/* ── update notice ─────────────────────────────────────────────────────── */
+
+.update-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-inline-start: 10px;
+  height: 22px;
+  padding: 0 3px 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--raised);
+  -webkit-app-region: no-drag;
+  animation: toast-in 200ms ease;
+}
+
+.update-pill-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.update-pill-main:hover {
+  color: var(--text);
+}
+
+.update-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.update-pill-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-4);
+}
+
+.update-pill-x:hover {
+  color: var(--text-2);
+  background: var(--sel);
+}
+
 .titlebar-search {
   position: absolute;
   left: 50%;

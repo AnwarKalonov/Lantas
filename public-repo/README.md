@@ -12,6 +12,8 @@ published here.
 ## Download
 
 The newest build is always on the [releases page](https://github.com/AnwarKalonov/Lantas-download/releases/latest).
+Every version ever published, with its notes and downloads, is on the
+[versions page](versions.html).
 
 | Build | For | File |
 | --- | --- | --- |

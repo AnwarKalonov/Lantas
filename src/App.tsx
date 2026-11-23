@@ -9,6 +9,7 @@ import type { ToolCall, ToolContext } from "./lib/tools";
 import { getElContext } from "./lib/el";
 import { consumeGoogleHash, getGoogleToken } from "./lib/google";
 import { inTauri } from "./lib/native";
+import { checkForUpdate, dismissUpdate, type AvailableUpdate } from "./lib/updates";
 import { agentClick, agentEnter, agentScroll, agentType } from "./lib/browserAgent";
 import { buildHistory, buildSystemPrompt, parseImage } from "./lib/chat";
 import { isConfigured, streamChat } from "./lib/providers";
@@ -88,6 +89,21 @@ export function App() {
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [update, setUpdate] = useState<AvailableUpdate | null>(null);
+
+  // One anonymous read of the public release feed per launch. Offline, rate-limited
+  // or dismissed: say nothing.
+  useEffect(() => {
+    let live = true;
+    checkForUpdate()
+      .then((next) => {
+        if (live && next) setUpdate(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
   const [helpOpen, setHelpOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
@@ -1157,6 +1173,11 @@ export function App() {
             onModeChange={changeMode}
             onOpenPalette={() => setPaletteOpen(true)}
             onOpenSettings={() => openSettings("general")}
+            update={update}
+            onDismissUpdate={() => {
+              if (update) dismissUpdate(update.version);
+              setUpdate(null);
+            }}
           />
 
           <div className="workspace">

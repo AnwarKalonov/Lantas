@@ -172,21 +172,7 @@ export function Composer({
 
   return (
     <div className={cx("composer-wrap", `composer-${variant}`)}>
-      <div
-        className={cx("composer", streaming && "is-streaming")}
-        onPointerMove={(event) => {
-          if (state.settings.theme !== "glass") return;
-          const box = event.currentTarget.getBoundingClientRect();
-          event.currentTarget.style.setProperty(
-            "--gx",
-            `${((event.clientX - box.left) / box.width) * 100}%`,
-          );
-          event.currentTarget.style.setProperty(
-            "--gy",
-            `${((event.clientY - box.top) / box.height) * 100}%`,
-          );
-        }}
-      >
+      <div className={cx("composer", streaming && "is-streaming")}>
         {attachments.length > 0 && (
           <div className="attach-row">
             {attachments.map((file) => (

@@ -40,14 +40,6 @@ const SHORTCUTS = [
   { name: "X", slug: "x", url: "https://x.com" },
 ];
 
-function greeting() {
-  const hour = new Date().getHours();
-  if (hour < 5) return "Still up";
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
-}
-
 export function BrowserView({ visible = true }: { visible?: boolean }) {
   const { state, setBrowserUrl, notify } = useStore();
   const [data, setData] = useState<ElData>(() => loadEl());
@@ -531,11 +523,11 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
             <div className="el-home-inner">
               <div className="el-greeting">
                 <span className="el-mark">El</span>
-                <h1>
-                  {greeting()}
-                  {data.profile ? `, ${data.profile.name.split(" ")[0]}` : ""}
-                </h1>
-                <p>A browser with a brain. Ask the model to read, search and click.</p>
+                <h1>Search the web, or let the agent drive it</h1>
+                <p>
+                  Pages open in El's own engine, so the model can read them, click what matters and
+                  type where you ask.
+                </p>
               </div>
 
               <form

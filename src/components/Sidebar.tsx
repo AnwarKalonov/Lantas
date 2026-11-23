@@ -12,8 +12,6 @@ interface RowMenu {
   y: number;
 }
 
-const USER_NAME = "Anwar";
-
 const NAV: Array<{ id: "chats" | "skills" | "integrations"; label: string; icon: IconName }> = [
   { id: "chats", label: "Threads", icon: "message" },
   { id: "skills", label: "Skills", icon: "book" },
@@ -175,11 +173,7 @@ export function Sidebar({
       >
         <div className="nav-panel-head">
           <Wordmark cell={3} className="nav-wordmark" />
-          <h1 className="nav-welcome">
-            Welcome
-            <br />
-            back, {USER_NAME}
-          </h1>
+          <h1 className="nav-heading-label">Threads</h1>
         </div>
 
         <div className="nav-scroll">

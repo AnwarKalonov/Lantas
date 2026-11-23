@@ -199,41 +199,45 @@ export function ComposioPanel() {
           const working = busy === app.slug || pending === app.slug;
           return (
             <article className={cx("market-card", account && "is-connected")} key={app.slug}>
-              <div className="market-logo">
-                <AppLogo slug={app.icon} name={app.name} size={22} eager />
+              <div className="market-card-top">
+                <div className="market-logo">
+                  <AppLogo slug={app.icon} name={app.name} size={20} eager domain={app.domain} />
+                </div>
+                <div className="market-card-text">
+                  <h3>{app.name}</h3>
+                  <p>{app.blurb}</p>
+                </div>
               </div>
-              <div className="market-card-text">
-                <h3>{app.name}</h3>
-                <p>{app.blurb}</p>
+              <div className="market-card-foot">
                 <span className="market-cat">{app.category}</span>
-              </div>
-              {account ? (
-                <div className="market-card-foot">
-                  <span className="market-connected">
-                    <Icon name="check" size={11} /> Connected
+                {account ? (
+                  <span className="market-card-actions">
+                    <span className="market-connected">
+                      <Icon name="check" size={11} /> Connected
+                    </span>
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={async () => {
+                        await revokeConnection(account.id);
+                        notify(`${app.name} disconnected`);
+                        void refresh();
+                      }}
+                    >
+                      Disconnect
+                    </button>
                   </span>
+                ) : (
                   <button
                     type="button"
-                    className="text-button"
-                    onClick={async () => {
-                      await revokeConnection(account.id);
-                      notify(`${app.name} disconnected`);
-                      void refresh();
-                    }}
+                    className="market-connect"
+                    disabled={!ready || working}
+                    onClick={() => void connect(app.slug, app.name)}
                   >
-                    Disconnect
+                    {working ? "Waiting…" : ready ? "Connect" : "Unavailable"}
                   </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="market-connect"
-                  disabled={!ready || working}
-                  onClick={() => void connect(app.slug, app.name)}
-                >
-                  {working ? "Waiting…" : ready ? "Connect" : "Unavailable"}
-                </button>
-              )}
+                )}
+              </div>
             </article>
           );
         })}

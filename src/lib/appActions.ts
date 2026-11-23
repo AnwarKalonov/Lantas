@@ -22,7 +22,7 @@ export interface AppAction {
   message: string;
 }
 
-const THEMES: ThemeMode[] = ["dark", "light", "glass", "system"];
+const THEMES: ThemeMode[] = ["dark", "light", "system"];
 
 /**
  * A small, deterministic layer that lets a sentence change the app, without

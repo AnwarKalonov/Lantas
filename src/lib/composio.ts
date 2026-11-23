@@ -35,46 +35,47 @@ export interface IntegrationApp {
   blurb: string;
   category: IntegrationCategory;
   icon: string;
+  domain: string;
 }
 
 export const CATALOG: IntegrationApp[] = [
-  { slug: "gmail", name: "Gmail", blurb: "Read, search and send mail", category: "Communication", icon: "gmail" },
-  { slug: "slack", name: "Slack", blurb: "Channels, DMs and search", category: "Communication", icon: "slack" },
-  { slug: "discord", name: "Discord", blurb: "Servers, channels and DMs", category: "Communication", icon: "discord" },
-  { slug: "telegram", name: "Telegram", blurb: "Chats and channels", category: "Communication", icon: "telegram" },
-  { slug: "whatsapp", name: "WhatsApp", blurb: "Messages and contacts", category: "Communication", icon: "whatsapp" },
-  { slug: "outlook", name: "Outlook", blurb: "Mail and calendar", category: "Communication", icon: "microsoftoutlook" },
-  { slug: "intercom", name: "Intercom", blurb: "Customer conversations", category: "Communication", icon: "intercom" },
-  { slug: "zendesk", name: "Zendesk", blurb: "Support tickets", category: "Communication", icon: "zendesk" },
+  { slug: "gmail", name: "Gmail", blurb: "Read, search and send mail", category: "Communication", icon: "gmail", domain: "gmail.com" },
+  { slug: "slack", name: "Slack", blurb: "Channels, DMs and search", category: "Communication", icon: "slack", domain: "slack.com" },
+  { slug: "discord", name: "Discord", blurb: "Servers, channels and DMs", category: "Communication", icon: "discord", domain: "discord.com" },
+  { slug: "telegram", name: "Telegram", blurb: "Chats and channels", category: "Communication", icon: "telegram", domain: "telegram.org" },
+  { slug: "whatsapp", name: "WhatsApp", blurb: "Messages and contacts", category: "Communication", icon: "whatsapp", domain: "whatsapp.com" },
+  { slug: "outlook", name: "Outlook", blurb: "Mail and calendar", category: "Communication", icon: "microsoftoutlook", domain: "outlook.com" },
+  { slug: "intercom", name: "Intercom", blurb: "Customer conversations", category: "Communication", icon: "intercom", domain: "intercom.com" },
+  { slug: "zendesk", name: "Zendesk", blurb: "Support tickets", category: "Communication", icon: "zendesk", domain: "zendesk.com" },
 
-  { slug: "notion", name: "Notion", blurb: "Pages and databases", category: "Productivity", icon: "notion" },
-  { slug: "googlecalendar", name: "Calendar", blurb: "Events and availability", category: "Productivity", icon: "googlecalendar" },
-  { slug: "googledrive", name: "Drive", blurb: "Files, docs and sheets", category: "Productivity", icon: "googledrive" },
-  { slug: "airtable", name: "Airtable", blurb: "Records and bases", category: "Productivity", icon: "airtable" },
-  { slug: "trello", name: "Trello", blurb: "Boards, lists and cards", category: "Productivity", icon: "trello" },
-  { slug: "asana", name: "Asana", blurb: "Tasks and projects", category: "Productivity", icon: "asana" },
-  { slug: "monday", name: "monday.com", blurb: "Boards and workflows", category: "Productivity", icon: "mondaydotcom" },
-  { slug: "clickup", name: "ClickUp", blurb: "Tasks, docs and goals", category: "Productivity", icon: "clickup" },
-  { slug: "todoist", name: "Todoist", blurb: "Tasks and projects", category: "Productivity", icon: "todoist" },
+  { slug: "notion", name: "Notion", blurb: "Pages and databases", category: "Productivity", icon: "notion", domain: "notion.so" },
+  { slug: "googlecalendar", name: "Calendar", blurb: "Events and availability", category: "Productivity", icon: "googlecalendar", domain: "calendar.google.com" },
+  { slug: "googledrive", name: "Drive", blurb: "Files, docs and sheets", category: "Productivity", icon: "googledrive", domain: "drive.google.com" },
+  { slug: "airtable", name: "Airtable", blurb: "Records and bases", category: "Productivity", icon: "airtable", domain: "airtable.com" },
+  { slug: "trello", name: "Trello", blurb: "Boards, lists and cards", category: "Productivity", icon: "trello", domain: "trello.com" },
+  { slug: "asana", name: "Asana", blurb: "Tasks and projects", category: "Productivity", icon: "asana", domain: "asana.com" },
+  { slug: "monday", name: "monday.com", blurb: "Boards and workflows", category: "Productivity", icon: "mondaydotcom", domain: "monday.com" },
+  { slug: "clickup", name: "ClickUp", blurb: "Tasks, docs and goals", category: "Productivity", icon: "clickup", domain: "clickup.com" },
+  { slug: "todoist", name: "Todoist", blurb: "Tasks and projects", category: "Productivity", icon: "todoist", domain: "todoist.com" },
 
-  { slug: "github", name: "GitHub", blurb: "Repos, issues and PRs", category: "Developer", icon: "github" },
-  { slug: "linear", name: "Linear", blurb: "Issues and cycles", category: "Developer", icon: "linear" },
-  { slug: "jira", name: "Jira", blurb: "Tickets and sprints", category: "Developer", icon: "jira" },
-  { slug: "sentry", name: "Sentry", blurb: "Errors and releases", category: "Developer", icon: "sentry" },
-  { slug: "vercel", name: "Vercel", blurb: "Deployments and projects", category: "Developer", icon: "vercel" },
-  { slug: "supabase", name: "Supabase", blurb: "Projects and tables", category: "Developer", icon: "supabase" },
+  { slug: "github", name: "GitHub", blurb: "Repos, issues and PRs", category: "Developer", icon: "github", domain: "github.com" },
+  { slug: "linear", name: "Linear", blurb: "Issues and cycles", category: "Developer", icon: "linear", domain: "linear.app" },
+  { slug: "jira", name: "Jira", blurb: "Tickets and sprints", category: "Developer", icon: "jira", domain: "atlassian.com" },
+  { slug: "sentry", name: "Sentry", blurb: "Errors and releases", category: "Developer", icon: "sentry", domain: "sentry.io" },
+  { slug: "vercel", name: "Vercel", blurb: "Deployments and projects", category: "Developer", icon: "vercel", domain: "vercel.com" },
+  { slug: "supabase", name: "Supabase", blurb: "Projects and tables", category: "Developer", icon: "supabase", domain: "supabase.com" },
 
-  { slug: "hubspot", name: "HubSpot", blurb: "Contacts, deals and tickets", category: "CRM", icon: "hubspot" },
-  { slug: "salesforce", name: "Salesforce", blurb: "Leads and opportunities", category: "CRM", icon: "salesforce" },
-  { slug: "pipedrive", name: "Pipedrive", blurb: "Deals and pipelines", category: "CRM", icon: "pipedrive" },
+  { slug: "hubspot", name: "HubSpot", blurb: "Contacts, deals and tickets", category: "CRM", icon: "hubspot", domain: "hubspot.com" },
+  { slug: "salesforce", name: "Salesforce", blurb: "Leads and opportunities", category: "CRM", icon: "salesforce", domain: "salesforce.com" },
+  { slug: "pipedrive", name: "Pipedrive", blurb: "Deals and pipelines", category: "CRM", icon: "pipedrive", domain: "pipedrive.com" },
 
-  { slug: "dropbox", name: "Dropbox", blurb: "Files and folders", category: "Storage", icon: "dropbox" },
-  { slug: "box", name: "Box", blurb: "Files and collaboration", category: "Storage", icon: "box" },
+  { slug: "dropbox", name: "Dropbox", blurb: "Files and folders", category: "Storage", icon: "dropbox", domain: "dropbox.com" },
+  { slug: "box", name: "Box", blurb: "Files and collaboration", category: "Storage", icon: "box", domain: "box.com" },
 
-  { slug: "x", name: "X", blurb: "Posts and timeline", category: "Social", icon: "x" },
-  { slug: "reddit", name: "Reddit", blurb: "Posts and comments", category: "Social", icon: "reddit" },
-  { slug: "youtube", name: "YouTube", blurb: "Videos and playlists", category: "Social", icon: "youtube" },
-  { slug: "spotify", name: "Spotify", blurb: "Playlists and library", category: "Social", icon: "spotify" },
+  { slug: "x", name: "X", blurb: "Posts and timeline", category: "Social", icon: "x", domain: "x.com" },
+  { slug: "reddit", name: "Reddit", blurb: "Posts and comments", category: "Social", icon: "reddit", domain: "reddit.com" },
+  { slug: "youtube", name: "YouTube", blurb: "Videos and playlists", category: "Social", icon: "youtube", domain: "youtube.com" },
+  { slug: "spotify", name: "Spotify", blurb: "Playlists and library", category: "Social", icon: "spotify", domain: "spotify.com" },
 ];
 
 function deviceId(): string {

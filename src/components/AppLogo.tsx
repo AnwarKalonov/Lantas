@@ -1,19 +1,21 @@
 import { useState } from "react";
 
-/** Brand mark with a letter fallback when the icon CDN is unreachable. */
+/** Brand mark: vector logo, then the site favicon, then a letter. */
 export function AppLogo({
   slug,
   name,
   size = 18,
   eager = false,
+  domain,
 }: {
   slug: string;
   name: string;
   size?: number;
   eager?: boolean;
+  domain?: string;
 }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
+  const [stage, setStage] = useState(0);
+  if (stage >= 2) {
     return (
       <span
         className="app-logo is-fallback"
@@ -24,15 +26,19 @@ export function AppLogo({
       </span>
     );
   }
+  const src =
+    stage === 0
+      ? `https://cdn.simpleicons.org/${slug}`
+      : `https://www.google.com/s2/favicons?domain=${domain ?? `${slug}.com`}&sz=64`;
   return (
     <img
       className="app-logo"
-      src={`https://cdn.simpleicons.org/${slug}`}
+      src={src}
       width={size}
       height={size}
       alt=""
       loading={eager ? "eager" : "lazy"}
-      onError={() => setFailed(true)}
+      onError={() => setStage((value) => value + 1)}
     />
   );
 }

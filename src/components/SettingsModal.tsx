@@ -777,8 +777,8 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
             <section className="settings-section">
               <h2>Appearance</h2>
               <p className="settings-lede">
-                One neutral palette, with an optional Liquid Glass layer for the navigation and
-                control surfaces.
+                One neutral palette for every surface, with a single ink accent for the
+                primary action.
               </p>
 
               <div className="settings-field">
@@ -788,7 +788,6 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
                     [
                       { id: "dark", label: "Dark", icon: "moon" },
                       { id: "light", label: "Light", icon: "sun" },
-                      { id: "glass", label: "Glass", icon: "sparkle" },
                       { id: "system", label: "System", icon: "monitor" },
                     ] as Array<{ id: ThemeMode; label: string; icon: IconName }>
                   ).map((option) => (

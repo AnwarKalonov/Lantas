@@ -9,7 +9,7 @@ export type ProviderId =
   | "custom";
 
 export type AgentId = "build" | "plan" | "chat";
-export type ThemeMode = "dark" | "light" | "glass" | "system";
+export type ThemeMode = "dark" | "light" | "system";
 export type ViewId = "chats" | "skills" | "integrations";
 export type Mode = "chat" | "code" | "browser";
 

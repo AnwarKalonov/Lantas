@@ -25,7 +25,7 @@ import { SkillsView } from "./components/SkillsView";
 import { TitleBar } from "./components/TitleBar";
 import { PROVIDERS, SLASH_COMMANDS } from "./lib/data";
 
-const THEME_ORDER = ["dark", "light", "glass", "system"] as const;
+const THEME_ORDER = ["dark", "light", "system"] as const;
 
 /** Commands that become an instruction instead of running in the shell. */
 const PROMPT_COMMANDS: Record<string, string> = {

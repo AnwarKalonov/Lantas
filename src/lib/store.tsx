@@ -90,6 +90,17 @@ function normalizeSession(raw: any): Session {
   } as Session;
 }
 
+function normalizeSettings(raw: any): Settings {
+  const merged = {
+    ...DEFAULT_SETTINGS,
+    ...(raw ?? {}),
+    providers: { ...DEFAULT_SETTINGS.providers, ...(raw?.providers ?? {}) },
+  } as Settings;
+  // The Liquid Glass theme was removed; stored state falls back to dark.
+  if ((merged.theme as string) === "glass") merged.theme = "dark";
+  return merged;
+}
+
 function loadState(): AppState {
   const fallback = seedState();
   try {
@@ -112,11 +123,7 @@ function loadState(): AppState {
         browserUrl: typeof parsed.browserUrl === "string" ? parsed.browserUrl : "https://example.com",
         workspace: [],
         workspaceName: parsed.workspaceName ?? "",
-        settings: {
-          ...DEFAULT_SETTINGS,
-          ...(parsed.settings ?? {}),
-          providers: { ...DEFAULT_SETTINGS.providers, ...(parsed.settings?.providers ?? {}) },
-        },
+        settings: normalizeSettings(parsed.settings),
         skills: parsed.skills ?? fallback.skills,
         mcpServers: parsed.mcpServers ?? fallback.mcpServers,
         commands: parsed.commands ?? [],
@@ -132,13 +139,12 @@ function loadState(): AppState {
         return {
           ...fallback,
           sessions: parsed.sessions.map(normalizeSession),
-          settings: {
-            ...fallback.settings,
+          settings: normalizeSettings({
             ...(parsed.settings ?? {}),
             providers: fallback.settings.providers,
             defaultProvider: "anthropic",
             defaultModel: "claude-opus-4-5",
-          },
+          }),
         };
       }
     }

@@ -17,23 +17,30 @@ Every version ever published, with its notes and downloads, is on the
 
 | Build | For | File |
 | --- | --- | --- |
-| dmg | Apple silicon (M1–M4) | `Lantas-1.0.0-arm64.dmg` |
-| zip | Apple silicon (M1–M4) | `Lantas-1.0.0-arm64.app.zip` |
-| dmg | Intel Macs | `Lantas-1.0.0-x64.dmg` |
-| zip | Intel Macs | `Lantas-1.0.0-x64.app.zip` |
+| dmg | Apple silicon (M1–M4) | `Lantas-1.0.1-arm64.dmg` |
+| zip | Apple silicon (M1–M4) | `Lantas-1.0.1-arm64.app.zip` |
+| dmg | Intel Macs | `Lantas-1.0.1-x64.dmg` |
+| zip | Intel Macs | `Lantas-1.0.1-x64.app.zip` |
 | zip | Chrome 116+ | `chrome-extension.zip` |
 
 Direct links use `releases/latest/download/<file>`, for example:
 
 ```
-https://github.com/AnwarKalonov/Lantas-download/releases/latest/download/Lantas-1.0.0-arm64.dmg
+https://github.com/AnwarKalonov/Lantas-download/releases/latest/download/Lantas-1.0.1-arm64.dmg
 ```
 
 ## Install
 
 1. Open the dmg and drag **Lantas.app** to Applications. (Or unzip the `.app.zip` there.)
-2. The build is ad-hoc signed, not notarized. On first launch macOS may ask you to
-   confirm; if it refuses, right-click the app, choose **Open**, then **Open** again.
+2. Builds are ad-hoc signed until a Developer ID release is published. If macOS says it
+   cannot verify Lantas, either right-click the app → **Open** → **Open** again, or run
+   the installer, which copies the app and clears the quarantine flag:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/AnwarKalonov/Lantas-download/main/install.sh | bash
+   ```
+
+   Only run a script you trust. A notarized build opens without either step.
 3. Add a model in **Settings → Providers**: Anthropic, OpenAI, OpenRouter, Groq or
    Google with your own key, or Ollama / LM Studio running on the same Mac.
 4. Load the Chrome extension once: `chrome://extensions` → Developer mode →

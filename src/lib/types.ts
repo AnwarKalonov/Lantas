@@ -22,6 +22,24 @@ export interface Attachment {
   body: string;
 }
 
+export interface EditorSettings {
+  fontFamily: string;
+  fontSize: number;
+  lineHeight: number;
+  tabSize: number;
+  wordWrap: "on" | "off";
+  minimap: boolean;
+}
+
+/** One file change from the assistant, held for Keep or Decline. */
+export interface StagedChange {
+  path: string;
+  before: string;
+  after: string;
+  existed: boolean;
+  at: number;
+}
+
 export interface WorkspaceFile {
   id: string;
   name: string;
@@ -194,6 +212,7 @@ export interface Settings {
   /** "provider/model" keys pinned to the top of every model list. */
   favoriteModels: string[];
   providers: Record<ProviderId, ProviderConfig>;
+  editor: EditorSettings;
 }
 
 export interface AppState {

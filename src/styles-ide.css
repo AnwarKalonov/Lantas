@@ -1088,3 +1088,608 @@
     flex-basis: 220px;
   }
 }
+
+/* ── source control ─────────────────────────────────────────────────────── */
+
+.ide-git-panel,
+.ide-ext-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.ide-git-panel .ide-side-head,
+.ide-ext-panel .ide-side-head {
+  flex: 0 0 36px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--ide-panel);
+}
+
+.ide-side-head.is-sub {
+  margin-top: 4px;
+  border-top: 1px solid var(--ide-line);
+}
+
+.ide-git-error {
+  margin: 0 12px 8px;
+  padding: 7px 9px;
+  border: 1px solid rgba(221, 139, 130, 0.25);
+  border-radius: 6px;
+  background: rgba(221, 139, 130, 0.07);
+  color: var(--err);
+  font-size: 10.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.ide-git-init {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+.ide-git-init .ide-side-note {
+  padding: 4px 0;
+}
+
+.ide-git-branch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 8px 14px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.ide-git-branch-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-2);
+}
+
+.ide-git-track {
+  display: inline-flex;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-4);
+}
+
+.ide-git-spacer {
+  flex: 1;
+}
+
+.ide-git-text {
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: var(--text-3);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.ide-git-text:hover {
+  color: var(--text);
+  background: var(--ide-hover);
+}
+
+.ide-git-text:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ide-git-text.is-quiet {
+  color: var(--text-4);
+}
+
+.ide-git-remote-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 12px 8px 14px;
+  padding-top: 6px;
+  border-top: 1px solid var(--ide-line);
+}
+
+.ide-git-remote-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-4);
+}
+
+.ide-git-remote {
+  display: flex;
+  gap: 5px;
+  margin: 0 12px 10px;
+}
+
+.ide-git-remote input {
+  flex: 1;
+  min-width: 0;
+  height: 27px;
+  padding: 0 8px;
+  border: 1px solid var(--ide-line-strong);
+  border-radius: 6px;
+  outline: 0;
+  background: var(--ide-bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.ide-git-remote input:focus {
+  border-color: var(--text-4);
+}
+
+.ide-git-unsaved {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 10px 6px;
+  padding: 5px 7px;
+  border-radius: 5px;
+  background: var(--ide-hover);
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.ide-git-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px 4px 14px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+
+.ide-git-group-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ide-git-staged {
+  margin: 0 8px 8px;
+  padding: 2px 0 4px;
+  border: 1px solid var(--ide-line-strong);
+  border-radius: 7px;
+  background: var(--ide-bg);
+}
+
+.ide-git-staged .ide-git-group-head {
+  padding-left: 8px;
+}
+
+.ide-git-review {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 3px 6px 3px 9px;
+}
+
+.ide-git-review-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.ide-git-review-name:hover {
+  color: var(--text);
+}
+
+.ide-git-files {
+  display: flex;
+  flex-direction: column;
+  padding: 0 6px;
+}
+
+.ide-git-file {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 5px;
+}
+
+.ide-git-file:hover {
+  background: var(--ide-hover);
+}
+
+.ide-git-file.is-active {
+  background: var(--ide-selected);
+}
+
+.ide-git-file-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  height: 27px;
+  padding: 0 2px 0 6px;
+  text-align: left;
+  color: var(--text-2);
+  font-size: 11.5px;
+}
+
+.ide-git-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ide-git-file-dir {
+  margin-left: auto;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
+  color: var(--text-4);
+}
+
+.ide-git-status {
+  flex: 0 0 12px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.ide-git-status.is-a {
+  color: var(--ide-green);
+}
+
+.ide-git-status.is-d {
+  color: var(--err);
+}
+
+.ide-git-status.is-u {
+  color: var(--warn);
+}
+
+.ide-git-stage {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  border-radius: 4px;
+  color: var(--text-4);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.ide-git-stage:hover {
+  background: var(--ide-selected);
+  color: var(--text);
+}
+
+.ide-git-commit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px 10px;
+}
+
+.ide-git-commit textarea {
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid var(--ide-line-strong);
+  border-radius: 6px;
+  outline: 0;
+  resize: vertical;
+  background: var(--ide-bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ide-git-commit textarea:focus {
+  border-color: var(--text-4);
+}
+
+.ide-git-commit .button-primary {
+  align-self: flex-end;
+}
+
+.ide-git-diff {
+  margin: 6px 8px 10px;
+  border: 1px solid var(--ide-line-strong);
+  border-radius: 6px;
+  background: var(--ide-bg);
+  overflow: hidden;
+}
+
+.ide-git-diff pre {
+  max-height: 260px;
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+  white-space: pre;
+}
+
+.ide-git-log {
+  border-top: 1px solid var(--ide-line);
+  padding-bottom: 6px;
+}
+
+.ide-git-commit-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 10px 3px 14px;
+  min-width: 0;
+}
+
+.ide-git-hash {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-4);
+}
+
+.ide-git-subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+
+/* ── VS Code import ─────────────────────────────────────────────────────── */
+
+.ide-ext-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 2px 12px 10px;
+}
+
+.ide-ext-found {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.ide-ext-summary .ide-side-note {
+  padding: 0;
+}
+
+.ide-ext-path {
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--text-4);
+}
+
+.ide-ext-list {
+  flex: 1;
+  min-height: 0;
+  padding: 0 6px 6px;
+}
+
+.ide-ext-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 6px;
+  border-radius: 5px;
+}
+
+.ide-ext-row:hover {
+  background: var(--ide-hover);
+}
+
+.ide-ext-mark {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ide-line-strong);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-3);
+}
+
+.ide-ext-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ide-ext-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.ide-ext-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--text-4);
+}
+
+.ide-ext-tag {
+  flex: 0 0 auto;
+  max-width: 82px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--ide-green);
+}
+
+.ide-ext-tag.is-off {
+  color: var(--text-4);
+}
+
+.ide-ext-note {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 4px 10px 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ide-line);
+}
+
+.ide-ext-note p {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--text-4);
+}
+
+.ide-ext-note .text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+}
+
+/* ── review bar ─────────────────────────────────────────────────────────── */
+
+.ide-review-bar {
+  display: flex;
+  flex: 0 0 34px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px 0 14px;
+  border-bottom: 1px solid var(--ide-line);
+  background: var(--ide-chrome);
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.ide-review-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.ide-review-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ide-green);
+}
+
+.ide-review-files {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-4);
+}
+
+.ide-review-spacer {
+  flex: 1;
+}
+
+.ide-review-decline,
+.ide-review-keep {
+  height: 23px;
+  padding: 0 9px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.ide-review-decline {
+  color: var(--text-3);
+}
+
+.ide-review-decline:hover {
+  background: var(--ide-hover);
+  color: var(--text);
+}
+
+.ide-review-keep {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.ide-review-keep:hover {
+  opacity: 0.9;
+}
+
+/* ── assistant model picker ─────────────────────────────────────────────── */
+
+.ide-assistant-id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ide-assistant-model {
+  margin-left: -7px;
+}
+
+.ide-assistant-model .mp-trigger {
+  height: 22px;
+  font-size: 10.5px;
+}
+
+.ide-assistant-model .mp-menu {
+  width: 280px;
+}
+
+@media (max-width: 1100px) {
+  .ide-side {
+    flex-basis: 236px;
+  }
+}

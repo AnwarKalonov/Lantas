@@ -79,10 +79,34 @@ export async function elReload(): Promise<void> {
   await command("el_reload", {});
 }
 
-export function openExternal(url: string) {
+/**
+ * Opens a URL outside the app. Tauri webviews swallow `target="_blank"`, so the
+ * desktop build hands the URL to the OS (Chrome when asked, for OAuth).
+ */
+export async function openExternal(
+  url: string,
+  target: "default" | "chrome" = "default",
+): Promise<boolean> {
+  if (inTauri()) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke(target === "chrome" ? "open_in_chrome" : "open_external", { url });
+      return true;
+    } catch (error) {
+      lastNativeError = error instanceof Error ? error.message : String(error);
+      return false;
+    }
+  }
+  try {
+    const opened = window.open(url, "_blank", "noopener,noreferrer");
+    if (opened) return true;
+  } catch {
+    /* fall through to a link click */
+  }
   const link = document.createElement("a");
   link.href = url;
   link.target = "_blank";
   link.rel = "noreferrer";
   link.click();
+  return true;
 }

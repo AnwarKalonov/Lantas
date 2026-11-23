@@ -61,6 +61,55 @@ hand once.
 The build you have installed today predates the updater, so **install one more build by
 hand**. Every release after that updates itself.
 
+## Removing the macOS “could not verify” warning
+
+An ad-hoc signature is why macOS says it cannot verify Lantas. Only a **Developer ID
+Application** certificate plus notarization removes that warning; a free Apple Developer
+account cannot notarize. The workflow supports both modes:
+
+- **No Apple secrets** — the build stays ad-hoc signed, exactly as before, and macOS
+  warns on first launch.
+- **All six Apple secrets present** — CI imports the certificate, enables the hardened
+  runtime, signs with the Developer ID identity, and Tauri notarizes and staples the app.
+  Tauri only does this when the credentials below are complete.
+
+Add these under repo → Settings → Secrets and variables → Actions:
+
+| Secret | Value |
+| --- | --- |
+| `APPLE_CERTIFICATE` | base64 of the exported `DeveloperID.p12` (one line) |
+| `APPLE_CERTIFICATE_PASSWORD` | the password chosen when exporting that `.p12` |
+| `APPLE_SIGNING_IDENTITY` | `Developer ID Application: Your Name (TEAMID)` |
+| `APPLE_ID` | the Apple ID email on the developer account |
+| `APPLE_PASSWORD` | an **app-specific** password for that Apple ID, not the account password |
+| `APPLE_TEAM_ID` | the 10-character team ID |
+
+Create the certificate under Apple Developer → Certificates, IDs & Profiles →
+Certificates → **Developer ID Application**. Download the `.cer`, install it in
+Keychain Access, then export the certificate **and its private key** as a `.p12`.
+Convert it without line breaks:
+
+```bash
+openssl base64 -A -in DeveloperID.p12 -out certificate-base64.txt
+pbcopy < certificate-base64.txt
+```
+
+Make an app-specific password at <https://appleid.apple.com> → Sign-In and Security →
+App-Specific Passwords. Then run the usual tag release. The workflow fails early if only
+some of the six secrets are set, so a build can never look notarized when it is not.
+
+Verify a downloaded build on a Mac:
+
+```bash
+spctl --assess --type execute --verbose=4 /Applications/Lantas.app
+xcrun stapler validate /Applications/Lantas.app
+```
+
+Both should succeed. Until the secrets are added, the warning remains. `scripts/install.sh`
+(also `public-repo/install.sh`) clears the quarantine flag after copying the app, which
+avoids the prompt for an ad-hoc build, but it is a local workaround that asks the user to
+trust a shell script — not a replacement for notarization.
+
 ## One-time: the public download repository
 
 1. **Create an empty public repository** named `Lantas-download` under `AnwarKalonov`

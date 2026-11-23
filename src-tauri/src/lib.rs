@@ -1,4 +1,7 @@
+mod bookmarks;
 mod bridge;
+mod git;
+mod vscode;
 
 use std::path::PathBuf;
 
@@ -218,20 +221,34 @@ fn el_window(app: tauri::AppHandle, url: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Opens a URL in Google Chrome itself, so no other default browser is used.
+/// Opens a URL in the system default browser. Tauri webviews do not hand a
+/// `target="_blank"` link to the OS, so OAuth and token pages need this.
+#[tauri::command]
+fn open_external(url: String) -> Result<(), String> {
+    open_in_browser(&url, false)
+}
+
+/// Opens a URL in Google Chrome itself, so an OAuth flow lands in the browser
+/// where the user is already signed in.
 #[tauri::command]
 fn open_in_chrome(url: String) -> Result<(), String> {
-    let parsed = parse_url(&url)?;
+    open_in_browser(&url, true)
+}
+
+fn open_in_browser(url: &str, prefer_chrome: bool) -> Result<(), String> {
+    let parsed = parse_url(url)?;
     let target = parsed.as_str();
 
     #[cfg(target_os = "macos")]
     {
-        let direct = std::process::Command::new("open")
-            .args(["-a", "Google Chrome", target])
-            .status();
-        if let Ok(status) = direct {
-            if status.success() {
-                return Ok(());
+        if prefer_chrome {
+            let chrome = std::process::Command::new("open")
+                .args(["-a", "Google Chrome", target])
+                .status();
+            if let Ok(status) = chrome {
+                if status.success() {
+                    return Ok(());
+                }
             }
         }
         std::process::Command::new("open")
@@ -241,8 +258,27 @@ fn open_in_chrome(url: String) -> Result<(), String> {
         return Ok(());
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", target])
+            .status()
+            .map_err(|error| format!("Could not open {target} ({error})."))?;
+        return Ok(());
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        if prefer_chrome {
+            let chrome = std::process::Command::new("google-chrome")
+                .arg(target)
+                .status();
+            if let Ok(status) = chrome {
+                if status.success() {
+                    return Ok(());
+                }
+            }
+        }
         std::process::Command::new("xdg-open")
             .arg(target)
             .status()
@@ -359,7 +395,22 @@ pub fn run() {
             chrome_bridge_send,
             chrome_extension_dir,
             chrome_extension_reveal,
-            open_in_chrome
+            open_external,
+            open_in_chrome,
+            git::git_status,
+            git::git_diff,
+            git::git_stage,
+            git::git_unstage,
+            git::git_commit,
+            git::git_push,
+            git::git_pull,
+            git::git_init,
+            git::git_set_remote,
+            git::git_branches,
+            git::git_checkout,
+            vscode::vscode_import,
+            bookmarks::browser_bookmarks,
+            bookmarks::browser_profile_paths
         ])
         .run(tauri::generate_context!())
         .expect("error while running Lantas");

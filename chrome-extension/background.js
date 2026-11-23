@@ -12,7 +12,7 @@
 
 const PORT = 47654;
 const ENDPOINT = `ws://127.0.0.1:${PORT}/lantas`;
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 
 let socket = null;
 let retry = 0;
@@ -352,8 +352,33 @@ async function execute(message) {
           }
         }
         const id = `chat_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-        send({ type: "chat", id, text: String(message.text || ""), page, elements });
+        send({
+          type: "chat",
+          id,
+          text: String(message.text || ""),
+          mode: message.mode === "ask" ? "ask" : "act",
+          provider: String(message.provider || ""),
+          model: String(message.model || ""),
+          page,
+          elements,
+        });
         return { ok: true, id };
+      }
+
+      case "catalog": {
+        const catalog = Array.isArray(message.catalog) ? message.catalog.slice(0, 40) : [];
+        if (!catalog.length) return { ok: false, error: "No models were offered." };
+        await chrome.storage.local.set({ lantasCatalog: catalog });
+        chrome.runtime.sendMessage({ type: "catalog", catalog }).catch(() => {});
+        return { ok: true, detail: `${catalog.length} providers` };
+      }
+
+      case "catalog_request": {
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+          return { ok: false, error: "Lantas is closed." };
+        }
+        send({ type: "catalog_request" });
+        return { ok: true };
       }
 
       default:

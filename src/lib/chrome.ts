@@ -46,6 +46,18 @@ export interface ChromeEvent {
   text?: string;
   page?: ChromePage;
   elements?: ChromeElement[];
+  /** Side panel choices, so a turn runs on the model the user picked. */
+  provider?: string;
+  model?: string;
+  mode?: "ask" | "act";
+  catalog?: ChromeCatalogProvider[];
+}
+
+export interface ChromeCatalogProvider {
+  id: string;
+  name: string;
+  models: string[];
+  configured: boolean;
 }
 
 export interface ChromeStatus {

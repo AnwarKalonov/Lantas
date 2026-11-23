@@ -45,6 +45,8 @@ export interface ToolLoopOptions {
   onNote?: (text: string) => void;
   onUsage?: (usage: StreamUsage) => void;
   maxSteps?: number;
+  /** When set, only these tools may run. Used by the browser-only side panel. */
+  only?: string[];
 }
 
 export interface ToolLoopResult {
@@ -211,6 +213,19 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
       const decision = decide(options.rules, call.name, resource);
       const id = uid("tool");
       toolCalls += 1;
+
+      if (options.only && !options.only.includes(call.name)) {
+        const outcome: ToolOutcome = {
+          ok: false,
+          summary: `${call.name} is not available here`,
+          content: `Only these tools are available in this panel: ${options.only.join(", ")}. Use one of them or answer the user.`,
+          resource,
+        };
+        options.onToolStart(id, call, `${toolLabel(call)} · unavailable`);
+        options.onToolDone(id, outcome, "error");
+        results.push(encodeResult(call, outcome));
+        continue;
+      }
 
       if (decision.effect === "deny") {
         const outcome: ToolOutcome = {

@@ -144,6 +144,14 @@ export const DEFAULT_SETTINGS: Settings = {
   notifications: true,
   favoriteModels: [],
   providers: defaultProviders(),
+  editor: {
+    fontFamily: '"SF Mono", ui-monospace, Menlo, monospace',
+    fontSize: 13,
+    lineHeight: 21,
+    tabSize: 2,
+    wordWrap: "off",
+    minimap: true,
+  },
 };
 
 export const AGENTS: AgentMeta[] = [

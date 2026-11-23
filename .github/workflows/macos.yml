@@ -16,6 +16,12 @@ env:
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
   # Classic PAT with `contents: write` on RELEASES_REPO, to publish the release.
   LANTAS_RELEASE_TOKEN: ${{ secrets.LANTAS_RELEASE_TOKEN }}
+  # Apple Developer ID signing is optional. When all six secrets below are
+  # present, the build is signed, notarized and stapled; otherwise it stays
+  # ad-hoc signed and macOS will warn on first launch. The workflow exports
+  # them only after checking all six are present.
+  #   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
+  #   APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID
 
 jobs:
   macos:
@@ -76,15 +82,92 @@ jobs:
             exit 1
           fi
 
+      # Export the Apple credentials only when they are complete. Exporting an
+      # empty APPLE_SIGNING_IDENTITY would override the ad-hoc identity in
+      # tauri.conf.json and break the unsigned build.
+      - name: Configure Apple signing
+        env:
+          SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID_VALUE: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD_VALUE: ${{ secrets.APPLE_PASSWORD }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$SIGNING_IDENTITY" ] && [ -z "$CERTIFICATE" ]; then
+            echo "No Apple Developer ID secrets; this build will be ad-hoc signed."
+            exit 0
+          fi
+
+          SIGNING_IDENTITY="$(printf '%s' "$SIGNING_IDENTITY" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          CERTIFICATE="$(printf '%s' "$CERTIFICATE" | tr -d '[:space:]')"
+          APPLE_ID_VALUE="$(printf '%s' "$APPLE_ID_VALUE" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          TEAM_ID="$(printf '%s' "$TEAM_ID" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+
+          missing=0
+          check() {
+            if [ -z "$2" ]; then
+              echo "::error::$1 must be set for a notarized build"
+              missing=1
+            fi
+          }
+          check APPLE_SIGNING_IDENTITY "$SIGNING_IDENTITY"
+          check APPLE_CERTIFICATE "$CERTIFICATE"
+          check APPLE_CERTIFICATE_PASSWORD "$CERTIFICATE_PASSWORD"
+          check APPLE_ID "$APPLE_ID_VALUE"
+          check APPLE_PASSWORD "$APPLE_PASSWORD_VALUE"
+          check APPLE_TEAM_ID "$TEAM_ID"
+          [ "$missing" = 0 ] || exit 1
+
+          {
+            printf 'APPLE_SIGNING_IDENTITY=%s\n' "$SIGNING_IDENTITY"
+            printf 'APPLE_CERTIFICATE=%s\n' "$CERTIFICATE"
+            printf 'APPLE_CERTIFICATE_PASSWORD=%s\n' "$CERTIFICATE_PASSWORD"
+            printf 'APPLE_ID=%s\n' "$APPLE_ID_VALUE"
+            printf 'APPLE_PASSWORD=%s\n' "$APPLE_PASSWORD_VALUE"
+            printf 'APPLE_TEAM_ID=%s\n' "$TEAM_ID"
+          } >> "$GITHUB_ENV"
+          echo "::notice::Developer ID signing, notarization and stapling are enabled."
+
+      - name: Import the Developer ID certificate
+        if: env.APPLE_SIGNING_IDENTITY != ''
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/lantas-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          openssl base64 -d -A -in <(printf '%s' "$APPLE_CERTIFICATE") -out "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$KEYCHAIN" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          security default-keychain -s "$KEYCHAIN"
+          security find-identity -v -p codesigning "$KEYCHAIN" | grep -F "$APPLE_SIGNING_IDENTITY"
+          rm -f "$RUNNER_TEMP/certificate.p12"
+
+      - name: Enable hardened runtime
+        if: env.APPLE_SIGNING_IDENTITY != ''
+        run: |
+          node - <<'NODE'
+          const fs = require("fs");
+          const file = "src-tauri/tauri.conf.json";
+          const config = JSON.parse(fs.readFileSync(file, "utf8"));
+          config.bundle.macOS.hardenedRuntime = true;
+          fs.writeFileSync(file, JSON.stringify(config, null, 2) + "\n");
+          console.log("hardenedRuntime enabled for notarization");
+          NODE
+
       - name: Build app
         run: |
+          CONFIG=()
           if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
             # The overlay adds bundle.createUpdaterArtifacts, so the build emits
             # the .app.tar.gz and its signature.
-            npm run tauri build -- --config src-tauri/tauri.updater.json
-          else
-            npm run tauri build
+            CONFIG=(--config src-tauri/tauri.updater.json)
           fi
+          npm run tauri build -- "${CONFIG[@]}"
 
       # The extension is a bundle resource and the app is ad-hoc signed by the
       # bundler (signingIdentity in tauri.conf.json), so the copy inside the dmg
@@ -92,12 +175,26 @@ jobs:
       - name: Check the app is signed
         run: |
           APP="src-tauri/target/release/bundle/macos/Lantas.app"
-          codesign --verify --verbose=2 "$APP"
-          codesign -dv "$APP" 2>&1 | grep -E "Signature|Identifier"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dv "$APP" 2>&1 | grep -E "Signature|Identifier|Authority|TeamIdentifier"
           test -f "$APP/Contents/Resources/chrome-extension/manifest.json"
+          if [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
+            spctl --assess --type execute --verbose=4 "$APP"
+            xcrun stapler validate "$APP"
+          fi
 
       - name: Package release assets
         run: bash scripts/package-release.sh
+
+      # Tauri notarizes and staples the .app. The dmg is a container around
+      # that stapled app; validating the app is the check that matches what
+      # Gatekeeper sees on first launch.
+      - name: Check notarization
+        if: env.APPLE_SIGNING_IDENTITY != ''
+        run: |
+          APP="src-tauri/target/release/bundle/macos/Lantas.app"
+          spctl --assess --type execute --verbose=4 "$APP"
+          xcrun stapler validate "$APP"
 
       - name: Upload build
         uses: actions/upload-artifact@v4

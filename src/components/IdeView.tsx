@@ -12,12 +12,15 @@ import {
 } from "../lib/ide";
 import { monacoLanguage } from "../lib/ide";
 import { readLocalFiles, writeWorkspaceFile } from "../lib/workspace";
-import type { Session } from "../lib/types";
+import type { ProviderId, Session } from "../lib/types";
 import { cx } from "../lib/util";
+import { GitPanel } from "./GitPanel";
+import { ExtensionsPanel } from "./ExtensionsPanel";
+import { ModelPicker } from "./ModelPicker";
 import { Icon } from "./Icons";
 import { MonacoEditor } from "./MonacoEditor";
 
-type Activity = "explorer" | "search" | "git" | "skills";
+type Activity = "explorer" | "search" | "git" | "extensions" | "skills";
 
 interface IdeViewProps {
   onExit: () => void;
@@ -30,10 +33,15 @@ interface IdeViewProps {
   streaming: boolean;
 }
 
-const RAIL: Array<{ id: Activity; label: string; icon: "folder" | "search" | "branch" | "book" }> = [
+const RAIL: Array<{
+  id: Activity;
+  label: string;
+  icon: "folder" | "search" | "branch" | "book" | "sparkle";
+}> = [
   { id: "explorer", label: "Explorer", icon: "folder" },
   { id: "search", label: "Search", icon: "search" },
   { id: "git", label: "Source control", icon: "branch" },
+  { id: "extensions", label: "VS Code extensions", icon: "sparkle" },
   { id: "skills", label: "Skills", icon: "book" },
 ];
 
@@ -124,6 +132,11 @@ export function IdeView({
     state,
     patchWorkspaceFile,
     setWorkspace,
+    setSettings,
+    updateSession,
+    staged,
+    keepStaged,
+    discardStaged,
     notify,
   } = useStore();
   const [activity, setActivity] = useState<Activity>("explorer");
@@ -305,6 +318,23 @@ export function IdeView({
     notify("Sent to Lantas");
   };
 
+  const pickModel = (provider: ProviderId, model: string) => {
+    if (session) {
+      updateSession(session.id, (current) => ({ ...current, provider, model }));
+    }
+    setSettings({ defaultProvider: provider, defaultModel: model });
+  };
+
+  const keepAll = async () => {
+    const written = await keepStaged();
+    notify(
+      written === staged.length
+        ? `Kept ${written} file${written === 1 ? "" : "s"}`
+        : `Kept ${staged.length} in the workspace; ${written} written to disk`,
+      written === staged.length ? "default" : "error",
+    );
+  };
+
   return (
     <div
       className={cx("ide", dropping && "is-dropping")}
@@ -419,8 +449,8 @@ export function IdeView({
               aria-label={item.label}
             >
               <Icon name={item.icon} size={18} />
-              {item.id === "git" && dirty.size > 0 && (
-                <span className="ide-rail-badge">{dirty.size}</span>
+              {item.id === "git" && (dirty.size > 0 || staged.length > 0) && (
+                <span className="ide-rail-badge">{dirty.size + staged.length}</span>
               )}
             </button>
           ))}
@@ -526,52 +556,17 @@ export function IdeView({
             )}
 
             {activity === "git" && (
-              <>
-                <div className="ide-side-head">
-                  <span>Source control</span>
-                  <span className="ide-count">{dirty.size}</span>
-                </div>
-                <div className="ide-git-actions">
-                  <button type="button" className="button-quiet small" onClick={() => void saveAll()} disabled={dirty.size === 0}>
-                    Save all
-                  </button>
-                  <button type="button" className="button-quiet small" onClick={() => setDrafts({})} disabled={dirty.size === 0}>
-                    Discard all
-                  </button>
-                </div>
-                {dirty.size === 0 ? (
-                  <p className="ide-side-note">No unsaved changes. Edits appear here until you save.</p>
-                ) : (
-                  <div className="ide-results">
-                    {Array.from(dirty).map((path) => (
-                      <div className="ide-change" key={path}>
-                        <button type="button" onClick={() => open(path)}>
-                          <span className="ide-file-badge" style={{ color: fileTone(path) }}>
-                            {fileInitials(path)}
-                          </span>
-                          <span className="ide-change-text">
-                            <span>{path.split("/").pop()}</span>
-                            <small>{path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : ""}</small>
-                          </span>
-                          <span className="ide-change-mark">M</span>
-                        </button>
-                        <div className="ide-change-actions">
-                          <button type="button" className="text-button" onClick={() => void save(path)}>
-                            Save
-                          </button>
-                          <button type="button" className="text-button" onClick={() => discard(path)}>
-                            Revert
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="ide-side-note">
-                  Saves write through to the folder you opened. Commits stay in your own terminal.
-                </p>
-              </>
+              <GitPanel
+                root={state.workspaceRoot}
+                activePath={active}
+                onOpen={open}
+                onOpenFolder={onOpenFolder}
+                dirty={dirty}
+                onSaveAll={() => void saveAll()}
+              />
             )}
+
+            {activity === "extensions" && <ExtensionsPanel />}
           </aside>
         )}
 
@@ -612,6 +607,36 @@ export function IdeView({
             )}
           </div>
 
+          {staged.length > 0 && (
+            <div className="ide-review-bar" role="status">
+              <span className="ide-review-label">
+                <span className="ide-review-dot" />
+                Lantas changed {staged.length} file{staged.length === 1 ? "" : "s"}
+              </span>
+              <span className="ide-review-files" title={staged.map((change) => change.path).join("\n")}>
+                {staged
+                  .slice(0, 3)
+                  .map((change) => change.path.split("/").pop())
+                  .join(", ")}
+                {staged.length > 3 ? ` +${staged.length - 3}` : ""}
+              </span>
+              <span className="ide-review-spacer" />
+              <button
+                type="button"
+                className="ide-review-decline"
+                onClick={() => {
+                  discardStaged();
+                  notify("Declined the assistant's changes");
+                }}
+              >
+                Decline
+              </button>
+              <button type="button" className="ide-review-keep" onClick={() => void keepAll()}>
+                Keep changes
+              </button>
+            </div>
+          )}
+
           {activeFile ? (
             <>
               <div className="ide-crumbs">
@@ -639,6 +664,7 @@ export function IdeView({
                   path={activeFile.path}
                   value={activeText}
                   theme={resolvedTheme}
+                  editor={state.settings.editor}
                   initialLine={initialLine}
                   onChange={(text) => updateDraft(activeFile.path, text)}
                   onSave={saveActive}
@@ -679,11 +705,15 @@ export function IdeView({
         {assistantOpen && (
           <aside className="ide-assistant">
             <div className="ide-assistant-head">
-              <div>
+              <div className="ide-assistant-id">
                 <span className="ide-assistant-title">Lantas</span>
-                <span className="ide-assistant-sub">
-                  {session?.model || defaultModel || "No model"}
-                </span>
+                <ModelPicker
+                  provider={session?.provider ?? state.settings.defaultProvider}
+                  model={session?.model || defaultModel}
+                  onPick={pickModel}
+                  onConnect={onOpenSettings}
+                  className="ide-assistant-model"
+                />
               </div>
               <button
                 type="button"

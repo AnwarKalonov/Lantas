@@ -1127,6 +1127,12 @@
   color: var(--text-3);
 }
 
+.el-recents-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .el-kicker {
   letter-spacing: 0;
   text-transform: none;
@@ -2232,4 +2238,345 @@
 
 .el-round.is-on svg {
   fill: currentColor;
+}
+
+/* =========================================================== browser side rail
+   Rebuilt as a quiet reading-and-writing panel: paper on dark, one measure,
+   the model and access mode where the text goes. */
+
+.el .el-ai {
+  flex: 0 0 348px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.el .el-ai-head {
+  flex: 0 0 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 14px 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.el .el-ai-id {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.el .el-ai-mark {
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  color: var(--text-2);
+}
+
+.el .el-ai-who {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.el .el-ai-title {
+  font-size: 12px;
+  font-weight: 550;
+  letter-spacing: -0.005em;
+  color: var(--text);
+}
+
+.el .el-ai-who small {
+  display: block;
+  max-width: 218px;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-4);
+}
+
+.el .el-ai-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 22px 18px 14px;
+  scrollbar-width: thin;
+}
+
+.el .el-ai-empty {
+  padding: 2px 0 0;
+}
+
+.el .el-ai-empty .el-ai-eyebrow {
+  margin: 0 0 9px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+
+.el .el-ai-empty .el-ai-lead {
+  margin: 0;
+  max-width: none;
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.el .el-ai-copy {
+  margin: 10px 0 0;
+  max-width: 250px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+.el .el-ai-prompts {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.el .el-ai-prompts button {
+  width: 100%;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 1px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 11.5px;
+  text-align: left;
+  transition: color 150ms ease, padding 180ms ease;
+}
+
+.el .el-ai-prompts button:hover {
+  padding-left: 5px;
+  background: transparent;
+  color: var(--text);
+}
+
+.el .el-ai-arrow {
+  color: var(--text-4);
+}
+
+.el .el-ai-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 100%;
+}
+
+.el .el-ai-role {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+
+.el .el-ai-msg p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.66;
+  color: var(--text-2);
+  white-space: pre-wrap;
+}
+
+.el .el-ai-msg.assistant p {
+  color: var(--text);
+}
+
+.el .el-ai-msg.user {
+  align-self: flex-end;
+  align-items: flex-end;
+  max-width: 90%;
+}
+
+.el .el-ai-msg.user p {
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px 10px 3px 10px;
+  background: var(--raised);
+  color: var(--text);
+}
+
+.el .el-ai-typing {
+  display: inline-flex;
+  gap: 3px;
+  width: auto;
+  height: 6px;
+  background: none;
+  animation: none;
+}
+
+.el .el-ai-typing i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-4);
+  animation: el-blink 1.1s ease-in-out infinite;
+}
+
+.el .el-ai-typing i:nth-child(2) {
+  animation-delay: 140ms;
+}
+
+.el .el-ai-typing i:nth-child(3) {
+  animation-delay: 280ms;
+}
+
+.el .el-ai-form {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 12px 0;
+  padding: 10px 9px 7px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  background: var(--card-bg);
+  transition: border-color 160ms ease;
+}
+
+.el .el-ai-form:focus-within {
+  border-color: var(--text-4);
+}
+
+.el .el-ai-form textarea {
+  display: block;
+  width: 100%;
+  min-height: 38px;
+  max-height: 132px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.el .el-ai-form textarea::placeholder {
+  color: var(--text-4);
+}
+
+.el .el-ai-tools {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.el .el-ai-modes {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border-radius: 7px;
+  background: var(--raised);
+}
+
+.el .el-ai-modes button {
+  height: 21px;
+  padding: 0 7px;
+  border-radius: 5px;
+  color: var(--text-3);
+  font-size: 10px;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.el .el-ai-modes button:hover {
+  color: var(--text-2);
+}
+
+.el .el-ai-modes button.is-on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.el .el-ai-model {
+  flex: 1;
+  min-width: 0;
+}
+
+.el .el-ai-model .mp-trigger {
+  width: 100%;
+  justify-content: space-between;
+  max-width: none;
+  height: 25px;
+  font-size: 10.5px;
+}
+
+.el .el-ai-model .mp-menu {
+  width: 300px;
+}
+
+.el .el-ai-send {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.el .el-ai-send:disabled {
+  opacity: 0.32;
+}
+
+.el .el-ai-foot {
+  flex: 0 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 15px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+
+.el .el-ai-hint {
+  max-width: none;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  text-align: right;
+  color: var(--text-4);
+}
+
+@media (max-width: 1180px) {
+  .el .el-ai {
+    flex-basis: 320px;
+  }
 }

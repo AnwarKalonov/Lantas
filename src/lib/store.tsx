@@ -20,11 +20,13 @@ import type {
   Session,
   Settings,
   Skill,
+  StagedChange,
   ViewId,
   WorkspaceFile,
 } from "./types";
 import { DEFAULT_SETTINGS, PROVIDERS, SKILL_SEEDS, seedState } from "./data";
 import { uid } from "./util";
+import { writeWorkspaceFile } from "./workspace";
 
 const STORAGE_KEY = "lantas.app.v2";
 /** Threads that shipped as sample content in earlier builds. */
@@ -66,6 +68,13 @@ interface Store {
   setWorkspace: (name: string, files: WorkspaceFile[], root?: string) => void;
   patchWorkspaceFile: (path: string, text: string) => void;
   clearWorkspace: () => void;
+  /** Assistant edits waiting for Keep or Decline in the IDE. */
+  staged: StagedChange[];
+  stageChange: (path: string, after: string) => void;
+  keepStaged: () => Promise<number>;
+  discardStaged: () => void;
+  keepChange: (path: string) => Promise<boolean>;
+  discardChange: (path: string) => void;
   undo: (sessionId: string) => void;
   redo: (sessionId: string) => void;
   toggleSidebar: () => void;
@@ -174,8 +183,13 @@ function loadState(): AppState {
 
 export function LantasProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(loadState);
+  const [staged, setStaged] = useState<StagedChange[]>([]);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const stagedRef = useRef(staged);
+  stagedRef.current = staged;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -401,7 +415,99 @@ export function LantasProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearWorkspace = useCallback(() => {
+    setStaged([]);
     setState((prev) => ({ ...prev, workspaceName: "", workspaceRoot: "", workspace: [] }));
+  }, []);
+
+  /**
+   * Holds one assistant edit in memory. Nothing reaches disk until Keep, so a
+   * bad turn costs a click rather than a git checkout.
+   */
+  const stageChange = useCallback((path: string, after: string) => {
+    const file = stateRef.current.workspace.find((entry) => entry.path === path);
+    setStaged((current) => {
+      const existing = current.find((entry) => entry.path === path);
+      const next: StagedChange = {
+        path,
+        before: existing?.before ?? file?.text ?? "",
+        after,
+        existed: existing?.existed ?? Boolean(file),
+        at: Date.now(),
+      };
+      return existing
+        ? current.map((entry) => (entry.path === path ? next : entry))
+        : [...current, next];
+    });
+  }, []);
+
+  const keepStaged = useCallback(async () => {
+    const changes = stagedRef.current;
+    if (!changes.length) return 0;
+    const root = stateRef.current.workspaceRoot;
+    let written = 0;
+    for (const change of changes) {
+      try {
+        // Sequential on purpose: one failed write should not hide the others.
+        // eslint-disable-next-line no-await-in-loop
+        const ok = await writeWorkspaceFile(root, change.path, change.after);
+        if (ok) written += 1;
+      } catch {
+        /* the workspace copy stays, and the user can save from the editor */
+      }
+    }
+    setStaged([]);
+    return written;
+  }, []);
+
+  const discardStaged = useCallback(() => {
+    const changes = stagedRef.current;
+    setState((prev) => {
+      let workspace = prev.workspace;
+      for (const change of changes) {
+        workspace = change.existed
+          ? workspace.map((file) =>
+              file.path === change.path
+                ? { ...file, text: change.before, size: change.before.length }
+                : file,
+            )
+          : workspace.filter((file) => file.path !== change.path);
+      }
+      return { ...prev, workspace };
+    });
+    setStaged([]);
+  }, []);
+
+  const keepChange = useCallback(async (path: string) => {
+    const change = stagedRef.current.find((entry) => entry.path === path);
+    if (!change) return false;
+    let ok = false;
+    try {
+      ok = await writeWorkspaceFile(
+        stateRef.current.workspaceRoot,
+        change.path,
+        change.after,
+      );
+    } catch {
+      ok = false;
+    }
+    setStaged((current) => current.filter((entry) => entry.path !== path));
+    return ok;
+  }, []);
+
+  const discardChange = useCallback((path: string) => {
+    const change = stagedRef.current.find((entry) => entry.path === path);
+    if (!change) return;
+    setState((prev) => ({
+      ...prev,
+      workspace: change.existed
+        ? prev.workspace.map((file) =>
+            file.path === change.path
+              ? { ...file, text: change.before, size: change.before.length }
+              : file,
+          )
+        : prev.workspace.filter((file) => file.path !== change.path),
+    }));
+    setStaged((current) => current.filter((entry) => entry.path !== path));
   }, []);
 
   const undo = useCallback<Store["undo"]>((sessionId) => {
@@ -477,6 +583,12 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       setWorkspace,
       patchWorkspaceFile,
       clearWorkspace,
+      staged,
+      stageChange,
+      keepStaged,
+      discardStaged,
+      keepChange,
+      discardChange,
       undo,
       redo,
       toggleSidebar,
@@ -509,6 +621,12 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       setWorkspace,
       patchWorkspaceFile,
       clearWorkspace,
+      staged,
+      stageChange,
+      keepStaged,
+      discardStaged,
+      keepChange,
+      discardChange,
       undo,
       redo,
       toggleSidebar,

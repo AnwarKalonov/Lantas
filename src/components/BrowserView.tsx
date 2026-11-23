@@ -27,7 +27,11 @@ import {
   agentScroll,
   agentType,
 } from "../lib/browserAgent";
+import { flattenBookmarks, readBrowserBookmarks } from "../lib/bookmarks";
 import { ChromeBridgePanel } from "./ChromeBridgePanel";
+import { MarkGlyph } from "./Brand";
+import { ModelPicker } from "./ModelPicker";
+import type { ProviderId } from "../lib/types";
 import {
   EL_HOME,
   aiDriving,
@@ -59,12 +63,13 @@ const SHORTCUTS = [
 ];
 
 export function BrowserView({ visible = true }: { visible?: boolean }) {
-  const { state, setBrowserUrl, notify, togglePanel } = useStore();
+  const { state, setBrowserUrl, setSettings, updateSession, notify, togglePanel } = useStore();
   const [data, setData] = useState<ElData>(() => loadEl());
   const lastBrowserUrl = useRef(state.browserUrl);
   const [draft, setDraft] = useState("");
   const [page, setPage] = useState<ElPage | null>(getElContext());
   const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState({ name: "", email: "" });
@@ -366,6 +371,34 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
     notify("Profile saved on this Mac");
   };
 
+  const importBookmarks = async () => {
+    setImporting(true);
+    try {
+      const browsers = await readBrowserBookmarks();
+      const found = flattenBookmarks(browsers).slice(0, 600);
+      if (!found.length) {
+        notify("No Chrome or Chromium bookmarks found on this Mac", "error");
+        return;
+      }
+      setData((current) => {
+        const seen = new Set(current.bookmarks.map((item) => item.url));
+        const fresh = found
+          .filter((item) => !seen.has(item.url))
+          .map((item) => ({ url: item.url, title: item.title || hostOf(item.url) }));
+        return { ...current, bookmarks: [...fresh, ...current.bookmarks].slice(0, 800) };
+      });
+      notify(
+        `Imported ${found.length} bookmark${found.length === 1 ? "" : "s"} from ${browsers
+          .map((browser) => browser.name)
+          .join(", ")}`,
+      );
+    } catch (caught) {
+      notify(caught instanceof Error ? caught.message : "Could not read bookmarks", "error");
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const importMail = async () => {
     if (!getGoogleToken()) {
       notify("Connect Gmail in Integrations first", "error");
@@ -384,8 +417,28 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
   };
 
   const activeSession = state.sessions.find((item) => item.id === state.activeId) ?? null;
-  const aiMessages = (activeSession?.messages ?? []).slice(-10);
+  const aiMessages = (activeSession?.messages ?? []).slice(-12);
   const aiModel = activeSession?.model ?? state.settings.defaultModel;
+  const aiProvider = activeSession?.provider ?? state.settings.defaultProvider;
+  const aiStreaming = Boolean(activeSession?.messages.at(-1)?.streaming);
+
+  const pickAiModel = (nextProvider: ProviderId, nextModel: string) => {
+    if (activeSession) {
+      updateSession(activeSession.id, (session) => ({
+        ...session,
+        provider: nextProvider,
+        model: nextModel,
+      }));
+    }
+    setSettings({ defaultProvider: nextProvider, defaultModel: nextModel });
+  };
+
+  const setAiMode = (mode: "ask" | "act") => {
+    const on = mode === "act";
+    if (on === driving) return;
+    setDriving(on);
+    setAiDriving(on);
+  };
 
   useEffect(() => {
     if (!aiOpen) return;
@@ -586,6 +639,14 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
                   <p className="el-profile-name">{data.profile.name}</p>
                   <p className="el-muted">{data.profile.email}</p>
                   <div className="el-actions">
+                    <button
+                      type="button"
+                      className="button-quiet"
+                      onClick={() => void importBookmarks()}
+                      disabled={importing}
+                    >
+                      {importing ? "Importing…" : "Import bookmarks"}
+                    </button>
                     <button type="button" className="button-quiet" onClick={() => void importMail()}>
                       Import Gmail
                     </button>
@@ -811,15 +872,25 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
               <div className="el-recents">
                 <div className="el-recents-head">
                   <span>Recent</span>
-                  {data.history.length > 0 && (
+                  <span className="el-recents-actions">
                     <button
                       type="button"
                       className="text-button"
-                      onClick={() => setData((current) => ({ ...current, history: [] }))}
+                      onClick={() => void importBookmarks()}
+                      disabled={importing}
                     >
-                      Clear
+                      {importing ? "Importing…" : "Import from Chrome"}
                     </button>
-                  )}
+                    {data.history.length > 0 && (
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() => setData((current) => ({ ...current, history: [] }))}
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </span>
                 </div>
                 {recent.length === 0 ? (
                   <p className="el-muted">
@@ -946,10 +1017,12 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
           <aside className="el-ai" aria-label="Lantas">
             <header className="el-ai-head">
               <div className="el-ai-id">
-                <img className="el-ai-mark" src="/mark.png" alt="" />
+                <span className="el-ai-mark" aria-hidden="true">
+                  <MarkGlyph size={16} />
+                </span>
                 <div className="el-ai-who">
                   <span className="el-ai-title">Lantas</span>
-                  <small>{aiModel}</small>
+                  <small>{page?.title || (atHome ? "Lantas Browser" : hostOf(active.url) || "This tab")}</small>
                 </div>
               </div>
               <button
@@ -965,19 +1038,30 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
             <div className="el-ai-log" ref={aiLogRef}>
               {aiMessages.length === 0 ? (
                 <div className="el-ai-empty">
-                  <p className="el-ai-lead">Ask about this page, or say what to click.</p>
-                  <div className="el-ai-chips">
+                  <p className="el-ai-eyebrow">This page</p>
+                  <h2 className="el-ai-lead">Ask the page.</h2>
+                  <p className="el-ai-copy">
+                    Lantas reads what you are looking at. In Act mode it can click, type and
+                    navigate, one step at a time.
+                  </p>
+                  <div className="el-ai-prompts">
                     <button type="button" onClick={() => ask()}>
-                      Summarize this page
+                      <span>Summarize this page</span>
+                      <span className="el-ai-arrow">→</span>
                     </button>
-                    <button type="button" onClick={() => ask("What can I do on this page?")}>
-                      What can I do here
+                    <button
+                      type="button"
+                      onClick={() => ask("What are the main actions available on this page?")}
+                    >
+                      <span>Find what I can do here</span>
+                      <span className="el-ai-arrow">→</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => ask("Find the main action on this page and click it.")}
                     >
-                      Do the main action
+                      <span>Do the main action</span>
+                      <span className="el-ai-arrow">→</span>
                     </button>
                   </div>
                 </div>
@@ -1005,37 +1089,66 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
             </div>
 
             <form className="el-ai-form" onSubmit={submitAsk}>
-              <input
+              <textarea
                 value={aiDraft}
                 onChange={(event) => setAiDraft(event.target.value)}
-                placeholder={driving ? "Ask, or tell it what to do" : "You have control"}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
+                rows={2}
+                placeholder={driving ? "Ask, or say what to do" : "Ask about this page"}
                 spellCheck={false}
                 aria-label="Ask Lantas"
               />
-              <button
-                type="submit"
-                className="el-ai-send"
-                disabled={!aiDraft.trim()}
-                aria-label="Send"
-              >
-                <Icon name="arrowUp" size={13} />
-              </button>
+              <div className="el-ai-tools">
+                <div className="el-ai-modes" role="group" aria-label="Browser access">
+                  <button
+                    type="button"
+                    className={cx(!driving && "is-on")}
+                    onClick={() => setAiMode("ask")}
+                    title="Read the page, change nothing"
+                  >
+                    Ask
+                  </button>
+                  <button
+                    type="button"
+                    className={cx(driving && "is-on")}
+                    onClick={() => setAiMode("act")}
+                    title="Let Lantas click, type and navigate"
+                  >
+                    Act
+                  </button>
+                </div>
+                <ModelPicker
+                  provider={aiProvider}
+                  model={aiModel}
+                  onPick={pickAiModel}
+                  onConnect={() =>
+                    window.dispatchEvent(
+                      new CustomEvent("lantas:settings", { detail: { tab: "providers" } }),
+                    )
+                  }
+                  className="el-ai-model"
+                />
+                <button
+                  type="submit"
+                  className="el-ai-send"
+                  disabled={!aiDraft.trim()}
+                  aria-label="Send"
+                >
+                  <Icon name="arrowUp" size={13} />
+                </button>
+              </div>
             </form>
 
             <div className="el-ai-foot">
-              <button
-                type="button"
-                className={cx("el-switch", driving && "is-on")}
-                role="switch"
-                aria-checked={driving}
-                onClick={toggleControl}
-              >
-                <span className="el-switch-track">
-                  <span className="el-switch-thumb" />
-                </span>
-                {driving ? "Agent can drive" : "You have control"}
-              </button>
-              <span className="el-ai-hint">“open …”, “click …”, “type …”, “scroll down”</span>
+              <span>{driving ? "Can read and act in this tab" : "Reads this tab, changes nothing"}</span>
+              <span className="el-ai-hint">
+                {aiStreaming ? "Working" : driving ? "Step by step" : "Read only"}
+              </span>
             </div>
           </aside>
         )}

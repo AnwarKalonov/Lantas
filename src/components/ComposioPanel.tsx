@@ -35,6 +35,7 @@ export function ComposioPanel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState<string | null>(null);
+  const [pendingUrl, setPendingUrl] = useState("");
   const [inbox, setInbox] = useState<InboxItem[]>([]);
   const [inboxCursor, setInboxCursor] = useState<string | null>(null);
   const [inboxError, setInboxError] = useState("");
@@ -119,9 +120,15 @@ export function ComposioPanel() {
     setError("");
     try {
       const url = await connectToolkit(app);
-      openExternal(url);
+      setPendingUrl(url);
+      const opened = await openExternal(url, "chrome");
       setPending(app);
-      notify(`Finish connecting ${name} in your browser`);
+      notify(
+        opened
+          ? `Finish connecting ${name} in Chrome`
+          : `Open the connect link below to finish ${name}`,
+        opened ? "default" : "error",
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -254,9 +261,32 @@ export function ComposioPanel() {
 
       {error && <p className="status-line is-error">{error}</p>}
       {pending && (
-        <p className="market-pending">
-          Waiting for <b>{pending}</b> authorization… This updates automatically.
-        </p>
+        <div className="market-pending">
+          <span>
+            Waiting for <b>{pending}</b> authorization. This updates automatically.
+          </span>
+          {pendingUrl && (
+            <span className="market-pending-actions">
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => void openExternal(pendingUrl, "chrome")}
+              >
+                Open connect link
+              </button>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(pendingUrl).catch(() => {});
+                  notify("Connect link copied");
+                }}
+              >
+                Copy link
+              </button>
+            </span>
+          )}
+        </div>
       )}
 
       <div className="market-grid">

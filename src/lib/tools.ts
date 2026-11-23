@@ -13,6 +13,7 @@ import {
   agentType,
   describeSnapshot,
 } from "./browserAgent";
+import { aiDriving } from "./el";
 import {
   activeToolkits,
   executeTool,
@@ -39,6 +40,8 @@ export interface ToolContext {
   skills: Skill[];
   /** Writes to disk; resolves false when the workspace is read-only. */
   saveFile: (path: string, text: string) => Promise<boolean>;
+  /** Overrides the browser drive switch for one turn (the Chrome panel's Act mode). */
+  drive?: boolean;
 }
 
 export interface ToolCall {
@@ -423,7 +426,7 @@ export async function runTool(
       }
 
       case "browser":
-        return await runBrowserTool(call.args);
+        return await runBrowserTool(call.args, context.drive);
 
       case "integrations":
         return await runIntegrationTool(call.args);
@@ -446,7 +449,10 @@ export async function runTool(
   }
 }
 
-async function runBrowserTool(args: Record<string, unknown>): Promise<ToolOutcome> {
+async function runBrowserTool(
+  args: Record<string, unknown>,
+  drive?: boolean,
+): Promise<ToolOutcome> {
   const action = String(args.action ?? "").toLowerCase();
   const resource = toolResource({ name: "browser", args });
 
@@ -456,6 +462,39 @@ async function runBrowserTool(args: Record<string, unknown>): Promise<ToolOutcom
     content: summary,
     resource,
   });
+
+  const readOnly = action === "snapshot" || action === "extract";
+  if (!readOnly && !(drive ?? aiDriving())) {
+    return fail(
+      "The user has control of the browser. Ask them to switch to Act mode before changing the page.",
+    );
+  }
+
+  /**
+   * A cheap model needs to see the page after an action, not guess. Append the
+   * new URL, title and control map to the tool result so the next step has
+   * current references without spending a second call on snapshot.
+   */
+  const afterAction = async (base: string): Promise<string> => {
+    try {
+      const snapshot = await agentSnapshot();
+      if (!snapshot.page) return base;
+      const controls = snapshot.elements
+        .slice(0, 80)
+        .map((el) => `${el.i}. [${el.kind}] ${el.label}`)
+        .join("\n");
+      return [
+        base,
+        `Now at: ${snapshot.page.url}`,
+        `Title: ${snapshot.page.title}`,
+        controls ? `Controls:\n${controls}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+    } catch {
+      return base;
+    }
+  };
 
   switch (action) {
     case "snapshot": {
@@ -483,14 +522,24 @@ async function runBrowserTool(args: Record<string, unknown>): Promise<ToolOutcom
       if (typeof args.ref === "number" || typeof args.ref === "string") {
         const ok = await agentClickRef(Number(args.ref));
         return ok
-          ? { ok: true, summary: `Clicked element ${args.ref}`, content: "Clicked.", resource }
+          ? {
+              ok: true,
+              summary: `Clicked element ${args.ref}`,
+              content: await afterAction(`Clicked element ${args.ref}.`),
+              resource,
+            }
           : fail("Element references need Chrome. Use target text or a CSS selector in Lantas Browser.");
       }
       const target = String(args.target ?? args.selector ?? "");
       if (!target) return fail("A target or ref is required to click.");
       const ok = await agentClick(target);
       return ok
-        ? { ok: true, summary: `Clicked “${target}”`, content: `Clicked ${target}.`, resource }
+        ? {
+            ok: true,
+            summary: `Clicked “${target}”`,
+            content: await afterAction(`Clicked ${target}.`),
+            resource,
+          }
         : fail(`Could not click “${target}”. Take a fresh snapshot and try a different label.`);
     }
 
@@ -506,7 +555,7 @@ async function runBrowserTool(args: Record<string, unknown>): Promise<ToolOutcom
         ? {
             ok: true,
             summary: args.submit ? "Typed and submitted" : "Typed into the page",
-            content: "Typed.",
+            content: await afterAction("Typed into the page."),
             resource,
           }
         : fail("That field was not found. Snapshot the page and use its selector.");
@@ -516,14 +565,19 @@ async function runBrowserTool(args: Record<string, unknown>): Promise<ToolOutcom
       const key = String(args.key ?? "Enter");
       const ok = await agentPress(key);
       return ok
-        ? { ok: true, summary: `Pressed ${key}`, content: `Pressed ${key}.`, resource }
+        ? {
+            ok: true,
+            summary: `Pressed ${key}`,
+            content: await afterAction(`Pressed ${key}.`),
+            resource,
+          }
         : fail(`Could not press ${key}.`);
     }
 
     case "enter": {
       const ok = await agentEnter();
       return ok
-        ? { ok: true, summary: "Pressed Enter", content: "Pressed Enter.", resource }
+        ? { ok: true, summary: "Pressed Enter", content: await afterAction("Pressed Enter."), resource }
         : fail("Could not press Enter.");
     }
 
@@ -534,7 +588,7 @@ async function runBrowserTool(args: Record<string, unknown>): Promise<ToolOutcom
         ? {
             ok: true,
             summary: dy >= 0 ? "Scrolled down" : "Scrolled up",
-            content: `Scrolled ${Math.abs(dy)}px.`,
+            content: await afterAction(`Scrolled ${Math.abs(dy)}px.`),
             resource,
           }
         : fail("Could not scroll the page.");
@@ -545,7 +599,7 @@ async function runBrowserTool(args: Record<string, unknown>): Promise<ToolOutcom
       if (!url) return fail("A URL is required.");
       const ok = await agentNavigate(url);
       return ok
-        ? { ok: true, summary: `Opened ${url}`, content: `Navigated to ${url}.`, resource }
+        ? { ok: true, summary: `Opened ${url}`, content: await afterAction(`Navigated to ${url}.`), resource }
         : fail(`Could not open ${url}. Start Lantas Browser or Chrome first.`);
     }
 
@@ -553,14 +607,14 @@ async function runBrowserTool(args: Record<string, unknown>): Promise<ToolOutcom
     case "forward": {
       const ok = await agentHistory(action);
       return ok
-        ? { ok: true, summary: `Went ${action}`, content: `History: ${action}.`, resource }
+        ? { ok: true, summary: `Went ${action}`, content: await afterAction(`History: ${action}.`), resource }
         : fail(`Could not go ${action}.`);
     }
 
     case "reload": {
       const ok = await agentReload();
       return ok
-        ? { ok: true, summary: "Reloaded the page", content: "Reloaded.", resource }
+        ? { ok: true, summary: "Reloaded the page", content: await afterAction("Reloaded."), resource }
         : fail("Could not reload.");
     }
 

@@ -11,9 +11,16 @@ import { consumeGoogleHash, getGoogleToken } from "./lib/google";
 import { inTauri } from "./lib/native";
 import { agentClick, agentEnter, agentScroll, agentType } from "./lib/browserAgent";
 import { buildHistory, buildSystemPrompt, parseImage } from "./lib/chat";
-import { isConfigured, streamChat } from "./lib/providers";
-import { chromeChatReply, chromeChatStatus, chromeStatus } from "./lib/chrome";
-import { runBrowserAction, takeAction } from "./lib/chromeChat";
+import { isConfigured } from "./lib/providers";
+import type { ChatTurn } from "./lib/providers";
+import {
+  chromeChatReply,
+  chromeChatStatus,
+  chromeSendRaw,
+  chromeStatus,
+  type ChromeCatalogProvider,
+} from "./lib/chrome";
+import { runBrowserTurn } from "./lib/browserTurn";
 import { useStore } from "./lib/store";
 import { acquireScreen, captureFrame, currentScreen, releaseScreen } from "./lib/screen";
 import { openWorkspaceFolder, writeWorkspaceFile } from "./lib/workspace";
@@ -26,6 +33,7 @@ import type {
   Part,
   ProviderId,
   Session,
+  Settings,
   WorkspaceFile,
 } from "./lib/types";
 import { cx, titleFrom, uid } from "./lib/util";
@@ -43,6 +51,19 @@ import { TitleBar } from "./components/TitleBar";
 import { PROVIDERS, SLASH_COMMANDS } from "./lib/data";
 
 const THEME_ORDER = ["dark", "light", "system"] as const;
+
+/** Only configured providers are offered to the Chrome panel; the rest are shown as disconnected. */
+function chromeCatalog(settings: Settings): ChromeCatalogProvider[] {
+  return PROVIDERS.map((meta) => {
+    const config = settings.providers[meta.id];
+    return {
+      id: meta.id,
+      name: meta.name,
+      configured: isConfigured(meta.id, config),
+      models: Array.from(new Set([...config.models, ...meta.models])).filter(Boolean),
+    };
+  });
+}
 
 /** Commands that become an instruction instead of running in the shell. */
 const PROMPT_COMMANDS: Record<string, string> = {
@@ -78,6 +99,7 @@ export function App() {
     setView,
     setWorkspace,
     patchWorkspaceFile,
+    stageChange,
     undo,
     redo,
     toggleSidebar,
@@ -148,99 +170,120 @@ export function App() {
     settingsRef.current = state.settings;
   }, [state.settings]);
 
-  // The Chrome side panel asks Lantas questions; answers come back over the bridge.
+  // Push the model catalog to the Chrome side panel. The panel asks for it on
+  // open; the timer covers a panel that opens while the list is changing.
+  useEffect(() => {
+    if (!inTauri()) return;
+    const publish = () => {
+      void chromeSendRaw({
+        type: "catalog",
+        catalog: chromeCatalog(settingsRef.current),
+      });
+    };
+    publish();
+    const timer = window.setInterval(publish, 15_000);
+    return () => window.clearInterval(timer);
+  }, [state.settings.providers, state.settings.defaultProvider, state.settings.defaultModel]);
+
+  // The Chrome side panel runs a real browser tool loop, like the coding agent.
   useEffect(() => {
     if (!inTauri()) return;
 
-    type Turn = Parameters<typeof streamChat>[0]["messages"][number];
     const seen = new Set<string>();
-    const history = new Map<string, Turn[]>();
+    const histories = new Map<string, ChatTurn[]>();
+    let lastCatalogPush = 0;
+
+    const publishCatalog = () => {
+      void chromeSendRaw({
+        type: "catalog",
+        catalog: chromeCatalog(settingsRef.current),
+      });
+    };
 
     const answer = async (
       chatId: string,
       prompt: string,
-      page: ChromeEvent["page"] | null,
-      elements: ChromeEvent["elements"] | null,
+      page: Parameters<typeof runBrowserTurn>[0]["page"],
+      elements: Parameters<typeof runBrowserTurn>[0]["elements"],
+      providerId: string,
+      modelId: string,
+      mode: "ask" | "act",
     ) => {
       const settings = settingsRef.current;
-      const provider = settings.defaultProvider;
+      const requested = PROVIDERS.find((item) => item.id === providerId);
+      const configured = requested
+        ? isConfigured(requested.id, settings.providers[requested.id])
+        : false;
+      const provider = configured && requested ? requested.id : settings.defaultProvider;
       const config = settings.providers[provider];
-      const model = settings.defaultModel;
+      const model =
+        configured && requested && modelId ? modelId : settings.defaultModel;
 
       if (!isConfigured(provider, config)) {
-        await chromeChatReply(chatId, "Connect a provider in Settings → Providers, then ask again.");
+        await chromeChatReply(
+          chatId,
+          "Connect a provider in Lantas → Settings → Providers, then ask again.",
+        );
         return;
       }
 
-      await chromeChatStatus(chatId, "Reading the page");
+      await chromeChatStatus(
+        chatId,
+        mode === "act" ? "Reading this tab" : "Reading this tab, staying read-only",
+      );
 
-      const pageBlock = page
-        ? `<page url="${page.url}" title="${page.title}">\n${page.text.slice(0, 12000)}\n</page>`
-        : "";
-      const controlsBlock = elements?.length
-        ? `<controls>\n${elements
-            .slice(0, 120)
-            .map((el) => `${el.i}. [${el.kind}] ${el.label}`)
-            .join("\n")}\n</controls>`
-        : "";
-      const system = [
-        "You answer inside the Chrome side panel, next to the tab the user is reading.",
-        "Use short, specific sentences. No headings, no emoji, no markdown.",
-        "You can act in the open tab: click, type, press a key, select an option, scroll, open a URL, go back, forward or reload.",
-        'When the user asks you to act, write one short sentence and then exactly one tag on its own line: <action>{"action":"click","target":"Sign in"}</action>',
-        "Prefer the control number from <controls> when it is present: {\"action\":\"click\",\"ref\":12}. Otherwise use the visible label.",
-        "Actions: click (ref or target), type (text, optional selector, optional submit), press (key), select (ref/target, value), enter, scroll (dy), open (url, optional newTab), snapshot, extract, back, forward, reload.",
-        "Take a snapshot when the controls list is missing or stale. Never claim an action unless it ran; the result is reported to the user.",
-      ].join(" ");
+      const controller = new AbortController();
+      const result = await runBrowserTurn({
+        provider,
+        config,
+        model,
+        prompt,
+        page,
+        elements,
+        mode,
+        history: histories.get(chatId) ?? [],
+        signal: controller.signal,
+        onStatus: (text) => {
+          void chromeChatStatus(chatId, text);
+        },
+      });
 
-      const userTurn: Turn = {
-        role: "user",
-        content: [prompt, pageBlock, controlsBlock].filter(Boolean).join("\n\n"),
-      };
-      const turns = [...(history.get(chatId) ?? []).slice(-8), userTurn];
-
-      let reply = "";
-      try {
-        await streamChat({
-          provider,
-          config,
-          model,
-          system,
-          messages: turns,
-          signal: new AbortController().signal,
-          onDelta: (chunk) => {
-            reply += chunk;
-          },
-        });
-      } catch (error) {
-        const detail = error instanceof Error ? error.message.slice(0, 200) : String(error);
-        await chromeChatReply(chatId, `That request failed. ${detail}`);
+      if (result.error) {
+        await chromeChatReply(chatId, `That request failed. ${result.error.slice(0, 240)}`);
         return;
       }
 
-      const { text, action } = takeAction(reply);
-      let note = "";
-      if (action) {
-        note = aiDriving()
-          ? await runBrowserAction(action)
-          : "You paused Lantas, so nothing in the tab was changed.";
-      }
-
-      const answerText = text.trim() || (action ? "On it." : "No answer came back.");
-      await chromeChatReply(chatId, answerText, note || undefined);
-      const assistantTurn: Turn = {
-        role: "assistant",
-        content: note ? `${answerText}\n[${note}]` : answerText,
-      };
-      history.set(chatId, [...turns, assistantTurn].slice(-10));
+      histories.set(chatId, result.history);
+      const note =
+        mode === "act" && result.tools > 0
+          ? `${result.tools} browser step${result.tools === 1 ? "" : "s"} in this tab`
+          : undefined;
+      const text =
+        result.text || (result.tools > 0 ? "Done. Nothing else was needed." : "No answer came back.");
+      await chromeChatReply(chatId, text, note);
     };
 
     const tick = async () => {
       const status = await chromeStatus();
       for (const event of status.events) {
+        if (event.type === "catalog_request") {
+          if (Date.now() - lastCatalogPush < 2500) continue;
+          lastCatalogPush = Date.now();
+          publishCatalog();
+          continue;
+        }
         if (event.type !== "chat" || !event.id || seen.has(event.id)) continue;
         seen.add(event.id);
-        void answer(event.id, event.text ?? "", event.page ?? null, event.elements ?? null);
+        publishCatalog();
+        void answer(
+          event.id,
+          event.text ?? "",
+          event.page ?? null,
+          event.elements ?? null,
+          String(event.provider ?? ""),
+          String(event.model ?? ""),
+          event.mode === "ask" ? "ask" : "act",
+        );
       }
     };
 
@@ -542,13 +585,19 @@ export function App() {
       setView("integrations");
       notify("Connect Gmail or Composio in Integrations");
     };
+    const onSettings = (event: Event) => {
+      const detail = (event as CustomEvent<{ tab?: SettingsTab }>).detail;
+      openSettings(detail?.tab ?? "general");
+    };
     window.addEventListener("lantas:prompt", onPrompt);
     window.addEventListener("lantas:ask", onAsk);
     window.addEventListener("lantas:gmail", onGmail);
+    window.addEventListener("lantas:settings", onSettings);
     return () => {
       window.removeEventListener("lantas:prompt", onPrompt);
       window.removeEventListener("lantas:ask", onAsk);
       window.removeEventListener("lantas:gmail", onGmail);
+      window.removeEventListener("lantas:settings", onSettings);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -824,6 +873,13 @@ export function App() {
               };
               if (index >= 0) toolFiles[index] = entry;
               else toolFiles.push(entry);
+              // In the IDE an assistant edit is a proposal until the user keeps
+              // it, matching the review step in Cursor. Chat mode applies it.
+              if (state.mode === "code") {
+                stageChange(path, content);
+                patchWorkspaceFile(path, content);
+                return true;
+              }
               patchWorkspaceFile(path, content);
               try {
                 return await writeWorkspaceFile(state.workspaceRoot, path, content);
@@ -1056,7 +1112,9 @@ export function App() {
       state.skills,
       state.workspace,
       state.workspaceRoot,
+      state.mode,
       patchWorkspaceFile,
+      stageChange,
       requestApproval,
       updateSession,
     ],

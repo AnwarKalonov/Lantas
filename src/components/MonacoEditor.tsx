@@ -6,6 +6,7 @@ import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
 import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 import { monacoLanguage } from "../lib/ide";
+import type { EditorSettings } from "../lib/types";
 
 /**
  * Monaco is VS Code's editor, so the IDE gets real syntax highlighting, real
@@ -85,6 +86,7 @@ interface MonacoEditorProps {
   path: string;
   value: string;
   theme: "dark" | "light";
+  editor: EditorSettings;
   initialLine?: number;
   onChange: (value: string) => void;
   onSave: () => void;
@@ -95,6 +97,7 @@ export function MonacoEditor({
   path,
   value,
   theme,
+  editor: prefs,
   initialLine,
   onChange,
   onSave,
@@ -114,19 +117,19 @@ export function MonacoEditor({
       language: monacoLanguage(path),
       theme: theme === "dark" ? "lantas-dark" : "lantas-light",
       automaticLayout: true,
-      fontFamily: '"SF Mono", ui-monospace, Menlo, monospace',
-      fontSize: 13,
-      lineHeight: 21,
+      fontFamily: prefs.fontFamily,
+      fontSize: prefs.fontSize,
+      lineHeight: prefs.lineHeight,
       fontLigatures: false,
-      minimap: { enabled: true, renderCharacters: false, maxColumn: 90 },
+      minimap: { enabled: prefs.minimap, renderCharacters: false, maxColumn: 90 },
       scrollBeyondLastLine: false,
       smoothScrolling: true,
       cursorBlinking: "smooth",
       cursorSmoothCaretAnimation: "on",
       renderLineHighlight: "all",
       padding: { top: 12, bottom: 24 },
-      tabSize: 2,
-      wordWrap: "off",
+      tabSize: prefs.tabSize,
+      wordWrap: prefs.wordWrap,
       overviewRulerBorder: false,
       hideCursorInOverviewRuler: true,
       scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10, useShadows: false },
@@ -207,6 +210,18 @@ export function MonacoEditor({
   useEffect(() => {
     monaco.editor.setTheme(theme === "dark" ? "lantas-dark" : "lantas-light");
   }, [theme]);
+
+  // VS Code settings imported in the Extensions panel land here immediately.
+  useEffect(() => {
+    editorRef.current?.updateOptions({
+      fontFamily: prefs.fontFamily,
+      fontSize: prefs.fontSize,
+      lineHeight: prefs.lineHeight,
+      tabSize: prefs.tabSize,
+      wordWrap: prefs.wordWrap,
+      minimap: { enabled: prefs.minimap, renderCharacters: false, maxColumn: 90 },
+    });
+  }, [prefs]);
 
   return <div className="ide-monaco" ref={host} />;
 }

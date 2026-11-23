@@ -22,6 +22,20 @@ import { elClick, elEval, elHistory, elNavigate, elReload } from "./native";
 const looksLikeSelector = (value: string) =>
   /^[#.]/.test(value) || /^\w+\[/.test(value) || /^[a-z][\w-]*\s*>/.test(value);
 
+/**
+ * One turn can force a target engine. The Chrome side panel always talks to the
+ * user's Chrome tab, even when the app's own browser is showing Lantas' engine.
+ */
+let engineOverride: BrowserEngine | null = null;
+
+export function setBrowserEngineOverride(engine: BrowserEngine | null) {
+  engineOverride = engine;
+}
+
+function activeEngine(): BrowserEngine {
+  return engineOverride ?? browserEngine();
+}
+
 /** Chrome's page shape has an optional description; the model side does not. */
 function asElPage(page: ChromePage | null): ElPage | null {
   if (!page) return null;
@@ -43,7 +57,7 @@ export interface BrowserSnapshot {
 }
 
 export async function agentClick(target: string): Promise<boolean> {
-  if (browserEngine() === "chrome") {
+  if (activeEngine() === "chrome") {
     try {
       await chromeCommand("act", {
         action: "click",
@@ -60,7 +74,7 @@ export async function agentClick(target: string): Promise<boolean> {
 
 /** Clicks the Nth interactive element from the last snapshot. */
 export async function agentClickRef(index: number): Promise<boolean> {
-  if (browserEngine() !== "chrome") return false;
+  if (activeEngine() !== "chrome") return false;
   try {
     await chromeCommand("act", { action: "click", index });
     return true;
@@ -70,7 +84,7 @@ export async function agentClickRef(index: number): Promise<boolean> {
 }
 
 export async function agentType(text: string, selector?: string, submit = false): Promise<boolean> {
-  if (browserEngine() === "chrome") {
+  if (activeEngine() === "chrome") {
     try {
       await chromeCommand("act", { action: "type", text, selector, submit });
       return true;
@@ -100,7 +114,7 @@ export async function agentEnter(): Promise<boolean> {
 }
 
 export async function agentPress(key: string): Promise<boolean> {
-  if (browserEngine() === "chrome") {
+  if (activeEngine() === "chrome") {
     try {
       await chromeCommand("act", { action: "press", key });
       return true;
@@ -124,7 +138,7 @@ export async function agentPress(key: string): Promise<boolean> {
 }
 
 export async function agentScroll(pixels: number): Promise<boolean> {
-  if (browserEngine() === "chrome") {
+  if (activeEngine() === "chrome") {
     try {
       await chromeCommand("act", { action: "scroll", dy: pixels });
       return true;
@@ -137,7 +151,7 @@ export async function agentScroll(pixels: number): Promise<boolean> {
 }
 
 export async function agentNavigate(url: string): Promise<boolean> {
-  if (browserEngine() === "chrome") {
+  if (activeEngine() === "chrome") {
     try {
       await chromeCommand("navigate", { url });
       return true;
@@ -154,7 +168,7 @@ export async function agentNavigate(url: string): Promise<boolean> {
 }
 
 export async function agentHistory(direction: "back" | "forward"): Promise<boolean> {
-  if (browserEngine() === "chrome") {
+  if (activeEngine() === "chrome") {
     try {
       await chromeCommand("history", { direction });
       return true;
@@ -167,7 +181,7 @@ export async function agentHistory(direction: "back" | "forward"): Promise<boole
 }
 
 export async function agentReload(): Promise<boolean> {
-  if (browserEngine() === "chrome") {
+  if (activeEngine() === "chrome") {
     try {
       await chromeCommand("reload");
       return true;
@@ -181,7 +195,7 @@ export async function agentReload(): Promise<boolean> {
 
 /** The page's text as the model should see it, from Chrome or from the native engine. */
 export async function agentPage(): Promise<ElPage | null> {
-  if (browserEngine() !== "chrome") return getElContext();
+  if (activeEngine() !== "chrome") return getElContext();
   try {
     const result = await chromeCommand("read");
     return asElPage(result.page ?? null);
@@ -192,7 +206,7 @@ export async function agentPage(): Promise<ElPage | null> {
 
 /** Page text plus the numbered interactive elements Chrome can see. */
 export async function agentSnapshot(): Promise<BrowserSnapshot> {
-  const engine = browserEngine();
+  const engine = activeEngine();
   if (engine === "chrome") {
     try {
       const result = await chromeCommand("read");

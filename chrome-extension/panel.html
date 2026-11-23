@@ -2,73 +2,116 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Lantas</title>
     <link rel="stylesheet" href="panel.css" />
   </head>
   <body>
-    <header class="top">
-      <img class="mark" src="icons/icon48.png" alt="" />
+    <header class="bar">
       <div class="ident">
-        <strong>Lantas</strong>
-        <span class="status" id="status"><i class="status-dot" id="dot"></i><span id="status-text">Checking</span></span>
+        <span class="glyph" aria-hidden="true">
+          <img src="icons/icon32.png" alt="" />
+        </span>
+        <span class="name">Lantas</span>
+        <span class="conn" id="conn"><i id="dot"></i><span id="status-text">Offline</span></span>
       </div>
-      <button class="icon-button" id="read" type="button" title="Read this tab">Read</button>
+      <div class="bar-actions">
+        <button class="icon" id="refresh-page" type="button" title="Read this tab again" aria-label="Read this tab again">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <path d="M13.2 6.4A5.4 5.4 0 1 0 13 9.8" /><path d="M13.4 2.9v3.7H9.7" />
+          </svg>
+        </button>
+        <button class="icon" id="new-chat" type="button" title="New chat" aria-label="New chat">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <path d="M8 3.5v9M3.5 8h9" />
+          </svg>
+        </button>
+      </div>
     </header>
 
-    <section class="tab">
-      <span class="tab-mark" id="tab-mark">·</span>
-      <div class="tab-text">
-        <strong id="tab-title">No website open</strong>
-        <span id="tab-url"></span>
+    <section class="ctx" id="ctx">
+      <span class="ctx-mark" id="ctx-mark">·</span>
+      <div class="ctx-text">
+        <strong id="ctx-title">No page open</strong>
+        <span id="ctx-url">Open a site, then ask about it</span>
       </div>
+      <span class="ctx-state" id="ctx-state"></span>
     </section>
 
     <main class="thread" id="thread">
       <div class="empty" id="empty">
-        <p class="empty-title">Ask, or say what to click</p>
-        <p class="empty-copy">
-          Lantas reads this tab and can act in it. Keep the app open on this Mac.
+        <p class="eyebrow">This tab</p>
+        <h1>Ask the page.</h1>
+        <p class="lede" id="empty-copy">
+          Lantas reads what you are looking at and can act in it. Keep the app open on this Mac.
         </p>
-        <div class="chips">
-          <button type="button" data-prompt="Summarize this page in five lines.">Summarize this page</button>
-          <button type="button" data-prompt="What can I do on this page?">What can I do</button>
-          <button type="button" data-prompt="Find the main action on this page and click it.">Do the main action</button>
+        <div class="prompts">
+          <button type="button" data-prompt="Summarize this page in five lines.">
+            <span>Summarize this page</span>
+            <span class="arrow">→</span>
+          </button>
+          <button type="button" data-prompt="What are the main actions available on this page?">
+            <span>Find what I can do here</span>
+            <span class="arrow">→</span>
+          </button>
+          <button type="button" data-prompt="Read this page and tell me what is wrong, missing or misleading.">
+            <span>Review the content</span>
+            <span class="arrow">→</span>
+          </button>
         </div>
       </div>
       <div class="messages" id="messages"></div>
     </main>
 
     <form class="composer" id="form">
-      <textarea
-        id="input"
-        rows="1"
-        placeholder="Ask about this tab, or tell it what to do"
-        autocomplete="off"
-      ></textarea>
-      <button class="send" id="send" type="submit" aria-label="Send" title="Send">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-          <path d="M12 19V5" /><path d="m6 11 6-6 6 6" />
-        </svg>
-      </button>
+      <textarea id="input" rows="1" placeholder="Ask, or describe a task" autocomplete="off" aria-label="Message Lantas"></textarea>
+      <div class="composer-foot">
+        <div class="picks">
+          <div class="pick-wrap">
+            <button class="pick" id="mode-button" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span class="pick-dot" id="mode-dot"></span>
+              <span id="mode-label">Act</span>
+              <svg viewBox="0 0 10 6" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="m1 1 4 4 4-4" /></svg>
+            </button>
+            <div class="menu mode-menu" id="mode-menu" role="listbox" hidden>
+              <button type="button" data-mode="ask" role="option">
+                <span class="menu-name">Ask</span>
+                <span class="menu-note">Read the page, change nothing</span>
+              </button>
+              <button type="button" data-mode="act" role="option">
+                <span class="menu-name">Act</span>
+                <span class="menu-note">Read, click, type and navigate</span>
+              </button>
+            </div>
+          </div>
+          <div class="pick-wrap">
+            <button class="pick pick-model" id="model-button" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span id="model-label">Model</span>
+              <svg viewBox="0 0 10 6" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="m1 1 4 4 4-4" /></svg>
+            </button>
+            <div class="menu model-menu" id="model-menu" hidden>
+              <label class="menu-filter">
+                <svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="6" cy="6" r="4" /><path d="m9 9 3 3" /></svg>
+                <input id="model-filter" type="search" placeholder="Filter models" autocomplete="off" spellcheck="false" />
+              </label>
+              <div class="menu-list" id="model-list" role="listbox"></div>
+              <button class="menu-manage" id="model-manage" type="button">Choose providers in Lantas</button>
+            </div>
+          </div>
+        </div>
+        <button class="send" id="send" type="submit" aria-label="Send" title="Send">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+            <path d="M8 13V3" /><path d="m3.5 7.5 4.5-4.5 4.5 4.5" />
+          </svg>
+        </button>
+      </div>
     </form>
 
     <footer class="foot">
-      <label class="drive" for="drive">
-        <span class="track"><span class="thumb"></span></span>
-        <input type="checkbox" id="drive" />
-        Let Lantas act
-      </label>
-      <span class="foot-note" id="version">Chrome</span>
+      <span class="foot-note" id="foot-note">Reads this tab only</span>
+      <button class="id-chip" id="ext-id" type="button" title="Copy extension ID">Extension ID</button>
     </footer>
-
-    <details class="meta">
-      <summary>Extension details</summary>
-      <div class="meta-row">
-        <code id="ext-id">…</code>
-        <button type="button" id="copy-id">Copy</button>
-      </div>
-    </details>
 
     <script src="panel.js"></script>
   </body>

@@ -33,6 +33,26 @@ If `tauri` reports `failed to run 'cargo metadata'`, Rust is missing from
 `PATH` — open a new terminal. On Linux, `tauri dev` also needs
 `libwebkit2gtk-4.1` and `libgtk-3` development packages.
 
+## Terminal app
+
+The same agent runs without a window. It is one dependency-free Node file plus
+the ANSI logo, so it starts instantly and works over SSH.
+
+```bash
+node cli/lantas.mjs          # or: npm run cli
+bash scripts/install-cli.sh  # put `lantas` on PATH under ~/.local/bin
+lantas setup                 # choose a provider, model and key
+lantas "find the failing test and fix it"
+```
+
+A session has the same plan/build split as the app. `--plan` is read-only;
+build mode shows a real diff and asks before every write or command. The tools
+are `read`, `glob`, `grep`, `write`, `edit` and `bash`, with one command at a
+time and a whole-folder file map in the prompt. Keys live in
+`~/.lantas/config.json` with mode `0600`, or in the provider's usual environment
+variable. `/model`, `/provider`, `/plan`, `/build`, `/auto` and `/clear` work
+inside a session. Use `--yes` only when you mean it.
+
 ## Updates
 
 The installed app updates itself. On launch it reads `latest.json` from the newest
@@ -117,6 +137,13 @@ quick open (⌘P), workspace search, an unsaved-changes panel and an assistant d
 Open a folder to read and write real files; dropped files work read-only. Saves
 write back through Tauri's fs plugin on desktop and the File System Access API in
 a browser tab.
+
+Assistant edits in code mode are staged instead of written immediately: review the
+diff, then **Keep** or **Decline** each file (or all of them) from the review bar.
+Source control is the user's own git through the Rust commands — status, diffs,
+stage, commit, pull, push and origin setup — and it never stores a token. The
+extensions panel imports VS Code settings, themes, snippets and the extension
+inventory; VS Code extension code itself still needs VS Code's extension host.
 
 ## Layout
 

@@ -37,12 +37,31 @@ export function currentScreen() {
 /** One JPEG frame from the stream, used to attach what the agent should see. */
 export async function captureFrame(stream: MediaStream, maxWidth = 1280): Promise<string | null> {
   const track = stream.getVideoTracks()[0];
-  if (!track) return null;
+  if (!track || track.readyState === "ended") return null;
   const video = document.createElement("video");
   video.srcObject = new MediaStream([track]);
   video.muted = true;
-  await video.play().catch(() => {});
-  await new Promise((resolve) => setTimeout(resolve, 120));
+  video.playsInline = true;
+
+  // A freshly created <video> has no dimensions until metadata lands; drawing
+  // before that produces a blank frame, which reads as "I can't see anything".
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    video.addEventListener("loadeddata", done, { once: true });
+    video.addEventListener("resize", done, { once: true });
+    window.setTimeout(done, 800);
+    void video.play().catch(() => {});
+  });
+
+  for (let attempt = 0; attempt < 10 && video.videoWidth === 0; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 60));
+  }
+  if (video.videoWidth === 0) return null;
   const scale = Math.min(1, maxWidth / (video.videoWidth || maxWidth));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round((video.videoWidth || maxWidth) * scale);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { runAgent, type Emit } from "./lib/agent";
-import { buildHistory, buildSystemPrompt } from "./lib/chat";
+import { buildHistory, buildSystemPrompt, parseImage } from "./lib/chat";
 import { isConfigured, streamChat } from "./lib/providers";
 import { useStore } from "./lib/store";
 import { acquireScreen, captureFrame, currentScreen, releaseScreen } from "./lib/screen";
@@ -398,9 +398,21 @@ export function App() {
           let inputTokens = 0;
           let outputTokens = 0;
 
-          const history = snapshot
-            ? [...buildHistory(snapshot), { role: "user" as const, content: text || "(attachment)" }]
-            : [{ role: "user" as const, content: text || "(attachment)" }];
+          const images = outgoing
+            .filter((file) => file.kind === "image")
+            .map((file) => parseImage(file.body))
+            .filter((image): image is { mime: string; data: string } => Boolean(image))
+            .slice(0, 4);
+          const fileText = outgoing
+            .filter((file) => file.kind === "text")
+            .map((file) => `<file name="${file.name}">\n${file.body.slice(0, 24_000)}\n</file>`)
+            .join("\n\n");
+          const userTurn = {
+            role: "user" as const,
+            content: [text, fileText].filter(Boolean).join("\n\n") || "(attachment)",
+            ...(images.length ? { images } : {}),
+          };
+          const history = snapshot ? [...buildHistory(snapshot), userTurn] : [userTurn];
 
           const system = snapshot
             ? buildSystemPrompt(snapshot, state.skills)

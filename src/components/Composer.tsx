@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../lib/store";
 import { AGENTS, PROVIDERS, SLASH_COMMANDS } from "../lib/data";
-import { isConfigured, prettyModel } from "../lib/providers";
+import { isConfigured, isFreeModel, prettyModel } from "../lib/providers";
 import { fileKind } from "../lib/workspace";
 import type { AgentId, Attachment, ProviderId } from "../lib/types";
 import { cx, uid } from "../lib/util";
@@ -45,6 +45,7 @@ export function Composer({
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [menu, setMenu] = useState<"agent" | "model" | null>(null);
+  const [modelQuery, setModelQuery] = useState("");
   const [slashIndex, setSlashIndex] = useState(0);
   const [mentionIndex, setMentionIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -430,63 +431,166 @@ export function Composer({
             </div>
           )}
 
-          {menu === "model" && (
-            <div className="popover model-popover">
-              {PROVIDERS.map((meta) => {
-                const config = state.settings.providers[meta.id];
-                const ready = isConfigured(meta.id, config);
-                const models = Array.from(new Set([...config.models, ...meta.models, model]));
-                return (
-                  <div className="model-group" key={meta.id}>
+          {menu === "model" && (() => {
+            const query = modelQuery.trim().toLowerCase();
+            const favorites = state.settings.favoriteModels;
+            const key = (id: ProviderId, entry: string) => `${id}/${entry}`;
+            const toggleFavorite = (id: ProviderId, entry: string) => {
+              const value = key(id, entry);
+              setSettings({
+                favoriteModels: favorites.includes(value)
+                  ? favorites.filter((item) => item !== value)
+                  : [...favorites, value],
+              });
+            };
+
+            return (
+              <div className="popover model-popover">
+                <label className="popover-search">
+                  <Icon name="search" size={12} />
+                  <input
+                    autoFocus
+                    value={modelQuery}
+                    onChange={(event) => setModelQuery(event.target.value)}
+                    placeholder="Search models — “free”"
+                    spellCheck={false}
+                  />
+                </label>
+
+                {favorites.length > 0 && query === "" && (
+                  <div className="model-group pinned-section">
                     <div className="model-group-label">
-                      <span>{meta.name}</span>
-                      {meta.local ? (
-                        <span className="model-tag">local</span>
-                      ) : ready ? null : (
-                        <span className="model-tag">needs key</span>
-                      )}
+                      <span>Pinned</span>
                     </div>
-                    {ready ? (
-                      models.map((entry) => (
+                    {favorites.map((value) => {
+                      const [id, ...rest] = value.split("/");
+                      const entry = rest.join("/");
+                      if (!PROVIDERS.some((meta) => meta.id === id)) return null;
+                      return (
                         <button
-                          key={`${meta.id}-${entry}`}
+                          key={value}
                           type="button"
                           className={cx(
                             "popover-row model-option",
-                            meta.id === provider && entry === model && "is-active",
+                            id === provider && entry === model && "is-active",
                           )}
                           onClick={() => {
-                            onModelChange(meta.id, entry);
+                            onModelChange(id as ProviderId, entry);
                             setMenu(null);
                           }}
                         >
                           <span className="popover-title">{prettyModel(entry)}</span>
-                          {meta.id === provider && entry === model && <Icon name="check" size={14} />}
+                          {isFreeModel(id as ProviderId, entry) && (
+                            <span className="model-free">free</span>
+                          )}
+                          {id === provider && entry === model && <Icon name="check" size={14} />}
                         </button>
-                      ))
-                    ) : (
-                      <button
-                        type="button"
-                        className="popover-row model-option is-muted"
-                        onClick={() => {
-                          setMenu(null);
-                          onOpenProviders();
-                        }}
-                      >
-                        <span className="popover-title">Connect {meta.name}</span>
-                        <Icon name="chevronRight" size={14} />
-                      </button>
-                    )}
+                      );
+                    })}
                   </div>
-                );
-              })}
-              <div className="popover-foot">
-                <button type="button" className="text-button" onClick={onOpenProviders}>
-                  Manage providers
-                </button>
+                )}
+
+                {PROVIDERS.map((meta) => {
+                  const config = state.settings.providers[meta.id];
+                  const ready = isConfigured(meta.id, config);
+                  const all = Array.from(new Set([...config.models, ...meta.models, model]));
+                  const models = all
+                    .filter(
+                      (entry) =>
+                        query === "" ||
+                        entry.toLowerCase().includes(query) ||
+                        prettyModel(entry).toLowerCase().includes(query),
+                    )
+                    .sort((a, b) => {
+                      if (meta.id === "openrouter") {
+                        const free =
+                          Number(isFreeModel(meta.id, b)) - Number(isFreeModel(meta.id, a));
+                        if (free !== 0) return free;
+                      }
+                      return a.localeCompare(b);
+                    });
+                  const shown = query === "" ? models.slice(0, 8) : models.slice(0, 40);
+                  // While searching, only groups with a hit are worth showing.
+                  if (query !== "" && (!ready || shown.length === 0)) return null;
+
+                  return (
+                    <div className="model-group" key={meta.id}>
+                      <div className="model-group-label">
+                        <span>{meta.name}</span>
+                        {meta.local ? (
+                          <span className="model-tag">local</span>
+                        ) : ready ? (
+                          <span className="model-tag">{all.length}</span>
+                        ) : (
+                          <span className="model-tag">needs key</span>
+                        )}
+                      </div>
+                      {ready ? (
+                        shown.map((entry) => (
+                          <button
+                            key={`${meta.id}-${entry}`}
+                            type="button"
+                            className={cx(
+                              "popover-row model-option",
+                              meta.id === provider && entry === model && "is-active",
+                            )}
+                            onClick={() => {
+                              onModelChange(meta.id, entry);
+                              setMenu(null);
+                            }}
+                          >
+                            <span className="popover-title">
+                              {prettyModel(entry)}
+                              {isFreeModel(meta.id, entry) && <span className="model-free">free</span>}
+                            </span>
+                            <span
+                              className={cx(
+                                "model-star",
+                                favorites.includes(key(meta.id, entry)) && "is-pinned",
+                              )}
+                              role="button"
+                              aria-label={`Pin ${entry}`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                toggleFavorite(meta.id, entry);
+                              }}
+                            >
+                              <Icon name="sparkle" size={12} />
+                            </span>
+                            {meta.id === provider && entry === model && (
+                              <Icon name="check" size={14} />
+                            )}
+                          </button>
+                        ))
+                      ) : (
+                        <button
+                          type="button"
+                          className="popover-row model-option is-muted"
+                          onClick={() => {
+                            setMenu(null);
+                            onOpenProviders();
+                          }}
+                        >
+                          <span className="popover-title">Connect {meta.name}</span>
+                          <Icon name="chevronRight" size={14} />
+                        </button>
+                      )}
+                      {ready && shown.length < all.length && query === "" && (
+                        <p className="popover-hint">
+                          {all.length - shown.length} more — search to narrow
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+                <div className="popover-foot">
+                  <button type="button" className="text-button" onClick={onOpenProviders}>
+                    Manage providers
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </div>
 

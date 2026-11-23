@@ -3,6 +3,7 @@ import { AGENTS, KEYBINDS, PROVIDERS } from "../lib/data";
 import {
   getProvider,
   isConfigured,
+  isFreeModel,
   listModels,
   prettyModel,
   testProvider,
@@ -239,6 +240,8 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
   const { state, setSettings, updateSkill, setView, setCommands, notify } = useStore();
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [draft, setDraft] = useState({ name: "", description: "", template: "" });
+  const [modelQuery, setModelQuery] = useState("");
+  const [freeOnly, setFreeOnly] = useState(false);
   const settings = state.settings;
 
   useEffect(() => {
@@ -255,6 +258,39 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
   }, [open, onClose]);
 
   if (!open) return null;
+
+  const favoriteKey = (provider: ProviderId, model: string) => `${provider}/${model}`;
+  const isFavorite = (provider: ProviderId, model: string) =>
+    settings.favoriteModels.includes(favoriteKey(provider, model));
+  const toggleFavorite = (provider: ProviderId, model: string) => {
+    const key = favoriteKey(provider, model);
+    setSettings({
+      favoriteModels: settings.favoriteModels.includes(key)
+        ? settings.favoriteModels.filter((entry) => entry !== key)
+        : [...settings.favoriteModels, key],
+    });
+  };
+
+  const query = modelQuery.trim().toLowerCase();
+  const matches = (provider: ProviderId, model: string) => {
+    if (freeOnly && !isFreeModel(provider, model)) return false;
+    if (!query) return true;
+    return (
+      model.toLowerCase().includes(query) || prettyModel(model).toLowerCase().includes(query)
+    );
+  };
+  const activeModels = PROVIDERS.filter((meta) =>
+    isConfigured(meta.id, settings.providers[meta.id]),
+  ).flatMap((meta) =>
+    Array.from(new Set([...settings.providers[meta.id].models, ...meta.models])).map((model) => ({
+      provider: meta.id,
+      providerName: meta.name,
+      model,
+    })),
+  );
+  const pinned = activeModels.filter(
+    (entry) => isFavorite(entry.provider, entry.model) && matches(entry.provider, entry.model),
+  );
 
   const connected = PROVIDERS.filter((meta) =>
     isConfigured(meta.id, settings.providers[meta.id]),
@@ -373,15 +409,93 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
                 </div>
               )}
 
+              {connected.length > 0 && (
+                <div className="model-toolbar">
+                  <label className="code-filter model-search">
+                    <Icon name="search" size={13} />
+                    <input
+                      value={modelQuery}
+                      onChange={(event) => setModelQuery(event.target.value)}
+                      placeholder="Search models — try “free”"
+                      spellCheck={false}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className={cx("chip", freeOnly && "is-active")}
+                    onClick={() => setFreeOnly((value) => !value)}
+                  >
+                    <Icon name="sparkle" size={12} />
+                    Free only
+                  </button>
+                  {modelQuery && (
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => setModelQuery("")}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {pinned.length > 0 && (
+                <div className="model-section pinned-section">
+                  <div className="model-section-head">
+                    <span>Pinned</span>
+                    <span className="model-section-meta">{pinned.length}</span>
+                  </div>
+                  {pinned.map(({ provider, providerName, model }) => {
+                    const active =
+                      settings.defaultProvider === provider && settings.defaultModel === model;
+                    return (
+                      <button
+                        key={`pin-${provider}-${model}`}
+                        type="button"
+                        className={cx("model-row", active && "is-active")}
+                        onClick={() => setSettings({ defaultProvider: provider, defaultModel: model })}
+                      >
+                        <span className="model-radio">{active && <span />}</span>
+                        <span className="model-text">
+                          <span className="model-name">
+                            {prettyModel(model)}
+                            {isFreeModel(provider, model) && <span className="model-free">free</span>}
+                          </span>
+                          <span className="model-sub mono">
+                            {providerName} · {model}
+                          </span>
+                        </span>
+                        <span
+                          className="model-star is-pinned"
+                          role="button"
+                          aria-label={`Unpin ${model}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleFavorite(provider, model);
+                          }}
+                        >
+                          <Icon name="sparkle" size={13} />
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               {connected.map((meta) => {
                 const config = settings.providers[meta.id];
-                const models = Array.from(new Set([...config.models, ...meta.models]));
+                const models = Array.from(new Set([...config.models, ...meta.models]))
+                  .filter((model) => matches(meta.id, model))
+                  .sort((a, b) => a.localeCompare(b));
+                const total = Array.from(new Set([...config.models, ...meta.models])).length;
+
                 return (
                   <div className="model-section" key={meta.id}>
                     <div className="model-section-head">
                       <span>{meta.name}</span>
                       <span className="model-section-meta">
-                        {meta.local ? "local" : meta.kind}
+                        {query || freeOnly ? `${models.length} of ${total}` : `${total} models`}
                       </span>
                     </div>
                     {models.map((model) => {
@@ -398,8 +512,22 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
                         >
                           <span className="model-radio">{active && <span />}</span>
                           <span className="model-text">
-                            <span className="model-name">{prettyModel(model)}</span>
+                            <span className="model-name">
+                              {prettyModel(model)}
+                              {isFreeModel(meta.id, model) && <span className="model-free">free</span>}
+                            </span>
                             <span className="model-sub mono">{model}</span>
+                          </span>
+                          <span
+                            className={cx("model-star", isFavorite(meta.id, model) && "is-pinned")}
+                            role="button"
+                            aria-label={`Pin ${model}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleFavorite(meta.id, model);
+                            }}
+                          >
+                            <Icon name="sparkle" size={13} />
                           </span>
                           {active && <Icon name="check" size={14} />}
                         </button>
@@ -407,7 +535,9 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
                     })}
                     {models.length === 0 && (
                       <p className="empty-line">
-                        No models found yet. Fetch them in Providers → {meta.name}.
+                        {total === 0
+                          ? `No models found yet. Fetch them in Providers → ${meta.name}.`
+                          : "Nothing matches that filter."}
                       </p>
                     )}
                   </div>

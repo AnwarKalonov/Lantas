@@ -142,6 +142,7 @@ export const DEFAULT_SETTINGS: Settings = {
   computerControl: false,
   telemetry: false,
   notifications: true,
+  favoriteModels: [],
   providers: defaultProviders(),
 };
 

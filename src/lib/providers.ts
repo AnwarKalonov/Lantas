@@ -75,9 +75,17 @@ export function isConfigured(id: ProviderId, config: ProviderConfig): boolean {
   return Boolean(resolveBase(config, meta));
 }
 
+export interface ChatImage {
+  /** image/jpeg, image/png, image/webp */
+  mime: string;
+  /** Base64 without the data: prefix. */
+  data: string;
+}
+
 export interface ChatTurn {
   role: "user" | "assistant";
   content: string;
+  images?: ChatImage[];
 }
 
 export interface StreamUsage {
@@ -152,7 +160,20 @@ async function streamAnthropic(options: StreamOptions): Promise<void> {
       max_tokens: 4096,
       stream: true,
       ...(options.system ? { system: options.system } : {}),
-      messages: options.messages,
+      messages: options.messages.map((message) =>
+        message.images?.length
+          ? {
+              role: message.role,
+              content: [
+                ...message.images.map((image) => ({
+                  type: "image",
+                  source: { type: "base64", media_type: image.mime, data: image.data },
+                })),
+                ...(message.content ? [{ type: "text", text: message.content }] : []),
+              ],
+            }
+          : { role: message.role, content: message.content },
+      ),
     }),
   });
 
@@ -196,7 +217,20 @@ async function streamOpenAI(options: StreamOptions): Promise<void> {
   const base = resolveBase(options.config, meta);
   const messages = [
     ...(options.system ? [{ role: "system", content: options.system }] : []),
-    ...options.messages,
+    ...options.messages.map((message) =>
+      message.images?.length
+        ? {
+            role: message.role,
+            content: [
+              ...(message.content ? [{ type: "text", text: message.content }] : []),
+              ...message.images.map((image) => ({
+                type: "image_url",
+                image_url: { url: `data:${image.mime};base64,${image.data}` },
+              })),
+            ],
+          }
+        : { role: message.role, content: message.content },
+    ),
   ];
 
   const response = await httpFetch(`${base}/chat/completions`, {
@@ -205,6 +239,9 @@ async function streamOpenAI(options: StreamOptions): Promise<void> {
     headers: {
       "content-type": "application/json",
       ...(apiKeyOf(options.config) ? { authorization: `Bearer ${apiKeyOf(options.config)}` } : {}),
+      ...(options.provider === "openrouter"
+        ? { "http-referer": "https://github.com/AnwarKalonov/Lantas", "x-title": "Lantas" }
+        : {}),
     },
     body: JSON.stringify({
       model: options.model,
@@ -258,11 +295,17 @@ async function streamGoogleInteractions(options: StreamOptions): Promise<void> {
   const meta = getProvider("google");
   const base = resolveBase(options.config, meta);
 
-  const steps = options.messages.map((message) =>
-    message.role === "assistant"
-      ? { type: "model_output", content: [{ type: "text", text: message.content }] }
-      : { type: "user_input", content: [{ type: "text", text: message.content }] },
-  );
+  const steps = options.messages.map((message) => ({
+    type: message.role === "assistant" ? "model_output" : "user_input",
+    content: [
+      ...(message.content ? [{ type: "text", text: message.content }] : []),
+      ...(message.images ?? []).map((image) => ({
+        type: "image",
+        mime_type: image.mime,
+        data: image.data,
+      })),
+    ],
+  }));
 
   const response = await httpFetch(`${base}/interactions?alt=sse`, {
     method: "POST",
@@ -325,7 +368,12 @@ async function streamGoogle(options: StreamOptions): Promise<void> {
 
   const contents = options.messages.map((message) => ({
     role: message.role === "assistant" ? "model" : "user",
-    parts: [{ text: message.content }],
+    parts: [
+      ...(message.content ? [{ text: message.content }] : []),
+      ...(message.images ?? []).map((image) => ({
+        inline_data: { mime_type: image.mime, data: image.data },
+      })),
+    ],
   }));
 
   const response = await httpFetch(
@@ -388,7 +436,11 @@ async function streamOllama(options: StreamOptions): Promise<void> {
   const base = resolveBase(options.config, meta);
   const messages = [
     ...(options.system ? [{ role: "system", content: options.system }] : []),
-    ...options.messages,
+    ...options.messages.map((message) => ({
+      role: message.role,
+      content: message.content,
+      ...(message.images?.length ? { images: message.images.map((image) => image.data) } : {}),
+    })),
   ];
 
   const response = await httpFetch(`${base}/api/chat`, {
@@ -448,6 +500,32 @@ export function streamChat(options: StreamOptions): Promise<void> {
 /* ------------------------------------------------------------------ *
  * Model discovery and connection tests
  * ------------------------------------------------------------------ */
+
+const FREE_GOOGLE = new Set([
+  "gemini-3.8-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+  "gemini-4-hydrogen",
+]);
+
+/** Free today: OpenRouter's :free variants and Google's free-tier rows. */
+export function isFreeModel(provider: ProviderId, model: string): boolean {
+  if (model.includes(":free")) return true;
+  if (provider === "google") return FREE_GOOGLE.has(model);
+  return false;
+}
+
+/** The cheapest thing worth spending on a connection test. */
+export function pickTestModel(provider: ProviderId, models: string[]): string {
+  return (
+    models.find((model) => isFreeModel(provider, model)) ??
+    models.find((model) => !/pro|opus|sonnet/i.test(model)) ??
+    models[0]
+  );
+}
 
 export interface ProviderStatus {
   ok: boolean;
@@ -516,7 +594,13 @@ export async function listModels(
     const models: string[] = (data.data ?? data.models ?? [])
       .map((model: any) => model.id ?? model.name)
       .filter(Boolean)
-      .sort();
+      .sort((a: string, b: string) => {
+        if (id === "openrouter") {
+          const free = Number(b.includes(":free")) - Number(a.includes(":free"));
+          if (free !== 0) return free;
+        }
+        return a.localeCompare(b);
+      });
     return { ok: true, detail: `${models.length} models`, models };
   } catch (error) {
     return { ok: false, detail: describeError(error, meta) };
@@ -567,7 +651,7 @@ export async function testProvider(
 
   // A key can be valid for /models but not for chat; send one tiny turn.
   if (meta.kind === "openai" || meta.kind === "anthropic" || meta.kind === "google") {
-    const model = result.models?.[0] ?? meta.models[0];
+    const model = pickTestModel(id, result.models?.length ? result.models : meta.models);
     const controller = new AbortController();
     try {
       let text = "";

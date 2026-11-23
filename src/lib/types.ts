@@ -162,6 +162,8 @@ export interface Settings {
   computerControl: boolean;
   telemetry: boolean;
   notifications: boolean;
+  /** "provider/model" keys pinned to the top of every model list. */
+  favoriteModels: string[];
   providers: Record<ProviderId, ProviderConfig>;
 }
 

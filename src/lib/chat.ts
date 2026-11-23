@@ -25,6 +25,15 @@ export function buildSystemPrompt(session: Session, skills: Skill[]): string {
   ].join(" ") + skillBlock;
 }
 
+/** `data:image/jpeg;base64,…` -> provider-ready parts. */
+export function parseImage(
+  dataUrl: string,
+): { mime: string; data: string } | null {
+  const match = /^data:([^;,]+);base64,(.*)$/s.exec(dataUrl);
+  if (!match) return null;
+  return { mime: match[1], data: match[2] };
+}
+
 export function buildHistory(session: Session, limit = 16): ChatTurn[] {
   const turns: ChatTurn[] = [];
 
@@ -40,15 +49,36 @@ export function buildHistory(session: Session, limit = 16): ChatTurn[] {
       .join("\n\n")
       .trim();
 
-    if (!text) continue;
-    turns.push({ role: message.role, content: text.slice(0, 8000) });
-    if (message.role === "user" && message.attachments?.length) {
-      const files = message.attachments
-        .filter((file) => file.kind === "text")
-        .map((file) => `<file name="${file.name}">\n${file.body.slice(0, 24_000)}\n</file>`)
-        .join("\n");
-      if (files) turns.push({ role: "user", content: files });
-    }
+    const images =
+      message.role === "user"
+        ? (message.attachments ?? [])
+            .filter((file) => file.kind === "image")
+            .map((file) => parseImage(file.body))
+            .filter((image): image is { mime: string; data: string } => Boolean(image))
+            .slice(0, 4)
+        : [];
+
+    const files = (message.attachments ?? [])
+      .filter((file) => file.kind === "text")
+      .map((file) => `<file name="${file.name}">\n${file.body.slice(0, 24_000)}\n</file>`)
+      .join("\n");
+    const content = [text, files].filter(Boolean).join("\n\n");
+
+    if (!content && images.length === 0) continue;
+    turns.push({
+      role: message.role,
+      content: content.slice(0, 8000),
+      ...(images.length ? { images } : {}),
+    });
+  }
+
+  // Only the two most recent screenshots ride along; older frames cost tokens
+  // without telling the model anything new.
+  let withImages = 0;
+  for (let index = turns.length - 1; index >= 0; index -= 1) {
+    if (!turns[index].images?.length) continue;
+    withImages += 1;
+    if (withImages > 2) delete turns[index].images;
   }
 
   return turns.slice(-limit);

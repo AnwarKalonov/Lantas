@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Docs — Lantas</title>
-<meta name="description" content="Install Lantas on macOS, connect the Chrome extension, read the page, act in the tab, choose a model, and see what a task costs.">
+<meta name="description" content="Use Lantas: the free macOS agent with chat, code and browser in one window. Providers, workspace and integrations, skills and commands, the Chrome extension, and the benchmark.">
 
 <link rel="icon" href="assets/img/mark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -50,9 +50,9 @@
 
 <div class="doc-hero">
   <div class="wrap">
-    <p class="eyebrow"><span class="dot"></span>lantas docs · 1.0</p>
-    <h1>An agent with a browser</h1>
-    <p>Install the macOS app, load the Chrome extension, and ask. Lantas reads the tab you are on, answers in the side panel, and clicks what you asked it to click. Everything runs on your Mac with your own model key.</p>
+    <p class="eyebrow"><span class="dot"></span>lantas docs · 1.0 · free</p>
+    <h1>The whole desk, in one window</h1>
+    <p>Lantas is a free macOS agent: a chat, a code workspace and a browser that can read and act. Ask a question, change a repo, connect the apps you work in, or hand it the tab you have open. Everything runs on your Mac with the model you choose.</p>
     <div class="actions">
       <a class="btn btn-primary" href="#installation">Install Lantas
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
@@ -77,6 +77,13 @@
       <a href="#app">The Lantas window</a>
     </div>
     <div class="group">
+      <p class="group-t">Everyday</p>
+      <a href="#chat">Chat</a>
+      <a href="#code">Code</a>
+      <a href="#workspace">Workspace and apps</a>
+      <a href="#skills">Skills and commands</a>
+    </div>
+    <div class="group">
       <p class="group-t">The browser</p>
       <a href="#engines">Two engines</a>
       <a href="#extension">The Chrome extension</a>
@@ -86,7 +93,7 @@
     <div class="group">
       <p class="group-t">Models</p>
       <a href="#models">Providers and keys</a>
-      <a href="#cost">What a task costs</a>
+      <a href="#free">Why it is free</a>
     </div>
     <div class="group">
       <p class="group-t">Reference</p>
@@ -147,7 +154,7 @@
       <h2>First run</h2>
       <p>Lantas opens on the chat. Three things to do once:</p>
       <ol>
-        <li>Open <strong>Settings → Providers</strong>, pick Anthropic, OpenAI, Gemini, DeepSeek or an OpenAI-compatible endpoint, and paste a key.</li>
+        <li>Open <strong>Settings → Providers</strong>, pick Anthropic, OpenAI, OpenRouter, Groq or Google and paste a key — or point it at Ollama or LM Studio, which need none.</li>
         <li>Pick the model the agent should use. The model list is fetched from the provider when a key is present.</li>
         <li>Open <strong>Browser</strong>, then <strong>Chrome extension</strong>, and load the extension folder Chrome is told about.</li>
       </ol>
@@ -174,14 +181,109 @@
     <section class="doc-sec" id="app">
       <p class="eyebrow"><span class="dot"></span>getting started</p>
       <h2>The Lantas window</h2>
-      <p>Three modes, one window, and a side panel that can sit in any of them.</p>
+      <p>Three tabs, one window, and a side panel that can sit in any of them.</p>
       <div class="kv">
-        <div class="k">chat</div><div class="v">A thread with the agent. Slash commands, attachments, screen capture, the usual.</div>
-        <div class="k">code</div><div class="v">A workspace folder, files in the tree, and the diff the agent wants to apply.</div>
+        <div class="k">chat</div><div class="v">Threads with the agent, slash commands, file and image attachments, and screen sharing</div>
+        <div class="k">code</div><div class="v">A workspace folder, files in the tree, edits as diffs, and the GitHub panel</div>
         <div class="k">browser</div><div class="v">Lantas' own webview, or your real Chrome through the extension. A home page with bookmarks, history and a star beside the address bar.</div>
         <div class="k">the rail</div><div class="v">Ask about the page you are on without leaving it. The switch at the bottom is whether the agent may act.</div>
+        <div class="k">modes</div><div class="v">Build writes, Plan drafts, Chat answers — chosen per thread</div>
       </div>
       <p>Colour has one job in the browser: the accent marks what is live or selected, red marks a failure, and everything else is grey.</p>
+    </section>
+
+    <section class="doc-sec" id="chat">
+      <p class="eyebrow"><span class="dot"></span>everyday</p>
+      <h2>Chat</h2>
+      <p>A thread per topic. The agent keeps the thread's context, and you can rewind a turn, compact a long thread, or export it as JSON. Every session is listed in the sidebar and searchable from ⌘K.</p>
+      <h3>Three modes</h3>
+      <div class="kv">
+        <div class="k">chat</div><div class="v">Answers without touching anything. Read-only.</div>
+        <div class="k">plan</div><div class="v">Reads the repo and drafts an approach before a file changes. Read-only.</div>
+        <div class="k">build</div><div class="v">Reads, edits and runs commands in the folder you opened.</div>
+      </div>
+      <p>The mode sits in the composer and is chosen per thread: Plan for the shape of a change, Build when you want it written, Chat when the answer is the whole point.</p>
+
+      <h3>Attachments and the screen</h3>
+      <p>Drop files or images into the composer, or pick them with <code>/attach</code>. <code>/screen</code> asks for a window or a display, samples it at four frames a second, and attaches one frame to the question. The stream stays in this process; it is never uploaded.</p>
+
+      <h3>Slash commands</h3>
+      <p>Type <code>/</code> for the menu, or reach the same commands from ⌘K.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><span class="nm">/new · /clear</span></td><td>Start a fresh thread, or empty this one</td></tr>
+            <tr><td><span class="nm">/code · /chat</span></td><td>Move between the workspace and the thread</td></tr>
+            <tr><td><span class="nm">/attach · /screen</span></td><td>Add files, or share a window or display</td></tr>
+            <tr><td><span class="nm">/init</span></td><td>Scan the repository and write an AGENTS.md</td></tr>
+            <tr><td><span class="nm">/review · /diff</span></td><td>Review the working tree, or walk the last change</td></tr>
+            <tr><td><span class="nm">/fix · /test</span></td><td>Reproduce a failure and fix the cause</td></tr>
+            <tr><td><span class="nm">/commit</span></td><td>Commit the working tree</td></tr>
+            <tr><td><span class="nm">/plan · /build</span></td><td>Switch the mode without opening a menu</td></tr>
+            <tr><td><span class="nm">/model · /usage</span></td><td>Choose a model, or read tokens and context</td></tr>
+            <tr><td><span class="nm">/skills · /mcp</span></td><td>Manage skills and MCP servers</td></tr>
+            <tr><td><span class="nm">/undo · /redo</span></td><td>Rewind a turn, or put it back</td></tr>
+            <tr><td><span class="nm">/compact · /export</span></td><td>Summarise the thread, or download it</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Settings → Commands adds your own: a name, a description, and a prompt body that receives <code>$ARGUMENTS</code>. Custom commands and skills appear in the same menu as the built-ins.</p>
+    </section>
+
+    <section class="doc-sec" id="code">
+      <p class="eyebrow"><span class="dot"></span>everyday</p>
+      <h2>Code</h2>
+      <p>The Code tab is a workspace: a folder you pick with the native dialog, or files you drop on the panel, up to 600 of them. Lantas reads every text file under it, skipping <code>node_modules</code>, <code>.git</code>, <code>dist</code>, <code>build</code>, <code>target</code> and similar, then shows the tree with a filter.</p>
+      <p>Nothing is uploaded. In the desktop build the folder is read through Tauri's filesystem plugin; in a browser tab it uses the File System Access API with the permission you grant.</p>
+
+      <h3>Edits are diffs</h3>
+      <p>An edit arrives as a diff: the file, the lines and the reason. Apply it, or roll it back. Build mode may propose changes; Plan and Chat only read. The code view shows a file with line numbers and its language, and names a binary or oversized file as such instead of showing it as text.</p>
+
+      <h3>GitHub</h3>
+      <div class="kv">
+        <div class="k">token</div><div class="v">A personal access token, stored in this app on this Mac</div>
+        <div class="k">repos</div><div class="v">List your repositories and open a file tree without cloning</div>
+        <div class="k">commit</div><div class="v">Edit a file and commit it to a branch with a message, from the panel</div>
+        <div class="k">create</div><div class="v">Make a repository, private or public, without leaving the app</div>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="workspace">
+      <p class="eyebrow"><span class="dot"></span>everyday</p>
+      <h2>Workspace and apps</h2>
+      <p>Integrations come in two kinds: managed toolkits through Composio, and MCP servers you add yourself. Both make the services you already use callable from the same thread.</p>
+
+      <h3>Composio</h3>
+      <p>Add a Composio project key once in Settings → Integrations. From that panel you connect an app, finish the sign-in in your browser, and the toolkit appears in the list as active. Each connection can be revoked from the same place.</p>
+      <div class="kv">
+        <div class="k">communication</div><div class="v">Gmail, Slack, Discord, Telegram, WhatsApp, Outlook, Intercom, Zendesk</div>
+        <div class="k">productivity</div><div class="v">Notion, Calendar, Drive, Airtable, Trello, Asana, monday.com, ClickUp, Todoist</div>
+        <div class="k">developer</div><div class="v">GitHub, Linear, Jira, Sentry, Vercel, Supabase</div>
+        <div class="k">crm</div><div class="v">HubSpot, Salesforce, Pipedrive</div>
+        <div class="k">storage · social</div><div class="v">Dropbox, Box · X, Reddit, YouTube, Spotify</div>
+      </div>
+      <p>Thirty-two in all. The key and the connection tokens stay in this app's storage on your Mac; the browser tab only does the sign-in step.</p>
+
+      <h3>Gmail, directly</h3>
+      <p>The Google panel is the other route: a read-only Gmail inbox through your own OAuth client. Nothing is written back, the token stays local, and disconnecting clears it.</p>
+
+      <h3>MCP</h3>
+      <p>Settings → Integrations adds Model Context Protocol servers. An HTTP server gets a real <code>initialize</code> handshake from Test; a stdio server keeps its command and starts with the desktop runtime. A filesystem, a database, your own service — anything with an MCP server becomes a tool the agent can call.</p>
+    </section>
+
+    <section class="doc-sec" id="skills">
+      <p class="eyebrow"><span class="dot"></span>everyday</p>
+      <h2>Skills and commands</h2>
+      <p>A skill is a paragraph of instructions appended to the system prompt while it is switched on. Four ship built in:</p>
+      <div class="kv">
+        <div class="k">commit</div><div class="v">A conventional commit message written from the staged diff</div>
+        <div class="k">review</div><div class="v">A diff read for correctness, edge cases and regressions</div>
+        <div class="k">release notes</div><div class="v">A changelog entry from the commits since the last tag</div>
+        <div class="k">test gaps</div><div class="v">The cases a change leaves untested, and the smallest test that would catch them</div>
+      </div>
+      <p>Write your own in Settings → Skills: a name, a description and the instructions. Enable it for a thread and it joins the prompt; leave it off and it costs nothing.</p>
+      <p>Commands are the other direction — a name you type and a prompt body. Both live in Settings, and both appear in the composer's slash menu next to the built-ins.</p>
     </section>
 
     <section class="doc-sec" id="engines">
@@ -277,10 +379,12 @@
       <p class="eyebrow"><span class="dot"></span>models</p>
       <h2>Providers and keys</h2>
       <div class="kv">
-        <div class="k">Anthropic</div><div class="v">Claude models, streaming, tool use</div>
+        <div class="k">Anthropic</div><div class="v">Claude Opus, Sonnet and Haiku</div>
         <div class="k">OpenAI</div><div class="v">GPT models, streaming</div>
-        <div class="k">Gemini</div><div class="v">Gemini models through the Google endpoint</div>
-        <div class="k">DeepSeek</div><div class="v">Chat and reasoner models</div>
+        <div class="k">OpenRouter</div><div class="v">One key for most hosted models</div>
+        <div class="k">Groq</div><div class="v">Fast hosted open models</div>
+        <div class="k">Google</div><div class="v">Gemini, through AI Studio</div>
+        <div class="k">Ollama · LM Studio</div><div class="v">Models running on this Mac, no key</div>
         <div class="k">OpenAI-compatible</div><div class="v">Any base URL: a local server, a gateway, or your own proxy</div>
       </div>
       <p>The default model is yours to choose per session, and the agent switch in the browser rail uses the same provider. Nothing is sent to Lantas: requests go from your Mac to the provider you picked, with the key you pasted.</p>
@@ -290,21 +394,22 @@
       </div>
     </section>
 
-    <section class="doc-sec" id="cost">
+    <section class="doc-sec" id="free">
       <p class="eyebrow"><span class="dot"></span>models</p>
-      <h2>What a task costs</h2>
-      <p>Two parts: the model, and the machine.</p>
+      <h2>Why it is free</h2>
+      <p>Lantas is free and MIT licensed: no subscription, no seats, no trial, no per-task fee and no account. You download it, it runs on your Mac, and there is no server of ours in the middle of anything.</p>
       <div class="kv">
-        <div class="k">the model</div><div class="v">Eleven browser tasks averaged $0.12 each on Sonnet 4.5, at about 1.8 minutes a task</div>
+        <div class="k">the app</div><div class="v">$0, MIT licensed, source on GitHub</div>
+        <div class="k">the model</div><div class="v">Yours. A local model on the same Mac costs nothing; a hosted key is billed by that provider, not by us</div>
         <div class="k">the machine</div><div class="v">0.06 s to read a page of 42 controls, 0.11 s to match locally</div>
       </div>
-      <p>Cost tracks the page, not the app: a long article is more tokens than a login form, and a task that needs six steps pays for six model turns. The panel shows the model it is using, so you are never guessing which bill you are adding to.</p>
+      <p>There is no metering inside the app, no analytics endpoint and nothing to upgrade. The only number that can move is your provider's bill, and the composer always shows which model is making the call.</p>
     </section>
 
     <section class="doc-sec" id="benchmark">
       <p class="eyebrow"><span class="dot"></span>reference</p>
       <h2>Benchmark</h2>
-      <p>Eleven tasks a person would do in a browser, each run in the same Chrome profile with the same logins. Lantas on Claude Sonnet 4.5, Claude Code on Opus 4.1 with computer use, Antigravity on Gemini 3.</p>
+      <p>Eleven tasks a person would do in a browser, each run in the same Chrome profile with the same logins. Lantas on Claude Sonnet 4.5, Claude Code on Opus 4.1 with computer use, Antigravity on Gemini 3. The benchmark measures speed and completion; the app itself is free, so price is not part of the comparison.</p>
 
       <div class="stats">
         <div class="stat">
@@ -313,9 +418,9 @@
           <p class="sub">Claude Code 3.3 · Antigravity 3.6</p>
         </div>
         <div class="stat">
-          <p class="label">Cost per task</p>
-          <p class="fig">$0.12</p>
-          <p class="sub">Claude Code $0.31 · Antigravity $0.27</p>
+          <p class="label">Price of the app</p>
+          <p class="fig">$0</p>
+          <p class="sub">Free · MIT licensed · no account</p>
         </div>
         <div class="stat">
           <p class="label">Tasks finished</p>
@@ -350,7 +455,7 @@
       <ul>
         <li>Eleven tasks is a sample, not a study. The tasks were written by us, and we knew what the right answer looked like.</li>
         <li>Timing is wall clock, from the first prompt to the page saying the task was done. A tool that gives up is not counted as fast.</li>
-        <li>Cost is the provider's list price at the time of the run, not a discounted rate.</li>
+        <li>The app is free; model calls are billed by whichever provider or local server you use, so a hosted run has a cost Lantas does not set.</li>
         <li>The three tools were run on different models because those are the models each is built around.</li>
       </ul>
     </section>
@@ -374,6 +479,7 @@
         <div class="k">the bridge</div><div class="v">Loopback only, and it refuses any origin that is not <code>chrome-extension://</code></div>
         <div class="k">page data</div><div class="v">Sent to your provider with the question you asked, and nowhere else</div>
         <div class="k">keys</div><div class="v">Stored in the app's own storage on your Mac, never in the repo</div>
+        <div class="k">integrations</div><div class="v">Composio and Google tokens stay in this app's storage; an MCP server runs where you point it</div>
         <div class="k">telemetry</div><div class="v">None. There is no analytics endpoint to turn off</div>
         <div class="k">the switch</div><div class="v">“Let Lantas act” off means the extension refuses every action</div>
       </div>
@@ -414,6 +520,12 @@
       <h3>It cannot read a page</h3>
       <p><code>chrome://</code> pages, the Chrome Web Store, the PDF viewer and other extensions' pages cannot be scripted. Switch to a normal website tab.</p>
 
+      <h3>A workspace will not open</h3>
+      <p>In the desktop app the folder picker is native. In a browser tab the File System Access API is only available in Chrome, and it asks for permission once per folder. You can always drop files onto the Code tab instead.</p>
+
+      <h3>An app will not connect</h3>
+      <p>Composio project keys start with <code>ak_</code>. Finish the sign-in in the browser window the panel opens, then refresh the list; it polls while a connection is pending. The web preview blocks Composio's API because of CORS, so connect from the desktop build.</p>
+
       <h3>It clicked the wrong thing</h3>
       <p>Say which control you meant by its visible words. Matching is by label; if the page has two buttons with the same name, Lantas asks rather than picking one. The side panel shows the label it matched.</p>
 
@@ -446,7 +558,7 @@
       </div>
     </div>
     <div class="foot-bottom">
-      <span class="line">for people who work in the browser</span>
+      <span class="line">chat, code, and the browser · free and open source</span>
       <span class="mono">© 2026 Lantas</span>
     </div>
   </div>

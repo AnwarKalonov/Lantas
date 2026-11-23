@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lantas — the agent that works in your browser</title>
-<meta name="description" content="Lantas is a macOS coding agent with a browser of its own and a Chrome extension, so the model reads the page you are on, clicks what matters and types where you ask.">
+<title>Lantas — chat, code, and the browser in one free agent</title>
+<meta name="description" content="Lantas is a free, open-source macOS agent in one window: chat with any model, edit code in a workspace you pick, connect Gmail, Notion, GitHub and 30 more apps, and drive your own browser.">
 
 <link rel="icon" href="assets/img/mark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,10 +42,10 @@
     </a>
 
     <nav class="nav-links" aria-label="Sections">
-      <a href="#observability">Observability</a>
-      <a href="#analysis">Analysis</a>
-      <a href="#intervention">Intervention</a>
-      <a href="#verification">Verification</a>
+      <a href="#features">Features</a>
+      <a href="#observability">Your tab</a>
+      <a href="#analysis">How it works</a>
+      <a href="#verification">Benchmark</a>
       <a href="#install">Install</a>
       <a class="mob" href="docs.html">Docs</a>
       <a class="mob" href="https://github.com/AnwarKalonov/Lantas">GitHub</a>
@@ -75,14 +75,14 @@
 
   <div class="wrap">
     <div class="hero-copy">
-      <p class="eyebrow" data-reveal><span class="dot"></span>Lantas 1.0 · an agent with a browser</p>
+      <p class="eyebrow" data-reveal><span class="dot"></span>Lantas 1.0 · free and open source</p>
 
-      <h1 data-reveal style="--d:70ms">The coding agent that works <span class="soft">inside your browser</span></h1>
+      <h1 data-reveal style="--d:70ms">The agent that chats, codes, <span class="soft">and drives your browser</span></h1>
 
       <p class="lede" data-reveal style="--d:140ms">
-        Lantas runs on your Mac with a browser of its own and a Chrome extension, so the model reads the page in
-        front of you, clicks what matters and types where you ask. On eleven real browser tasks it finished all
-        eleven, at <b>1.8 minutes</b> and <b>$0.12</b> a task.
+        One macOS window with a chat, a code workspace and a browser of its own. Ask about anything, change a repo,
+        connect Gmail, Notion, GitHub or Linear, or hand it the tab you are looking at. Bring any model, run one
+        locally, and pay nothing for the app: <b>free</b>, MIT licensed, no account.
       </p>
 
       <div class="actions" data-reveal style="--d:210ms">
@@ -243,19 +243,85 @@
   </div>
 </section>
 
+<!-- features -->
+<section class="sec sec--tight" id="features">
+  <div class="wrap">
+    <header class="sec-head sec-head--wide">
+      <div>
+        <p class="eyebrow" data-reveal><span class="dot"></span>Everything in one window</p>
+        <h2 data-reveal style="--d:60ms;margin-top:18px">Not only a browser.<br>The whole desk.</h2>
+      </div>
+      <p class="dek" data-reveal style="--d:120ms">Chat, code and the page in front of you, joined to the apps you already work in. The browser is one of six things Lantas does.</p>
+    </header>
+
+    <div class="feat-grid" data-reveal>
+      <article class="feat">
+        <p class="n">01 · chat</p>
+        <h3>Ask anything, keep the thread</h3>
+        <p>A thread per topic, with the model you chose. Attach files, images or a frame of your screen; rewind a turn, compact a long thread, or export it. ⌘K reaches every session, action and command.</p>
+        <div class="tags"><span>⌘K palette</span><span>attachments</span><span>screen share</span></div>
+      </article>
+
+      <article class="feat">
+        <p class="n">02 · code</p>
+        <h3>Code in the folder you pick</h3>
+        <p>Point Lantas at a workspace and it reads the tree, edits as diffs you can apply or roll back, and commits through GitHub. Build, Plan and Chat decide whether it may write.</p>
+        <div class="tags"><span>Build · Plan · Chat</span><span>diffs</span><span>GitHub</span></div>
+      </article>
+
+      <article class="feat">
+        <p class="n">03 · your apps</p>
+        <h3>The apps you already work in</h3>
+        <p>Thirty-two toolkits through Composio — Gmail, Slack, Notion, Linear, Jira, Drive, HubSpot — plus read-only Gmail through your own OAuth client, and any MCP server you add.</p>
+        <div class="tags"><span>Composio</span><span>Gmail</span><span>MCP</span></div>
+      </article>
+
+      <article class="feat">
+        <p class="n">04 · the browser</p>
+        <h3>The tab you are looking at</h3>
+        <p>A browser of its own and a Chrome side panel. It reads the page exactly, clicks a control by its label rather than by coordinates, then re-reads the page to check what happened.</p>
+        <div class="tags"><span>Lantas engine</span><span>Chrome</span><span>extension</span></div>
+      </article>
+
+      <article class="feat">
+        <p class="n">05 · skills</p>
+        <h3>Skills, commands, your rules</h3>
+        <p>Commit, review, release notes and test gaps ship built in. Teach it your own skills, then wrap the work you repeat in slash commands that take arguments.</p>
+        <div class="tags"><span>4 built-in skills</span><span>custom skills</span><span>/commit</span></div>
+      </article>
+
+      <article class="feat">
+        <p class="n">06 · models</p>
+        <h3>Any model, on your Mac</h3>
+        <p>Claude, GPT, Gemini, OpenRouter, Groq, Ollama or LM Studio. Keys live in the app's own storage, requests go straight to the provider, and there is no telemetry to switch off.</p>
+        <div class="tags"><span>8 providers</span><span>local models</span><span>no telemetry</span></div>
+      </article>
+    </div>
+
+    <article class="feat free" data-reveal style="--d:60ms">
+      <div>
+        <p class="n">07 · the price</p>
+        <h3>Free, and not in the trial sense.</h3>
+        <div class="tags"><span>$0</span><span>MIT licensed</span><span>no account</span><span>no per-task fee</span></div>
+      </div>
+      <p>No subscription, no seats, no metering and nothing to upgrade: the app is free, and the source is on GitHub. Run a model on the same Mac and a task costs nothing at all. Bring a hosted key and that provider is the only thing that bills you — Lantas takes nothing on top.</p>
+    </article>
+  </div>
+</section>
+
 <!-- 01 -->
 <section class="sec" id="observability">
   <div class="sec-cloud bits" data-parallax="0.06" style="right:-70px;top:80px;--w:520px;--h:300px;--o:.8;left:auto" data-bits></div>
   <div class="wrap">
     <header class="sec-head">
-      <p class="eyebrow" data-reveal><span class="dot"></span>Browser observability</p>
+      <p class="eyebrow" data-reveal><span class="dot"></span>The browser · observability</p>
       <h2 data-reveal style="--d:60ms">A screenshot tells you what it looks like. Lantas reads what the page says.</h2>
       <p class="dek" data-reveal style="--d:120ms">Understanding a page: the difference between looking at it and knowing what can be clicked.</p>
     </header>
 
     <div class="grid-copy">
       <div class="prose" data-reveal>
-        <p>A checkout page is 42 controls, three forms and 900 words, and any one of them can be the thing you meant. A screenshot gives a model pixels and a guess about coordinates; a paste gives it whatever you selected. Lantas reads the DOM through the extension — roles, labels, values, what is visible and what is enabled — and asks the model what to do with that.</p>
+        <p>This is the browser part, and it is where the other half of the app earns its keep. A checkout page is 42 controls, three forms and 900 words, and any one of them can be the thing you meant. A screenshot gives a model pixels and a guess about coordinates; a paste gives it whatever you selected. Lantas reads the DOM through the extension — roles, labels, values, what is visible and what is enabled — and asks the model what to do with that.</p>
         <p>For each tab Lantas keeps the title, the address, the readable text, the controls with their labels, and the tab list. The page is read on demand, and nothing is sent anywhere until you ask a question about it.</p>
       </div>
 
@@ -455,7 +521,7 @@
             <button class="step" role="tab" aria-selected="false" data-k="checked again" data-title="Verified" data-body="The page is read again. If the confirmation is not there, the step is reported as failed, not as done." data-code="order #A-10428&#10;confirmed · 38 s">
               <span class="i">06</span><span class="t">Verified</span><span class="tag">check</span>
             </button>
-            <button class="step" role="tab" aria-selected="false" data-k="one sentence" data-title="Reported" data-body="The answer you see is the step that ran, plus what the page said afterwards. No theatre, and no claiming what did not happen." data-code="“Ordered, #A-10428.”&#10;1 step · 38 s · $0.11">
+            <button class="step" role="tab" aria-selected="false" data-k="one sentence" data-title="Reported" data-body="The answer you see is the step that ran, plus what the page said afterwards. No theatre, and no claiming what did not happen." data-code="“Ordered, #A-10428.”&#10;1 step · 38 s · $0">
               <span class="i">07</span><span class="t">Reported</span><span class="tag">check</span>
             </button>
           </div>
@@ -537,7 +603,7 @@
     </header>
 
     <div class="prose" data-reveal style="margin-bottom:36px">
-      <p>We wrote eleven tasks a person would do in a browser — book a table, apply a promo code, download a statement — and gave each tool the same Chrome window. Lantas ran on Claude Sonnet 4.5 with its own extension; Claude Code on Opus 4.1 with computer use; Antigravity on Gemini 3. Lantas finished all eleven at a mean of 1.8 minutes and $0.12 a task. Claude Code finished nine at 3.3 minutes and $0.31, Antigravity eight at 3.6 minutes and $0.27.</p>
+      <p>We wrote eleven tasks a person would do in a browser — book a table, apply a promo code, download a statement — and gave each tool the same Chrome window. Lantas ran on Claude Sonnet 4.5 with its own extension; Claude Code on Opus 4.1 with computer use; Antigravity on Gemini 3. Lantas finished all eleven at a mean of 1.8 minutes. Claude Code finished nine at 3.3 minutes, Antigravity eight at 3.6. The app itself is free, so the only bill is the model you point it at.</p>
     </div>
 
     <div class="band" data-reveal>
@@ -548,9 +614,9 @@
           <p class="sub"><b>1.8 min</b> Lantas · 3.3 Claude Code · 3.6 Antigravity</p>
         </div>
         <div class="stat">
-          <p class="label">Cost per task</p>
-          <p class="fig">$<span data-count="0.12" data-dec="2">0.12</span></p>
-          <p class="sub"><b>$0.12</b> Lantas · $0.31 Claude Code · $0.27 Antigravity</p>
+          <p class="label">Price of the app</p>
+          <p class="fig">$0</p>
+          <p class="sub"><b>Free</b> · MIT licensed · no account, no per-task fee</p>
         </div>
         <div class="stat">
           <p class="label">Tasks finished</p>
@@ -619,8 +685,8 @@
 
     <div class="grid-copy" style="margin-top:72px;align-items:start">
       <div class="prose" data-reveal>
-        <p>The cost to the machine matters too. Measured on a two-step task, the app itself spends almost nothing: the DOM read is 0.06 s and the matching happens locally. The model turn is the task, and it is the only part you pay for.</p>
-        <p><a href="docs.html#overhead">Method and caveats are in the docs</a>.</p>
+        <p>Nothing in the app is metered: no subscription, no seats, no per-task fee, no account. Lantas is MIT licensed, and the only thing that can cost money is the model you choose — run Ollama or LM Studio on the same Mac and a task costs nothing, or bring a hosted key and that provider bills you directly.</p>
+        <p>The work Lantas does itself is close to nothing: on a two-step task the DOM read is 0.06 s and the matching happens locally. The model turn is the task, and it is the only part anyone could charge for. <a href="docs.html#overhead">Method and caveats are in the docs</a>.</p>
       </div>
 
       <div class="oh" data-bars data-reveal style="--d:80ms">
@@ -650,12 +716,12 @@
   <div class="sec-cloud bits" data-parallax="0.06" style="left:-140px;bottom:40px;top:auto;--w:500px;--h:290px;--o:.7;right:auto" data-bits></div>
   <div class="wrap">
     <header class="sec-head">
-      <p class="eyebrow" data-reveal><span class="dot"></span>Related tools</p>
-      <h2 data-reveal style="--d:60ms">What Lantas is not</h2>
-      <p class="dek" data-reveal style="--d:120ms">Not a replacement: general agents are broader, and IDE agents are good inside the editor. Lantas is narrower on purpose: the tab you are looking at.</p>
+      <p class="eyebrow" data-reveal><span class="dot"></span>How it compares</p>
+      <h2 data-reveal style="--d:60ms">What Lantas is not, and where it fits</h2>
+      <p class="dek" data-reveal style="--d:120ms">Not a replacement for a general agent or an IDE. One free window for the chat, the code and the tab in front of you.</p>
     </header>
 
-    <p class="prose" data-reveal style="margin-bottom:26px;max-width:62ch;color:var(--ink-2)">General agents can use a browser when you hand them one, and IDE agents own the editor. Lantas owns the space between the two: the page you are on, read and driven, with the app and the extension on your own machine.</p>
+    <p class="prose" data-reveal style="margin-bottom:26px;max-width:62ch;color:var(--ink-2)">General agents can use a browser when you hand them one, and IDE agents own the editor. Lantas does both jobs in one app on your Mac: a chat and a code workspace, integrations to the services you already use, and the page you are on, read and driven. It is free either way, which none of the three below can say.</p>
 
     <div data-matrix data-reveal>
       <div class="matrix-wrap">
@@ -695,9 +761,33 @@
             </tr>
             <tr>
               <td>models</td>
-              <td class="us">Yours: Claude, GPT, Gemini, DeepSeek or local</td>
+              <td class="us">Yours: Claude, GPT, Gemini or a local model</td>
               <td>Claude only</td>
               <td>Gemini only</td>
+            </tr>
+            <tr>
+              <td>chat</td>
+              <td class="us">A thread with the model you pick, files and screen attached</td>
+              <td>One task per session</td>
+              <td>One task per editor window</td>
+            </tr>
+            <tr>
+              <td>code</td>
+              <td class="us">A workspace folder, edits as diffs, commits through GitHub</td>
+              <td>Terminal, by hand</td>
+              <td>In the editor</td>
+            </tr>
+            <tr>
+              <td>your apps</td>
+              <td class="us">Gmail, Slack, Notion, Linear and 28 more, plus any MCP server</td>
+              <td>Whatever you paste in</td>
+              <td>Extensions, if any</td>
+            </tr>
+            <tr>
+              <td>price</td>
+              <td class="us">Free · MIT · no account</td>
+              <td>Subscription or per-token</td>
+              <td>Free tier, then subscription</td>
             </tr>
             <tr>
               <td>setup</td>
@@ -723,20 +813,21 @@
         <p class="eyebrow" data-reveal><span class="dot"></span>Installation</p>
         <h2 data-reveal style="--d:60ms;margin-top:18px">Install and start</h2>
       </div>
-      <p class="dek" data-reveal style="--d:120ms">Needs macOS 13 or newer and Chrome 116 or newer. The app builds from source in about two minutes.</p>
+      <p class="dek" data-reveal style="--d:120ms">Needs macOS 13 or newer and Chrome 116 or newer. It builds from source in about two minutes, and it is free: MIT licensed, no account, no trial.</p>
     </header>
 
     <div class="install-grid">
       <div class="prose" data-reveal>
-        <p>Lantas is open source. Clone the repo, run the installer, and it builds and installs Lantas.app. The Chrome extension ships inside the app; the app shows you where it is and how to load it.</p>
-        <p>Bring your own model key. The settings screen takes Anthropic, OpenAI, Gemini, DeepSeek or an OpenAI-compatible endpoint, and keeps it in the app's own storage. Nothing is proxied through us.</p>
+        <p>Lantas is open source and free. Clone the repo, run the installer, and it builds and installs Lantas.app with the chat, the code workspace and the browser in one window. The Chrome extension ships inside the app; the app shows you where it is and how to load it.</p>
+        <p>Bring a model key, or run a model on the same Mac. Settings takes Anthropic, OpenAI, OpenRouter, Groq, Google, Ollama, LM Studio or any OpenAI-compatible endpoint, and keeps the configuration in the app's own storage. Nothing is proxied through us.</p>
 
         <div class="reqs">
           <div class="req"><span class="k">System</span><span class="v">macOS 13 or newer · Apple silicon or Intel</span></div>
           <div class="req"><span class="k">Browser</span><span class="v">Chrome 116 or newer</span></div>
           <div class="req"><span class="k">App</span><span class="v">Tauri 2 · Rust · not Electron</span></div>
-          <div class="req"><span class="k">Models</span><span class="v">Claude · GPT · Gemini · DeepSeek · local</span></div>
+          <div class="req"><span class="k">Models</span><span class="v">Claude · GPT · Gemini · Llama · local</span></div>
           <div class="req"><span class="k">Keys</span><span class="v">yours, stored on your Mac</span></div>
+          <div class="req"><span class="k">Price</span><span class="v">Free · MIT licensed · no account</span></div>
         </div>
 
         <div class="linkrow">
@@ -796,6 +887,9 @@
               <div class="inspect-row" style="grid-template-columns:minmax(0,1fr) auto">
                 <span class="name">browser</span><span class="val">Lantas or Chrome</span>
               </div>
+              <div class="inspect-row" style="grid-template-columns:minmax(0,1fr) auto">
+                <span class="name">price</span><span class="val">$0 · MIT</span>
+              </div>
             </div>
           </div>
         </div>
@@ -806,7 +900,7 @@
 
 <section class="closing">
   <div class="wrap">
-    <p data-reveal>If your browser tabs have humbled you, install Lantas.</p>
+    <p data-reveal>Free, open source, and it all runs on your Mac. Install Lantas.</p>
     <div class="actions" data-reveal style="--d:80ms">
       <a class="btn btn-primary" href="docs.html">
         Read the docs
@@ -837,7 +931,7 @@
       </div>
     </div>
     <div class="foot-bottom">
-      <span class="line">for people who work in the browser</span>
+      <span class="line">chat, code, and the browser · free and open source</span>
       <span>© 2026 Lantas</span>
     </div>
   </div>

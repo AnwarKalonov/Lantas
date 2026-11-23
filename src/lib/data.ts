@@ -67,11 +67,12 @@ export const PROVIDERS: ProviderMeta[] = [
     baseUrl: "https://generativelanguage.googleapis.com/v1beta",
     needsKey: true,
     local: false,
+    // Free-tier models first: the first entry is what "Test connection" calls.
     models: [
-      "gemini-4-argon",
       "gemini-3.8-flash",
       "gemini-3.6-flash",
       "gemini-3.5-flash-lite",
+      "gemini-4-argon",
       "gemini-2.5-pro",
       "gemini-2.5-flash",
     ],

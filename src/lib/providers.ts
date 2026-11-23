@@ -245,7 +245,81 @@ async function streamOpenAI(options: StreamOptions): Promise<void> {
  * Google Gemini (streaming generateContent)
  * ------------------------------------------------------------------ */
 
+/** Gemini 4 Argon and its successors are served by the Interactions API only. */
+export function needsInteractions(model: string): boolean {
+  return /^gemini-4/i.test(model);
+}
+
+/**
+ * Interactions API, stateless streaming.
+ * History is resent as steps: user_input / model_output blocks.
+ */
+async function streamGoogleInteractions(options: StreamOptions): Promise<void> {
+  const meta = getProvider("google");
+  const base = resolveBase(options.config, meta);
+
+  const steps = options.messages.map((message) =>
+    message.role === "assistant"
+      ? { type: "model_output", content: [{ type: "text", text: message.content }] }
+      : { type: "user_input", content: [{ type: "text", text: message.content }] },
+  );
+
+  const response = await httpFetch(`${base}/interactions?alt=sse`, {
+    method: "POST",
+    signal: options.signal,
+    headers: {
+      "content-type": "application/json",
+      "x-goog-api-key": apiKeyOf(options.config),
+    },
+    body: JSON.stringify({
+      model: options.model,
+      input: steps,
+      stream: true,
+      // Client-held history: nothing is retained on Google's side.
+      store: false,
+      ...(options.system ? { system_instruction: options.system } : {}),
+    }),
+  });
+
+  if (!response.ok) throw await httpError(response);
+
+  await readLines(
+    response,
+    (line) => {
+      const payload = ssePayload(line);
+      if (!payload) return;
+      let event: any;
+      try {
+        event = JSON.parse(payload);
+      } catch {
+        return;
+      }
+      if (event.event_type === "error" || event.error) {
+        throw new Error(event.error?.message ?? "Google returned an error.");
+      }
+      const delta = event.delta;
+      if (
+        (event.event_type === "step.delta" || event.event_type === "content.delta") &&
+        delta?.type === "text" &&
+        typeof delta.text === "string"
+      ) {
+        options.onDelta(delta.text);
+      }
+      const usage = event.interaction?.usage ?? event.usage;
+      if (event.event_type === "interaction.completed" && usage) {
+        options.onUsage?.({
+          input: usage.total_input_tokens,
+          output: usage.total_output_tokens,
+        });
+      }
+    },
+    options.signal,
+  );
+}
+
 async function streamGoogle(options: StreamOptions): Promise<void> {
+  if (needsInteractions(options.model)) return streamGoogleInteractions(options);
+
   const meta = getProvider("google");
   const base = resolveBase(options.config, meta);
 
@@ -270,7 +344,14 @@ async function streamGoogle(options: StreamOptions): Promise<void> {
     },
   );
 
-  if (!response.ok) throw await httpError(response);
+  if (!response.ok) {
+    const error = await httpError(response);
+    if (/interactions api/i.test(error.message)) {
+      // This model moved to the newer transport.
+      return streamGoogleInteractions(options);
+    }
+    throw error;
+  }
 
   await readLines(
     response,
@@ -417,10 +498,12 @@ export async function listModels(
             name && !/(embedding|tts|live|image|transcribe|lyria|omni|veo)/i.test(name),
         )
         .sort();
+      // Interactions-only models (Gemini 4) may not appear in models.list.
+      const merged = Array.from(new Set([...meta.models, ...models]));
       return {
         ok: true,
-        detail: models.length ? `${models.length} models` : "No text models on this key",
-        models,
+        detail: `${merged.length} models`,
+        models: merged,
       };
     }
 

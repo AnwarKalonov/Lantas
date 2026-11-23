@@ -1,6 +1,8 @@
 import { useStore } from "../lib/store";
 import { Icon } from "./Icons";
 import { McpManager } from "./McpManager";
+import { GitHubPanel } from "./GitHubPanel";
+import { GooglePanel } from "./GooglePanel";
 
 export function IntegrationsView() {
   const { state, setView } = useStore();
@@ -22,6 +24,9 @@ export function IntegrationsView() {
       </header>
 
       <div className="page-body">
+        <GitHubPanel />
+        <GooglePanel />
+
         <section className="page-section">
           <div className="section-head">
             <h2>MCP servers</h2>

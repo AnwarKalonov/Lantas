@@ -328,6 +328,7 @@ export function seedState(): AppState {
     activeId: null,
     view: "chats",
     mode: "chat",
+    browserUrl: "https://example.com",
     workspace: [],
     workspaceName: "",
     settings: { ...DEFAULT_SETTINGS },

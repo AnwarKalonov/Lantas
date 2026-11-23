@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { runAgent, type Emit } from "./lib/agent";
+import { runAppAction } from "./lib/appActions";
 import { buildHistory, buildSystemPrompt, parseImage } from "./lib/chat";
 import { isConfigured, streamChat } from "./lib/providers";
 import { useStore } from "./lib/store";
@@ -7,6 +8,7 @@ import { acquireScreen, captureFrame, currentScreen, releaseScreen } from "./lib
 import { openWorkspaceFolder } from "./lib/workspace";
 import type { AgentId, Attachment, Message, Mode, Part, ProviderId, Session } from "./lib/types";
 import { cx, titleFrom, uid } from "./lib/util";
+import { BrowserView } from "./components/BrowserView";
 import { CodeView } from "./components/CodeView";
 import { CommandPalette } from "./components/CommandPalette";
 import { ContextPanel } from "./components/ContextPanel";
@@ -51,6 +53,7 @@ export function App() {
     updateSession,
     setSettings,
     setMode,
+    setBrowserUrl,
     setView,
     setWorkspace,
     undo,
@@ -290,8 +293,13 @@ export function App() {
       openSettings,
       redo,
       setMode,
+      setBrowserUrl,
       setSettings,
       startScreen,
+      state.settings.favoriteModels,
+      state.settings.providers,
+      state.skills,
+      setView,
       state.settings.theme,
       togglePanel,
       undo,
@@ -304,15 +312,103 @@ export function App() {
       let text = raw.trim();
       if (!text && attachments.length === 0) return;
 
+      const existing = activeSession;
+      if (existing?.messages.some((message) => message.streaming)) return;
+
       if (text.startsWith("/") && runCommand(text)) return;
 
       const [head, ...rest] = text.split(/\s+/);
-      const args = rest.join(" ");
+      let args = rest.join(" ");
+      let skill = state.skills.find((item) => `/${item.name}` === head.toLowerCase());
+      if (!skill && head.toLowerCase() === "/skill" && rest.length > 0) {
+        const [skillName, ...task] = rest;
+        skill = state.skills.find(
+          (item) => item.name.toLowerCase() === skillName.toLowerCase(),
+        );
+        if (skill) args = task.join(" ");
+      }
       const custom = state.commands.find(
         (item) => `/${item.name}` === head.toLowerCase(),
       );
       const expansion = PROMPT_COMMANDS[head.toLowerCase()];
-      if (custom) {
+      const action =
+        !text.startsWith("/") && !skill
+          ? runAppAction(text, {
+              theme: state.settings.theme,
+              providers: PROVIDERS.map((meta) => ({
+                id: meta.id,
+                name: meta.name,
+                models: Array.from(
+                  new Set([...state.settings.providers[meta.id].models, ...meta.models]),
+                ),
+              })),
+              models: Array.from(
+                new Set(
+                  PROVIDERS.flatMap((meta) => [
+                    ...state.settings.providers[meta.id].models,
+                    ...meta.models,
+                  ]),
+                ),
+              ),
+              setTheme: (theme) => setSettings({ theme }),
+              setMode: (mode) => setMode(mode),
+              setView: (view) => setView(view),
+              setBrowserUrl: (url) => {
+                setBrowserUrl(url);
+                setMode("browser");
+              },
+              openSettings: (tab) => openSettings(tab),
+              setDefaultAgent: (agent) => setSettings({ defaultAgent: agent }),
+              setModel: (targetProvider, targetModel) => {
+                setSettings({ defaultProvider: targetProvider, defaultModel: targetModel });
+                if (existing) {
+                  updateSession(existing.id, (session) => ({
+                    ...session,
+                    provider: targetProvider,
+                    model: targetModel,
+                  }));
+                }
+              },
+              toggleFavorite: (favoriteModel) => {
+                const owner = PROVIDERS.find((meta) =>
+                  Array.from(
+                    new Set([...state.settings.providers[meta.id].models, ...meta.models]),
+                  ).includes(favoriteModel),
+                );
+                if (!owner) return;
+                const key = `${owner.id}/${favoriteModel}`;
+                const favorites = state.settings.favoriteModels;
+                setSettings({
+                  favoriteModels: favorites.includes(key)
+                    ? favorites.filter((entry) => entry !== key)
+                    : [...favorites, key],
+                });
+              },
+              setFlag: (flag, value) => setSettings({ [flag]: value } as never),
+            })
+          : null;
+
+      if (action) {
+        const sessionId = existing ? existing.id : createSession();
+        addMessage(sessionId, {
+          id: uid("msg"),
+          role: "user",
+          parts: [{ id: uid("part"), kind: "text", text }],
+          created: Date.now(),
+        });
+        addMessage(sessionId, {
+          id: uid("msg"),
+          role: "assistant",
+          parts: [{ id: uid("part"), kind: "note", text: action.message }],
+          created: Date.now(),
+        });
+        notify(action.message);
+        return;
+      }
+
+      if (skill) {
+        text = `${skill.instructions}\n\n${args ? `Task: ${args}` : "Apply this skill to the current workspace."}`;
+      } else if (custom) {
         text = custom.template.includes("$ARGUMENTS")
           ? custom.template.replaceAll("$ARGUMENTS", args)
           : args
@@ -321,9 +417,6 @@ export function App() {
       } else if (expansion) {
         text = args ? `${expansion}\n\nSpecifically: ${args}` : expansion;
       }
-
-      const existing = activeSession;
-      if (existing?.messages.some((message) => message.streaming)) return;
 
       const sessionId = existing ? existing.id : createSession();
       const agent = existing?.agent ?? state.settings.defaultAgent;
@@ -649,6 +742,7 @@ export function App() {
   };
 
   const title = useMemo(() => {
+    if (state.mode === "browser") return "Browser";
     if (state.mode === "code") return "Code";
     if (state.view === "skills") return "Skills";
     if (state.view === "integrations") return "Integrations";
@@ -669,7 +763,9 @@ export function App() {
         {state.sidebarOpen && <Sidebar onOpenSettings={() => openSettings("general")} />}
 
         <main className="main">
-          {state.mode === "code" ? (
+          {state.mode === "browser" ? (
+            <BrowserView />
+          ) : state.mode === "code" ? (
             <CodeView onOpenFolder={openFolder} />
           ) : (
             <>

@@ -28,17 +28,23 @@ export function TitleBar({
       </div>
 
       <div className="mode-tabs" role="tablist" aria-label="Workspace mode">
-        {(["chat", "code"] as Mode[]).map((item) => (
+        {(
+          [
+            { id: "chat", label: "Chat", icon: "message" },
+            { id: "code", label: "Code", icon: "terminal" },
+            { id: "browser", label: "Browser", icon: "compass" },
+          ] as Array<{ id: Mode; label: string; icon: "message" | "terminal" | "compass" }>
+        ).map((item) => (
           <button
-            key={item}
+            key={item.id}
             type="button"
             role="tab"
-            aria-selected={mode === item}
-            className={cx("mode-tab", mode === item && "is-active")}
-            onClick={() => onModeChange(item)}
+            aria-selected={mode === item.id}
+            className={cx("mode-tab", mode === item.id && "is-active")}
+            onClick={() => onModeChange(item.id)}
           >
-            <Icon name={item === "chat" ? "message" : "terminal"} size={14} />
-            {item === "chat" ? "Chat" : "Code"}
+            <Icon name={item.icon} size={14} />
+            {item.label}
           </button>
         ))}
       </div>

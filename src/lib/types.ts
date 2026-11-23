@@ -11,7 +11,7 @@ export type ProviderId =
 export type AgentId = "build" | "plan" | "chat";
 export type ThemeMode = "dark" | "light" | "glass" | "system";
 export type ViewId = "chats" | "skills" | "integrations";
-export type Mode = "chat" | "code";
+export type Mode = "chat" | "code" | "browser";
 
 export interface Attachment {
   id: string;
@@ -172,6 +172,7 @@ export interface AppState {
   activeId: string | null;
   view: ViewId;
   mode: Mode;
+  browserUrl: string;
   workspace: WorkspaceFile[];
   workspaceName: string;
   settings: Settings;

@@ -62,6 +62,7 @@ interface Store {
   setCommands: (commands: CustomCommand[]) => void;
   setView: (view: ViewId) => void;
   setMode: (mode: Mode) => void;
+  setBrowserUrl: (url: string) => void;
   setWorkspace: (name: string, files: WorkspaceFile[]) => void;
   clearWorkspace: () => void;
   undo: (sessionId: string) => void;
@@ -108,6 +109,7 @@ function loadState(): AppState {
         activeId,
         view: (parsed.view as ViewId) ?? "chats",
         mode: (parsed.mode as Mode) ?? "chat",
+        browserUrl: typeof parsed.browserUrl === "string" ? parsed.browserUrl : "https://example.com",
         workspace: [],
         workspaceName: parsed.workspaceName ?? "",
         settings: {
@@ -161,6 +163,7 @@ export function LantasProvider({ children }: { children: ReactNode }) {
             activeId: state.activeId,
             view: state.view,
             mode: state.mode,
+            browserUrl: state.browserUrl,
             workspaceName: state.workspaceName,
             settings: state.settings,
             skills: state.skills,
@@ -335,6 +338,10 @@ export function LantasProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, mode }));
   }, []);
 
+  const setBrowserUrl = useCallback<Store["setBrowserUrl"]>((browserUrl) => {
+    setState((prev) => ({ ...prev, browserUrl }));
+  }, []);
+
   const setWorkspace = useCallback<Store["setWorkspace"]>((workspaceName, workspace) => {
     setState((prev) => ({ ...prev, workspaceName, workspace }));
   }, []);
@@ -412,6 +419,7 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       setCommands,
       setView,
       setMode,
+      setBrowserUrl,
       setWorkspace,
       clearWorkspace,
       undo,
@@ -442,6 +450,7 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       setCommands,
       setView,
       setMode,
+      setBrowserUrl,
       setWorkspace,
       clearWorkspace,
       undo,

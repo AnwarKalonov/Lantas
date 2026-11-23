@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useStore } from "../lib/store";
+import { parseSkillZip } from "../lib/skills";
 import type { Skill } from "../lib/types";
 import { cx, uid } from "../lib/util";
 import { Icon } from "./Icons";
@@ -9,6 +10,40 @@ export function SkillsView() {
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState({ name: "", description: "", instructions: "" });
+  const [importing, setImporting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const importFiles = async (list: FileList | null) => {
+    if (!list?.length) return;
+    setImporting(true);
+    let added = 0;
+    for (const file of Array.from(list)) {
+      try {
+        const parsed = await parseSkillZip(file);
+        parsed.forEach((item) => {
+          const slug = item.name.replace(/\s+/g, "-").toLowerCase();
+          if (state.skills.some((existing) => existing.name === slug)) return;
+          addSkill({
+            id: uid("skill"),
+            name: slug,
+            description: item.description,
+            instructions: item.instructions,
+            enabled: true,
+          });
+          added += 1;
+        });
+      } catch {
+        notify(`${file.name} could not be read`, "error");
+      }
+    }
+    setImporting(false);
+    notify(
+      added
+        ? `${added} skill${added === 1 ? "" : "s"} learned`
+        : "No SKILL.md found in that file",
+      added ? "default" : "error",
+    );
+  };
 
   const startCreate = () => {
     setDraft({ name: "", description: "", instructions: "" });
@@ -44,10 +79,32 @@ export function SkillsView() {
             the agent checks before answering.
           </p>
         </div>
-        <button type="button" className="button-primary" onClick={startCreate}>
-          <Icon name="plus" size={14} />
-          New skill
-        </button>
+        <div className="page-head-actions">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".zip,.md"
+            multiple
+            hidden
+            onChange={(event) => {
+              void importFiles(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            className="button-quiet"
+            disabled={importing}
+            onClick={() => fileRef.current?.click()}
+          >
+            <Icon name="plus" size={14} />
+            {importing ? "Reading" : "Import .zip"}
+          </button>
+          <button type="button" className="button-primary" onClick={startCreate}>
+            <Icon name="plus" size={14} />
+            New skill
+          </button>
+        </div>
       </header>
 
       <div className="page-body">

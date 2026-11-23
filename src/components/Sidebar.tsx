@@ -3,7 +3,7 @@ import { useStore } from "../lib/store";
 import { isConfigured } from "../lib/providers";
 import type { Session } from "../lib/types";
 import { cx, timeAgo } from "../lib/util";
-import { MarkGlyph, Wordmark } from "./Brand";
+import { Wordmark } from "./Brand";
 import { Icon, type IconName } from "./Icons";
 
 interface RowMenu {
@@ -35,6 +35,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
     renameSession,
     setView,
     notify,
+    toggleSidebar,
   } = useStore();
   const [menu, setMenu] = useState<RowMenu | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -99,12 +100,12 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
       <div className="rail">
         <button
           type="button"
-          className="rail-brand"
-          onClick={() => setView("chats")}
-          aria-label="Lantas home"
-          title="Lantas"
+          className="rail-button rail-collapse"
+          onClick={toggleSidebar}
+          aria-label="Collapse sidebar"
+          title="Collapse sidebar (⌘B)"
         >
-          <MarkGlyph size={21} />
+          <Icon name="panelLeft" size={16} />
         </button>
 
         <button

@@ -4930,3 +4930,503 @@ html[data-runtime="tauri"] .titlebar {
   color: var(--text-4);
   font-size: 10.5px;
 }
+
+/* ── Liquid Glass, second pass: depth, bevel, glare ───────────────────── */
+
+[data-theme="glass"] .rail,
+[data-theme="glass"] .nav-panel,
+[data-theme="glass"] .titlebar,
+[data-theme="glass"] .composer,
+[data-theme="glass"] .popover,
+[data-theme="glass"] .settings,
+[data-theme="glass"] .chat-head,
+[data-theme="glass"] .screen-dock {
+  position: relative;
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05) 42%, rgba(255, 255, 255, 0.09)),
+    rgba(24, 26, 34, 0.26);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(56px) saturate(200%) brightness(1.08);
+  -webkit-backdrop-filter: blur(56px) saturate(200%) brightness(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 12px 34px rgba(255, 255, 255, 0.07),
+    inset 0 0 32px rgba(180, 200, 255, 0.05),
+    0 30px 70px -28px rgba(0, 0, 0, 0.85),
+    0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+/* the lens edge: a thin bright rim that fades along the shape */
+[data-theme="glass"] .composer::before,
+[data-theme="glass"] .settings::before,
+[data-theme="glass"] .popover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.65),
+    rgba(255, 255, 255, 0.08) 32%,
+    transparent 55%,
+    rgba(255, 255, 255, 0.22) 88%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* specular glare that follows the pointer inside the composer */
+[data-theme="glass"] .composer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    220px circle at var(--gx, 26%) var(--gy, 0%),
+    rgba(255, 255, 255, 0.28),
+    transparent 68%
+  );
+  opacity: 0.9;
+  pointer-events: none;
+  transition: opacity var(--dur-2) var(--ease-in-out);
+}
+
+[data-theme="glass"] .composer > * {
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="glass"] .rail {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.03) 38%, rgba(0, 0, 0, 0.16)),
+    linear-gradient(200deg, rgba(160, 190, 230, 0.16), transparent 40%),
+    rgba(16, 18, 24, 0.3);
+  border-width: 0 1px 0 0;
+  border-radius: 0;
+}
+
+[data-theme="glass"] .nav-panel {
+  border-width: 0 1px 0 0;
+  border-radius: 0;
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.24),
+    inset -1px 0 0 rgba(255, 255, 255, 0.05),
+    18px 0 40px -30px rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="glass"] .titlebar {
+  border-width: 0 0 1px 0;
+  border-radius: 0;
+}
+
+[data-theme="glass"] .chat-head {
+  border-width: 0 0 1px 0;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.015));
+}
+
+[data-theme="glass"] .mode-tabs {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03));
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 20px -12px rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="glass"] .mode-tab.is-active {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.07));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="glass"] .user-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03));
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+[data-theme="glass"] .app {
+  background:
+    radial-gradient(46% 42% at 24% 2%, rgba(150, 176, 196, 0.55), transparent 66%),
+    radial-gradient(38% 36% at 84% 0%, rgba(208, 172, 128, 0.4), transparent 68%),
+    radial-gradient(80% 70% at 55% 110%, rgba(78, 112, 140, 0.5), transparent 70%),
+    radial-gradient(30% 26% at 4% 92%, rgba(130, 112, 160, 0.3), transparent 70%),
+    #06060a;
+}
+
+/* ── browser tab ──────────────────────────────────────────────────────── */
+
+.browser-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--chat-bg);
+}
+
+.browser-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.browser-url {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-4);
+}
+
+.browser-url input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.browser-frame-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px 0;
+}
+
+.browser-frame {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.browser-hint {
+  padding: 7px 2px 0;
+  color: var(--text-4);
+  font-size: 11px;
+}
+
+.browser-hint code {
+  color: var(--text-2);
+}
+
+.browser-quick {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px 12px;
+  flex-wrap: wrap;
+}
+
+.flip-x {
+  transform: scaleX(-1);
+}
+
+/* ── GitHub integration ───────────────────────────────────────────────── */
+
+.gh-panel {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  background: var(--surface);
+}
+
+.gh-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gh-head h2 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 550;
+}
+
+.gh-lede {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12px;
+  max-width: 560px;
+}
+
+.gh-account {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.gh-connect {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gh-connect-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gh-toolbar {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.gh-search {
+  flex: 1;
+}
+
+.gh-repos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.gh-repo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.gh-repo:hover {
+  background: var(--sel);
+}
+
+.gh-repo-main {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gh-repo-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.gh-repo-desc {
+  color: var(--text-4);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gh-create {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.gh-create .field {
+  flex: 1;
+}
+
+.toggle-inline {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-3);
+  font-size: 12px;
+  padding-bottom: 8px;
+}
+
+.gh-editor {
+  margin-top: 12px;
+}
+
+.gh-editor-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.gh-editor-repo {
+  flex: 1;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.gh-editor-body {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 10px;
+  min-height: 320px;
+}
+
+.gh-files {
+  max-height: 460px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+  background: var(--nav-bg);
+}
+
+.gh-file {
+  display: block;
+  width: 100%;
+  padding: 5px 7px;
+  border-radius: 5px;
+  text-align: left;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gh-file:hover {
+  background: var(--sel);
+  color: var(--text);
+}
+
+.gh-file.is-active {
+  background: var(--thread-active);
+  color: var(--text);
+}
+
+.gh-file-view {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.gh-file-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.gh-file-head .mono {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.gh-commit-message {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 11.5px;
+  color: var(--text);
+  outline: none;
+}
+
+.gh-textarea {
+  flex: 1;
+  min-height: 380px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+}
+
+.page-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rail-collapse {
+  margin-bottom: 2px;
+}
+
+/* ── Gmail card ───────────────────────────────────────────────────────── */
+
+.mail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 10px;
+}
+
+.mail-item {
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mail-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-3);
+}
+
+.mail-subject {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mail-date {
+  font-size: 10.5px;
+  color: var(--text-4);
+}
+
+.mail-from {
+  margin: 2px 0 0 20px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.mail-snippet {
+  margin-left: 20px;
+  font-size: 11.5px;
+  color: var(--text-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

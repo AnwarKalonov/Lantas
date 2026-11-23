@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { runAgent, type Emit } from "./lib/agent";
 import { runAppAction } from "./lib/appActions";
+import { aiDriving } from "./lib/el";
 import { fetchInbox } from "./lib/composio";
 import { getElContext } from "./lib/el";
 import { consumeGoogleHash } from "./lib/google";
-import { elClick, inTauri } from "./lib/native";
+import { elClick, elEval, elType, inTauri } from "./lib/native";
 import { buildHistory, buildSystemPrompt, parseImage } from "./lib/chat";
 import { isConfigured, streamChat } from "./lib/providers";
 import { useStore } from "./lib/store";
@@ -266,9 +267,13 @@ export function App() {
             notify("Usage: /click <selector or visible text>", "error");
             return true;
           }
+          if (!aiDriving()) {
+            notify("You have control — the agent is paused", "error");
+            return true;
+          }
           void elClick(target).then((ok) =>
             notify(
-              ok ? `Clicked “${target}” in El` : "Open El on a page first",
+              ok ? `Clicked “${target}” in Lantas Browser` : "Open Lantas Browser on a page first",
               ok ? "default" : "error",
             ),
           );
@@ -338,15 +343,22 @@ export function App() {
       setView("chats");
       void handleSendRef.current(detail.text);
     };
+    const onAsk = (event: Event) => {
+      const detail = (event as CustomEvent<{ text?: string }>).detail;
+      if (!detail?.text) return;
+      void handleSendRef.current(detail.text);
+    };
     const onGmail = () => {
       setMode("chat");
       setView("integrations");
       notify("Connect Gmail or Composio in Integrations");
     };
     window.addEventListener("lantas:prompt", onPrompt);
+    window.addEventListener("lantas:ask", onAsk);
     window.addEventListener("lantas:gmail", onGmail);
     return () => {
       window.removeEventListener("lantas:prompt", onPrompt);
+      window.removeEventListener("lantas:ask", onAsk);
       window.removeEventListener("lantas:gmail", onGmail);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -819,7 +831,7 @@ export function App() {
   };
 
   const title = useMemo(() => {
-    if (state.mode === "browser") return "El · Browser";
+    if (state.mode === "browser") return "Lantas Browser";
     if (state.mode === "code") return "Code";
     if (state.view === "skills") return "Skills";
     if (state.view === "integrations") return "Integrations";

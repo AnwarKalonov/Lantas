@@ -20,7 +20,7 @@ async function command<T>(name: string, args: Record<string, unknown>): Promise<
   }
 }
 
-/** Opens or reuses El's native webview (a real browser engine). */
+/** Opens or reuses the Lantas Browser webview (a real browser engine). */
 export async function elOpen(url: string, box: ElBox): Promise<boolean> {
   return (await command("el_open", { url, ...box })) !== null;
 }

@@ -1,14 +1,44 @@
 use tauri::{LogicalPosition, LogicalSize, Manager, WebviewUrl};
 
+/// A normal macOS Safari agent string. WKWebView's default agent names the app,
+/// which Google treats as an unusual client and answers with a captcha wall.
+const BROWSER_AGENT: &str =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15";
+
+/// If Google still answers with its captcha wall, continue the same search on
+/// DuckDuckGo instead of showing a dead end.
+const SEARCH_RECOVERY: &str = r#"
+(() => {
+  const rescue = () => {
+    try {
+      const host = location.hostname;
+      if (!/(^|\.)google\.[a-z.]+$/.test(host)) return;
+      const blocked =
+        location.pathname.indexOf('/sorry/') === 0 ||
+        !!document.querySelector('#captcha-form, form[action*="sorry"], iframe[src*="recaptcha"]');
+      if (!blocked) return;
+      const q = new URLSearchParams(location.search).get('q') || '';
+      location.replace(q ? 'https://duckduckgo.com/?q=' + encodeURIComponent(q) : 'https://duckduckgo.com');
+    } catch (error) {}
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', rescue, { once: true });
+  } else {
+    rescue();
+  }
+  window.setTimeout(rescue, 1200);
+})();
+"#;
+
 fn parse_url(input: &str) -> Result<tauri::Url, String> {
     input
         .parse::<tauri::Url>()
         .map_err(|error| error.to_string())
 }
 
-/// Opens (or reuses) El's native webview. A child webview is a real browser
-/// engine, so Google and other frame-blocking sites work and the model can
-/// click through the page.
+/// Opens (or reuses) the Lantas Browser webview. A child webview is a real
+/// browser engine, so Google and other frame-blocking sites work and the model
+/// can click through the page.
 #[tauri::command]
 async fn el_open(
     window: tauri::Window,
@@ -28,7 +58,9 @@ async fn el_open(
         return Ok(());
     }
 
-    let builder = tauri::webview::WebviewBuilder::new("el", WebviewUrl::External(parsed));
+    let builder = tauri::webview::WebviewBuilder::new("el", WebviewUrl::External(parsed))
+        .user_agent(BROWSER_AGENT)
+        .initialization_script(SEARCH_RECOVERY);
     window
         .add_child(
             builder,

@@ -5,12 +5,6 @@ const AUTH_CACHE = "lantas.composio.auth.v1";
 const DEVICE_KEY = "lantas.device.v1";
 const BASE = "https://backend.composio.dev/api/v3.1";
 
-/**
- * The project key ships with the app build (VITE_COMPOSIO_KEY, injected from
- * the CI secret). People using Lantas never paste a key.
- */
-const APP_KEY = String(import.meta.env.VITE_COMPOSIO_KEY ?? "").trim();
-
 export interface ComposioConfig {
   apiKey: string;
   userId: string;
@@ -102,8 +96,8 @@ function profileEmail(): string | null {
   }
 }
 
-export function appKeyPresent(): boolean {
-  return Boolean(APP_KEY || getStoredKey());
+export function keyPresent(): boolean {
+  return Boolean(getStoredKey());
 }
 
 function getStoredKey(): string {
@@ -114,14 +108,14 @@ function getStoredKey(): string {
   }
 }
 
-/** A developer override; the shipped app always uses the baked-in key. */
+/** Each person brings their own Composio project key; it stays on this Mac. */
 export function setComposioKey(apiKey: string) {
   if (apiKey.trim()) localStorage.setItem(KEY, JSON.stringify({ apiKey: apiKey.trim() }));
   else localStorage.removeItem(KEY);
 }
 
 export function getComposio(): ComposioConfig | null {
-  const apiKey = APP_KEY || getStoredKey();
+  const apiKey = getStoredKey();
   if (!apiKey) return null;
   return { apiKey, userId: profileEmail() ?? deviceId() };
 }

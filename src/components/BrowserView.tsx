@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useStore } from "../lib/store";
 import { getGoogleToken, listMail, type MailItem } from "../lib/google";
 import {
   elBounds,
   elClick,
   elClose,
+  elEval,
   elHistory,
   elOpen,
   elReload,
@@ -14,12 +15,14 @@ import {
 } from "../lib/native";
 import {
   EL_HOME,
+  aiDriving,
   getElContext,
   hostOf,
   loadEl,
   normalizeUrl,
   readPage,
   saveEl,
+  setAiDriving,
   setElContext,
   type ElData,
   type ElPage,
@@ -41,7 +44,7 @@ const SHORTCUTS = [
 ];
 
 export function BrowserView({ visible = true }: { visible?: boolean }) {
-  const { state, setBrowserUrl, notify } = useStore();
+  const { state, setBrowserUrl, notify, togglePanel } = useStore();
   const [data, setData] = useState<ElData>(() => loadEl());
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<"live" | "reader">("live");
@@ -55,6 +58,10 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
   const [nativeReady, setNativeReady] = useState(false);
   const [clickTarget, setClickTarget] = useState("");
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiDraft, setAiDraft] = useState("");
+  const [driving, setDriving] = useState(() => aiDriving());
+  const aiLogRef = useRef<HTMLDivElement>(null);
   const frameKey = useRef(0);
   const viewportRef = useRef<HTMLDivElement>(null);
   const trail = useRef<string[]>([EL_HOME]);
@@ -230,19 +237,33 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
     }
   };
 
-  const ask = () => {
-    const current = page ?? getElContext();
-    if (!current) {
-      notify("Open the reader on a page first", "error");
-      return;
+  const openAssistant = () => {
+    if (!aiOpen && state.panelOpen) togglePanel();
+    setAiOpen(true);
+  };
+
+  const toggleAssistant = () => {
+    if (!aiOpen && state.panelOpen) togglePanel();
+    setAiOpen((open) => !open);
+  };
+
+  /** Give the model the page's text before it answers, without leaving the page. */
+  const ensurePage = async () => {
+    if (atHome || page) return;
+    try {
+      const next = await readPage(active.url);
+      setPage(next);
+      setElContext(next);
+      patchTab(active.id, { title: next.title });
+    } catch {
+      /* some sites block extraction; the model still gets the URL */
     }
-    window.dispatchEvent(
-      new CustomEvent("lantas:prompt", {
-        detail: {
-          text: `Using the page I have open in El (${current.title} — ${current.url}), `,
-        },
-      }),
-    );
+  };
+
+  const ask = async (prompt = "Summarize this page and tell me what matters.") => {
+    openAssistant();
+    await ensurePage();
+    window.dispatchEvent(new CustomEvent("lantas:ask", { detail: { text: prompt } }));
   };
 
   const click = async (target = clickTarget) => {
@@ -252,7 +273,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
       return;
     }
     const ok = await elClick(target.trim());
-    notify(ok ? `Clicked “${target.trim()}” in El` : "El could not click that", ok ? "default" : "error");
+    notify(ok ? `Clicked “${target.trim()}”` : "That click did not land", ok ? "default" : "error");
   };
 
   const toggleBookmark = () => {
@@ -279,7 +300,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
       profile: { name, email: profile.email.trim(), joined: Date.now() },
     }));
     setProfileOpen(false);
-    notify("El profile saved on this Mac");
+    notify("Profile saved on this Mac");
   };
 
   const importMail = async () => {
@@ -297,6 +318,128 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
     } finally {
       setBusy(false);
     }
+  };
+
+  const activeSession = state.sessions.find((item) => item.id === state.activeId) ?? null;
+  const aiMessages = (activeSession?.messages ?? []).slice(-10);
+  const aiModel = activeSession?.model ?? state.settings.defaultModel;
+
+  useEffect(() => {
+    if (!aiOpen) return;
+    aiLogRef.current?.scrollTo({ top: aiLogRef.current.scrollHeight, behavior: "smooth" });
+  }, [aiOpen, aiMessages.length, activeSession?.messages.at(-1)?.parts]);
+
+  const typeInto = async (value: string, selector?: string) => {
+    if (!native) {
+      notify("Typing needs the desktop app", "error");
+      return;
+    }
+    const target = selector ? JSON.stringify(selector) : "document.activeElement";
+    const payload = JSON.stringify(value);
+    await elEval(
+      `(() => {
+        const el = ${target};
+        if (!el) return;
+        el.focus();
+        const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+        if (setter) setter.call(el, ${payload}); else el.value = ${payload};
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      })()`,
+    );
+    notify("Typed into the page");
+  };
+
+  const pressEnter = async () => {
+    if (!native) {
+      notify("That needs the desktop app", "error");
+      return;
+    }
+    await elEval(
+      `(() => {
+        const el = document.activeElement;
+        if (!el) return;
+        for (const type of ["keydown", "keypress", "keyup"]) {
+          el.dispatchEvent(new KeyboardEvent(type, { key: "Enter", code: "Enter", bubbles: true }));
+        }
+        if (el.form && typeof el.form.requestSubmit === "function") el.form.requestSubmit();
+      })()`,
+    );
+  };
+
+  const scrollPage = async (pixels: number) => {
+    await elEval(`window.scrollBy({ top: ${pixels}, behavior: "smooth" })`);
+  };
+
+  /** Natural commands the agent (or you) can run without a round trip to a model. */
+  const agentStep = async (raw: string): Promise<boolean> => {
+    const text = raw.trim();
+    const lower = text.toLowerCase();
+    if (!text) return true;
+    if (!aiDriving()) {
+      notify("You have control — turn the agent back on first", "error");
+      return true;
+    }
+
+    const open = text.match(/^(?:open|go to|navigate to)\s+(.+)$/i);
+    if (open) {
+      navigate(open[1]);
+      return true;
+    }
+    const clickMatch = text.match(/^(?:click|tap|press)\s+(?:on\s+)?(.+)$/i);
+    if (clickMatch) {
+      await click(clickMatch[1]);
+      return true;
+    }
+    const typeMatch = text.match(/^type\s+["“]?(.+?)["”]?(?:\s+(?:into|in)\s+(.+))?$/i);
+    if (typeMatch) {
+      await typeInto(typeMatch[1], typeMatch[2]?.trim());
+      return true;
+    }
+    if (/^(enter|submit|search now)$/i.test(text)) {
+      await pressEnter();
+      return true;
+    }
+    if (/^(scroll down|page down)$/i.test(text)) {
+      await scrollPage(600);
+      return true;
+    }
+    if (/^(scroll up|page up)$/i.test(text)) {
+      await scrollPage(-600);
+      return true;
+    }
+    if (lower === "back") {
+      step("back");
+      return true;
+    }
+    if (lower === "forward") {
+      step("forward");
+      return true;
+    }
+    if (lower === "reload" || lower === "refresh") {
+      reload();
+      return true;
+    }
+    return false;
+  };
+
+  const submitAsk = async (event: FormEvent) => {
+    event.preventDefault();
+    const text = aiDraft.trim();
+    if (!text) return;
+    setAiDraft("");
+    openAssistant();
+    if (await agentStep(text)) return;
+    await ensurePage();
+    window.dispatchEvent(new CustomEvent("lantas:ask", { detail: { text } }));
+  };
+
+  const toggleControl = () => {
+    const next = !driving;
+    setDriving(next);
+    setAiDriving(next);
+    notify(next ? "Agent can drive the browser" : "You have control of the browser");
   };
 
   const bookmarked = data.bookmarks.some((item) => item.url === active.url);
@@ -356,12 +499,12 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
         </div>
 
         <div className="el-identity">
-          <span className="el-mini-wordmark">El</span>
+          <span className="el-mini-wordmark">Lantas Browser</span>
           <button
             type="button"
             className={cx("el-avatar", data.profile && "is-signed")}
             onClick={() => setProfileOpen((open) => !open)}
-            aria-label="El profile"
+            aria-label="Profile"
           >
             {data.profile ? data.profile.name.charAt(0).toUpperCase() : "?"}
           </button>
@@ -399,7 +542,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
                 </>
               ) : (
                 <>
-                  <p className="el-pop-title">Sign in to El</p>
+                  <p className="el-pop-title">Sign in to Lantas Browser</p>
                   <p className="el-muted">
                     Bookmarks, history and imported mail stay under one local profile. No account
                     server.
@@ -476,7 +619,7 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Search Google or type a URL"
             spellCheck={false}
-            aria-label="El address bar"
+            aria-label="Address bar"
           />
           {draft && <span className="el-enter">↵</span>}
         </form>
@@ -512,21 +655,32 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
           >
             <Icon name="external" size={13} />
           </button>
+          <button
+            type="button"
+            className={cx("el-ai-button", aiOpen && "is-on")}
+            onClick={toggleAssistant}
+            aria-label="Lantas AI"
+            title="Ask Lantas AI about this page"
+          >
+            <Icon name="sparkle" size={13} />
+            <span>Ask AI</span>
+          </button>
         </div>
       </div>
 
       {error && <p className="status-line is-error el-error">{error}</p>}
 
-      <div className="el-body">
+      <div className={cx("el-body", aiOpen && "has-ai")}>
+        <div className="el-main">
         {atHome ? (
           <div className="el-home">
             <div className="el-home-inner">
               <div className="el-greeting">
-                <span className="el-mark">El</span>
+                <span className="el-mark">Lantas Browser</span>
                 <h1>Search the web, or let the agent drive it</h1>
                 <p>
-                  Pages open in El's own engine, so the model can read them, click what matters and
-                  type where you ask.
+                  Pages open in Lantas Browser's own engine, so the model can read them, click
+                  what matters and type where you ask.
                 </p>
               </div>
 
@@ -629,15 +783,15 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
                 <p className="el-kicker">{hostOf(page.url)}</p>
                 <h2>{page.title}</h2>
                 <p className="el-muted">
-                  {page.words.toLocaleString()} words · extracted by El
+                  {page.words.toLocaleString()} words · read by Lantas Browser
                 </p>
               </div>
               <div className="el-actions">
                 <button type="button" className="button-quiet" onClick={() => setMode("live")}>
                   Live page
                 </button>
-                <button type="button" className="button-primary" onClick={ask}>
-                  Ask the model
+                <button type="button" className="button-primary" onClick={() => ask()}>
+                  Ask Lantas AI
                 </button>
               </div>
             </div>
@@ -648,9 +802,9 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
           <div className="el-viewport" ref={viewportRef}>
             {native ? (
               <div className={cx("el-engine", nativeReady && "is-ready")}>
-                <span className="el-engine-mark">El</span>
+                <span className="el-engine-mark">Lantas Browser</span>
                 <span className="el-muted">
-                  {nativeReady ? "Native page" : "Starting El's browser engine…"}
+                  {nativeReady ? "Native page" : "Starting the browser engine…"}
                 </span>
               </div>
             ) : (
@@ -670,12 +824,95 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
             )}
           </div>
         )}
+        </div>
+
+        {aiOpen && (
+          <aside className="el-ai" aria-label="Lantas AI">
+            <header className="el-ai-head">
+              <div>
+                <span className="el-ai-title">Lantas AI</span>
+                <small>{aiModel}</small>
+              </div>
+              <button
+                type="button"
+                className="el-round"
+                onClick={() => setAiOpen(false)}
+                aria-label="Close assistant"
+              >
+                <Icon name="close" size={12} />
+              </button>
+            </header>
+
+            <div className="el-ai-log" ref={aiLogRef}>
+              {aiMessages.length === 0 ? (
+                <div className="el-ai-empty">
+                  <p>Ask about this page, or tell the agent what to do.</p>
+                  <div className="el-ai-chips">
+                    <button type="button" onClick={() => ask()}>
+                      Summarize
+                    </button>
+                    <button type="button" onClick={() => ask("What can I do on this page?")}>
+                      What can I do
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => ask("Find the most useful links on this page and where they go.")}
+                    >
+                      Find links
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                aiMessages.map((message) => (
+                  <div key={message.id} className={cx("el-ai-msg", message.role)}>
+                    {message.parts.map((part) =>
+                      part.kind === "text" || part.kind === "note" ? (
+                        <p key={part.id}>{part.text}</p>
+                      ) : null,
+                    )}
+                    {message.streaming && <span className="el-ai-typing" />}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form className="el-ai-form" onSubmit={submitAsk}>
+              <input
+                value={aiDraft}
+                onChange={(event) => setAiDraft(event.target.value)}
+                placeholder={driving ? "Ask anything, or say “click Sign in”" : "You have control"}
+                spellCheck={false}
+                aria-label="Ask Lantas AI"
+              />
+              <button type="submit" className="el-ai-send" disabled={!aiDraft.trim()}>
+                ↑
+              </button>
+            </form>
+
+            <div className="el-ai-foot">
+              <button
+                type="button"
+                className={cx("el-ai-control", driving && "is-agent")}
+                onClick={toggleControl}
+                title="Switch between the agent and your own hands"
+              >
+                <span className="el-dot" />
+                {driving ? "Agent can drive" : "You have control"}
+              </button>
+              <span className="el-ai-hint">“open …”, “click …”, “type …”, “scroll down”</span>
+            </div>
+          </aside>
+        )}
       </div>
 
       <div className="el-foot">
         <span className={cx("el-dot", native && "is-native")} />
         <span className="el-foot-status">
-          {page ? `“${page.title.slice(0, 40)}” ready for the model` : native ? "Native engine" : "Web preview"}
+          {page
+            ? `“${page.title.slice(0, 40)}” ready for the model`
+            : native
+              ? "Native engine"
+              : "Web preview"}
         </span>
         <button
           type="button"
@@ -685,7 +922,15 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
           {controlsOpen ? "Hide controls" : "Click controls"}
         </button>
         <span className="el-foot-spacer" />
-        <button type="button" className="text-button" onClick={ask} disabled={!page}>
+        <button
+          type="button"
+          className={cx("el-foot-agent", driving && "is-on")}
+          onClick={toggleControl}
+        >
+          <span className="el-dot" />
+          {driving ? "Agent can drive" : "You have control"}
+        </button>
+        <button type="button" className="text-button" onClick={() => ask()} disabled={!page}>
           Ask about this page
         </button>
       </div>
@@ -705,7 +950,8 @@ export function BrowserView({ visible = true }: { visible?: boolean }) {
             Click in page
           </button>
           <span className="el-controls-hint">
-            The model triggers this with <code>/click &lt;text&gt;</code>
+            The model drives the page with <code>/click</code>, <code>/type</code>,{" "}
+            <code>/scroll</code> and <code>/enter</code>
           </span>
         </div>
       )}

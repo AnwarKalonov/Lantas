@@ -148,3 +148,23 @@ export async function readPage(url: string): Promise<ElPage> {
     words: text ? text.split(/\s+/).length : 0,
   };
 }
+
+const AGENT_KEY = "lantas.browser.agent.v1";
+
+/** Whether the model may click, type and navigate in Lantas Browser. */
+export function aiDriving(): boolean {
+  try {
+    return localStorage.getItem(AGENT_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function setAiDriving(on: boolean) {
+  try {
+    localStorage.setItem(AGENT_KEY, on ? "on" : "off");
+  } catch {
+    /* storage unavailable */
+  }
+  window.dispatchEvent(new CustomEvent("lantas:agent", { detail: { on } }));
+}

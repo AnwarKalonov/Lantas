@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CATALOG,
-  appKeyPresent,
+  keyPresent,
   connectToolkit,
   fetchInbox,
   listConnections,
   revokeConnection,
+  setComposioKey,
   type Connection,
   type InboxItem,
   type IntegrationCategory,
@@ -35,7 +36,11 @@ export function ComposioPanel() {
   const [error, setError] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [inbox, setInbox] = useState<InboxItem[]>([]);
-  const ready = appKeyPresent();
+  const [hasKey, setHasKey] = useState(() => keyPresent());
+  const [keyOpen, setKeyOpen] = useState(false);
+  const [keyDraft, setKeyDraft] = useState("");
+  const [keyError, setKeyError] = useState("");
+  const ready = hasKey;
 
   const active = useMemo(() => {
     const map = new Map<string, Connection>();
@@ -64,9 +69,9 @@ export function ComposioPanel() {
   };
 
   useEffect(() => {
-    if (ready) void refresh();
+    if (hasKey) void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hasKey]);
 
   useEffect(() => {
     if (!pending) return;
@@ -89,6 +94,23 @@ export function ComposioPanel() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending]);
+
+  const saveKey = (event: React.FormEvent) => {
+    event.preventDefault();
+    const value = keyDraft.trim();
+    if (!value) return;
+    if (!/^ak_/.test(value)) {
+      setKeyError("Composio project keys start with ak_");
+      return;
+    }
+    setComposioKey(value);
+    setHasKey(true);
+    setKeyOpen(false);
+    setKeyDraft("");
+    setKeyError("");
+    notify("Composio key saved on this Mac");
+    void refresh();
+  };
 
   const connect = async (app: string, name: string) => {
     setBusy(app);
@@ -132,8 +154,8 @@ export function ComposioPanel() {
         <div>
           <h2>Marketplace</h2>
           <p className="market-lede">
-            Connect the apps you already use. Authorization runs through Composio; Lantas holds the
-            app key so you never configure one.
+            Connect the apps you already use. Each person adds their own Composio key once, and
+            Lantas keeps it on this Mac.
           </p>
         </div>
         <div className="market-status">
@@ -144,22 +166,53 @@ export function ComposioPanel() {
               <button type="button" className="text-button" onClick={() => void refresh()}>
                 {busy === "sync" ? "Syncing" : "Refresh"}
               </button>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => setKeyOpen((open) => !open)}
+              >
+                Key
+              </button>
             </>
           ) : (
-            <span className="tag">app key required</span>
+            <span className="tag">Your key</span>
           )}
         </div>
       </div>
 
-      {!ready && (
-        <div className="market-notice">
-          <Icon name="settings" size={14} />
-          <span>
-            This build has no Composio key baked in. The maintainer adds{" "}
-            <code>COMPOSIO_API_KEY</code> as a repository secret and the macOS workflow injects it
-            at build time — nobody using the app enters a key.
-          </span>
-        </div>
+      {(!ready || keyOpen) && (
+        <form className="market-key" onSubmit={saveKey}>
+          <div>
+            <h3>{ready ? "Replace your Composio key" : "Connect Composio"}</h3>
+            <p>
+              Paste your project API key from the Composio dashboard. It stays on this Mac and is
+              only sent to Composio.
+            </p>
+          </div>
+          <div className="market-key-row">
+            <input
+              type="password"
+              value={keyDraft}
+              onChange={(event) => setKeyDraft(event.target.value)}
+              placeholder="ak_…"
+              autoComplete="off"
+              spellCheck={false}
+              aria-label="Composio API key"
+            />
+            <button type="submit" className="button-primary" disabled={!keyDraft.trim()}>
+              Save key
+            </button>
+            <a
+              className="text-button"
+              href="https://dashboard.composio.dev"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Get a key
+            </a>
+          </div>
+          {keyError && <p className="status-line is-error">{keyError}</p>}
+        </form>
       )}
 
       <div className="market-toolbar">

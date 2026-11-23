@@ -14,3 +14,7 @@ src-tauri/gen
 .dev.pid
 .dev3000.pid
 .app.pid
+
+# local screenshots and one-off site scripts
+/artifacts/
+/.rebrand/

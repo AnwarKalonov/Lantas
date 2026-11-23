@@ -6491,3 +6491,57 @@ img.mark {
     padding: 24px;
   }
 }
+
+/* ---------- brand: letter mark in the header, full lockup in the footer ---------- */
+
+.brand .glyph {
+  display: block;
+  width: 25px;
+  height: 34px;
+  flex: none;
+  object-fit: contain;
+}
+
+.brand .glyph-light,
+.foot-mark .lockup-light {
+  display: none;
+}
+
+[data-theme="dark"] .brand .glyph-ink,
+[data-theme="dark"] .foot-mark .lockup-ink {
+  display: none;
+}
+
+[data-theme="dark"] .brand .glyph-light,
+[data-theme="dark"] .foot-mark .lockup-light {
+  display: block;
+}
+
+.foot-mark .lockup {
+  display: block;
+  width: clamp(190px, 24vw, 300px);
+  height: auto;
+}
+
+.cmdline {
+  flex-wrap: wrap;
+}
+
+.cmdline code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* the footer lockup: hide the variant that does not match the theme
+   (kept after .foot-mark .lockup so the display:block above cannot win) */
+.foot-mark .lockup-light {
+  display: none;
+}
+
+[data-theme="dark"] .foot-mark .lockup-ink {
+  display: none;
+}
+
+[data-theme="dark"] .foot-mark .lockup-light {
+  display: block;
+}

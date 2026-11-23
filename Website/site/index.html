@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lantas — chat, code, and the browser in one free agent</title>
-<meta name="description" content="Lantas is a free, open-source macOS agent in one window: chat with any model, edit code in a workspace you pick, connect Gmail, Notion, GitHub and 30 more apps, and drive your own browser.">
+<meta name="description" content="Lantas is a free macOS agent in one window: chat with any model, edit code in a workspace you pick, connect Gmail, Notion, GitHub and 30 more apps, and drive your own browser.">
 
-<link rel="icon" href="assets/img/mark.png">
+<link rel="icon" type="image/png" sizes="64x64" href="assets/img/favicon-64.png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
@@ -36,9 +37,9 @@
 
 <header class="nav">
   <div class="wrap nav-in">
-    <a class="brand" href="index.html">
-      <img class="mark" src="assets/img/mark.png" alt="" width="34" height="34">
-      Lantas
+    <a class="brand" href="index.html" aria-label="Lantas home">
+      <img class="glyph glyph-ink" src="assets/img/letter-ink.png" alt="" width="26" height="34">
+      <img class="glyph glyph-light" src="assets/img/letter-light.png" alt="" width="26" height="34" aria-hidden="true">
     </a>
 
     <nav class="nav-links" aria-label="Sections">
@@ -48,7 +49,7 @@
       <a href="#verification">Benchmark</a>
       <a href="#install">Install</a>
       <a class="mob" href="docs.html">Docs</a>
-      <a class="mob" href="https://github.com/AnwarKalonov/Lantas">GitHub</a>
+      <a class="mob" href="https://github.com/AnwarKalonov/Lantas-download">GitHub</a>
     </nav>
 
     <div class="nav-right">
@@ -57,7 +58,7 @@
         <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/></svg>
       </button>
             <a class="txt" href="docs.html">Docs</a>
-      <a class="txt" href="https://github.com/AnwarKalonov/Lantas">GitHub</a>
+      <a class="txt" href="https://github.com/AnwarKalonov/Lantas-download">GitHub</a>
       <a class="btn btn-primary btn-sm" href="download.html">Download</a>
       <button class="menu-btn" aria-label="Menu" aria-expanded="false">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
@@ -75,14 +76,14 @@
 
   <div class="wrap">
     <div class="hero-copy">
-      <p class="eyebrow" data-reveal><span class="dot"></span>Lantas 1.0 · free and open source</p>
+      <p class="eyebrow" data-reveal><span class="dot"></span>Lantas 1.0 · free to download</p>
 
       <h1 data-reveal style="--d:70ms">The agent that chats, codes, <span class="soft">and drives your browser</span></h1>
 
       <p class="lede" data-reveal style="--d:140ms">
         One macOS window with a chat, a code workspace and a browser of its own. Ask about anything, change a repo,
         connect Gmail, Notion, GitHub or Linear, or hand it the tab you are looking at. Bring any model, run one
-        locally, and pay nothing for the app: <b>free</b>, MIT licensed, no account.
+        locally, and pay nothing for the app: <b>free</b>, no account, no subscription.
       </p>
 
       <div class="actions" data-reveal style="--d:210ms">
@@ -98,8 +99,8 @@
 
       <div class="cmdline" data-reveal style="--d:280ms">
         <span class="prompt">$</span>
-        <code>git clone https://github.com/AnwarKalonov/Lantas.git</code>
-        <button class="copy" data-copy="git clone https://github.com/AnwarKalonov/Lantas.git" aria-label="Copy install command">
+        <code>open https://github.com/AnwarKalonov/Lantas-download/releases/latest</code>
+        <button class="copy" data-copy="open https://github.com/AnwarKalonov/Lantas-download/releases/latest" aria-label="Copy download link">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
           <span class="ok">Copied</span>
         </button>
@@ -302,9 +303,9 @@
       <div>
         <p class="n">07 · the price</p>
         <h3>Free, and not in the trial sense.</h3>
-        <div class="tags"><span>$0</span><span>MIT licensed</span><span>no account</span><span>no per-task fee</span></div>
+        <div class="tags"><span>$0</span><span>free forever</span><span>no account</span><span>no per-task fee</span></div>
       </div>
-      <p>No subscription, no seats, no metering and nothing to upgrade: the app is free, and the source is on GitHub. Run a model on the same Mac and a task costs nothing at all. Bring a hosted key and that provider is the only thing that bills you — Lantas takes nothing on top.</p>
+      <p>No subscription, no seats, no metering and nothing to upgrade: download it once and use it. Run a model on the same Mac and a task costs nothing at all. Bring a hosted key and that provider is the only thing that bills you — Lantas takes nothing on top.</p>
     </article>
   </div>
 </section>
@@ -616,7 +617,7 @@
         <div class="stat">
           <p class="label">Price of the app</p>
           <p class="fig">$0</p>
-          <p class="sub"><b>Free</b> · MIT licensed · no account, no per-task fee</p>
+          <p class="sub"><b>Free</b> · no account, no per-task fee</p>
         </div>
         <div class="stat">
           <p class="label">Tasks finished</p>
@@ -685,7 +686,7 @@
 
     <div class="grid-copy" style="margin-top:72px;align-items:start">
       <div class="prose" data-reveal>
-        <p>Nothing in the app is metered: no subscription, no seats, no per-task fee, no account. Lantas is MIT licensed, and the only thing that can cost money is the model you choose — run Ollama or LM Studio on the same Mac and a task costs nothing, or bring a hosted key and that provider bills you directly.</p>
+        <p>Nothing in the app is metered: no subscription, no seats, no per-task fee, no account. The app itself is free, and the only thing that can cost money is the model you choose — run Ollama or LM Studio on the same Mac and a task costs nothing, or bring a hosted key and that provider bills you directly.</p>
         <p>The work Lantas does itself is close to nothing: on a two-step task the DOM read is 0.06 s and the matching happens locally. The model turn is the task, and it is the only part anyone could charge for. <a href="docs.html#overhead">Method and caveats are in the docs</a>.</p>
       </div>
 
@@ -785,7 +786,7 @@
             </tr>
             <tr>
               <td>price</td>
-              <td class="us">Free · MIT · no account</td>
+              <td class="us">Free · no account</td>
               <td>Subscription or per-token</td>
               <td>Free tier, then subscription</td>
             </tr>
@@ -813,12 +814,12 @@
         <p class="eyebrow" data-reveal><span class="dot"></span>Installation</p>
         <h2 data-reveal style="--d:60ms;margin-top:18px">Install and start</h2>
       </div>
-      <p class="dek" data-reveal style="--d:120ms">Needs macOS 13 or newer and Chrome 116 or newer. It builds from source in about two minutes, and it is free: MIT licensed, no account, no trial.</p>
+      <p class="dek" data-reveal style="--d:120ms">Needs macOS 13 or newer and Chrome 116 or newer. Download the dmg for your Mac and drag it to Applications. Free: no account, no trial, no subscription.</p>
     </header>
 
     <div class="install-grid">
       <div class="prose" data-reveal>
-        <p>Lantas is open source and free. Clone the repo, run the installer, and it builds and installs Lantas.app with the chat, the code workspace and the browser in one window. The Chrome extension ships inside the app; the app shows you where it is and how to load it.</p>
+        <p>Download the build for your Mac and drag <b>Lantas.app</b> to Applications. It opens with the chat, the code workspace and the browser in one window. The Chrome extension ships inside the app; the app shows you where it is and how to load it.</p>
         <p>Bring a model key, or run a model on the same Mac. Settings takes Anthropic, OpenAI, OpenRouter, Groq, Google, Ollama, LM Studio or any OpenAI-compatible endpoint, and keeps the configuration in the app's own storage. Nothing is proxied through us.</p>
 
         <div class="reqs">
@@ -827,7 +828,7 @@
           <div class="req"><span class="k">App</span><span class="v">Tauri 2 · Rust · not Electron</span></div>
           <div class="req"><span class="k">Models</span><span class="v">Claude · GPT · Gemini · Llama · local</span></div>
           <div class="req"><span class="k">Keys</span><span class="v">yours, stored on your Mac</span></div>
-          <div class="req"><span class="k">Price</span><span class="v">Free · MIT licensed · no account</span></div>
+          <div class="req"><span class="k">Price</span><span class="v">Free · no account</span></div>
         </div>
 
         <div class="linkrow">
@@ -837,7 +838,7 @@
           <a href="docs.html">Read the docs
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
-          <a href="https://github.com/AnwarKalonov/Lantas">GitHub
+          <a href="https://github.com/AnwarKalonov/Lantas-download">GitHub
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
           </a>
         </div>
@@ -853,8 +854,8 @@
           <div class="cmdblock">
             <div class="row">
               <span class="prompt">$</span>
-              <span>git clone https://github.com/AnwarKalonov/Lantas.git</span>
-              <button class="cmd-copy" data-copy="git clone https://github.com/AnwarKalonov/Lantas.git">
+              <span>open ~/Downloads/Lantas-1.0.0-arm64.dmg</span>
+              <button class="cmd-copy" data-copy="open ~/Downloads/Lantas-1.0.0-arm64.dmg">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
                 <span class="label">copy</span>
               </button>
@@ -863,15 +864,15 @@
           <div class="cmdblock">
             <div class="row">
               <span class="prompt">$</span>
-              <span>open "Build Lantas.app.command"</span>
-              <button class="cmd-copy" data-copy='open "Build Lantas.app.command"'>
+              <span>open -a Lantas</span>
+              <button class="cmd-copy" data-copy="open -a Lantas">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
                 <span class="label">copy</span>
               </button>
             </div>
           </div>
 
-          <p class="cap">The installer builds the app, signs it for your Mac, and copies the extension where Lantas can find it.</p>
+          <p class="cap">Drop the app in Applications. The extension ships inside it, at <span class="mono">Contents/Resources/chrome-extension</span>.</p>
 
           <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line)">
             <div class="inspect" style="font-size:12.5px;line-height:21px">
@@ -888,7 +889,7 @@
                 <span class="name">browser</span><span class="val">Lantas or Chrome</span>
               </div>
               <div class="inspect-row" style="grid-template-columns:minmax(0,1fr) auto">
-                <span class="name">price</span><span class="val">$0 · MIT</span>
+                <span class="name">price</span><span class="val">$0</span>
               </div>
             </div>
           </div>
@@ -900,7 +901,7 @@
 
 <section class="closing">
   <div class="wrap">
-    <p data-reveal>Free, open source, and it all runs on your Mac. Install Lantas.</p>
+    <p data-reveal>Free, and it all runs on your Mac. Install Lantas.</p>
     <div class="actions" data-reveal style="--d:80ms">
       <a class="btn btn-primary" href="docs.html">
         Read the docs
@@ -919,19 +920,19 @@
   <div class="wrap">
     <div class="foot-top">
       <div class="foot-mark">
-        <img class="mark" src="assets/img/mark.png" alt="" width="34" height="34">
-        Lantas
+        <img class="lockup lockup-ink" src="assets/img/lockup-ink.png" alt="Lantas" width="284" height="140">
+        <img class="lockup lockup-light" src="assets/img/lockup-light.png" alt="" aria-hidden="true" width="284" height="140">
       </div>
       <div class="foot-links">
         <a href="docs.html">Docs</a>
         <a href="download.html">Download</a>
-        <a href="https://github.com/AnwarKalonov/Lantas">GitHub</a>
+        <a href="https://github.com/AnwarKalonov/Lantas-download">GitHub</a>
         <a href="docs.html#extension">Chrome extension</a>
-        <a href="https://github.com/AnwarKalonov/Lantas/issues">Contact</a>
+        <a href="https://github.com/AnwarKalonov/Lantas-download/issues">Contact</a>
       </div>
     </div>
     <div class="foot-bottom">
-      <span class="line">chat, code, and the browser · free and open source</span>
+      <span class="line">chat, code, and the browser · free</span>
       <span>© 2026 Lantas</span>
     </div>
   </div>

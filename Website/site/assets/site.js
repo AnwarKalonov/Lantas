@@ -602,7 +602,7 @@ function initDownload() {
   const rows = $$("tr[data-os]", root);
   const buttons = $$(".seg button[data-os]", root);
   const count = $(".count", root);
-  const platNames = { arm: "Apple silicon", intel: "Intel", src: "source" };
+  const platNames = { arm: "Apple silicon", intel: "Intel", ext: "extension" };
 
   const pick = (os) => {
     buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.os === os)));
@@ -620,7 +620,7 @@ function initDownload() {
     }
     if (count) {
       const n = rows.filter((r) => !r.hidden).length;
-      count.textContent = `${n} builds · ${platNames[os] || os}`;
+      count.textContent = `${n} build${n === 1 ? "" : "s"} · ${platNames[os] || os}`;
     }
   };
 

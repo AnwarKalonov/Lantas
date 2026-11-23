@@ -1,6 +1,7 @@
 #!/bin/bash
 # Double-click this file in Finder to open Lantas.
-# First run installs dependencies; later runs just open the window.
+# Opens the installed desktop app when it exists; otherwise runs the web build
+# (first run installs dependencies).
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -15,6 +16,16 @@ if [ "$(uname -s)" != "Darwin" ]; then
   read -r -p "Press Return to close..." _
   exit 1
 fi
+
+# The real desktop app wins: it is the one with the native browser and the
+# Chrome bridge. The web build is only the fallback.
+for candidate in "/Applications/Lantas.app" "$(pwd)/src-tauri/target/release/bundle/macos/Lantas.app"; do
+  if [ -d "$candidate" ]; then
+    say "Opening the Lantas desktop app..."
+    open -a "$candidate"
+    exit 0
+  fi
+done
 
 if ! command -v node >/dev/null 2>&1; then
   say "Lantas needs Node.js — a one-time install."

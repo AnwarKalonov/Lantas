@@ -8,6 +8,9 @@ say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 if [ "$(uname -s)" != "Darwin" ]; then
   say "This builds a Mac app, so it has to run on macOS."
+  say "This shell reports $(uname -s) — a container or remote shell, not the Mac."
+  say "Double-click \"Build Lantas.app.command\" in Finder instead,"
+  say "or open Terminal on the Mac and run: bash scripts/build-mac.sh"
   exit 1
 fi
 

@@ -160,6 +160,11 @@ jobs:
           NODE
 
       - name: Build app
+        # Tauri passes --skip-jenkins to create-dmg whenever CI=true, which
+        # strips the background and icon layout. GitHub's macOS runners do have
+        # a Finder session, so keep the designed DMG window for release builds.
+        env:
+          TAURI_BUNDLER_DMG_IGNORE_CI: "true"
         run: |
           CONFIG=()
           if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
@@ -192,6 +197,10 @@ jobs:
           mkdir -p "$MOUNT"
           hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT"
           trap 'hdiutil detach "$MOUNT" -quiet || true' EXIT
+          echo "Mounted dmg contents:"
+          ls -la "$MOUNT"
+          echo ".background contents:"
+          ls -la "$MOUNT/.background" 2>/dev/null || true
           test -f "$MOUNT/.background/background.png"
           test -f "$MOUNT/.DS_Store"
           test -f "$MOUNT/Lantas.app/Contents/MacOS/Lantas"

@@ -32,13 +32,10 @@ body {
 }
 
 .mark {
+  display: block;
   width: 26px;
   height: 26px;
   border-radius: 8px;
-  border: 1px solid var(--line-strong);
-  background:
-    radial-gradient(circle at 32% 28%, rgba(240, 238, 230, 0.9) 0 18%, transparent 19%),
-    linear-gradient(160deg, #2a2925, #121211);
 }
 
 h1 {

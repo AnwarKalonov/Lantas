@@ -3,14 +3,62 @@ export function inTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-export async function setNativeGlass(enabled: boolean): Promise<void> {
-  if (!inTauri()) return;
+export interface ElBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+async function command<T>(name: string, args: Record<string, unknown>): Promise<T | null> {
+  if (!inTauri()) return null;
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("set_glass", { enabled });
+    return await invoke<T>(name, args);
   } catch {
-    /* older shell without the command */
+    return null;
   }
+}
+
+/** Opens or reuses El's native webview (a real browser engine). */
+export async function elOpen(url: string, box: ElBox): Promise<boolean> {
+  return (await command("el_open", { url, ...box })) !== null;
+}
+
+export async function elBounds(box: ElBox): Promise<void> {
+  await command("el_bounds", { ...box });
+}
+
+export async function elNavigate(url: string): Promise<void> {
+  await command("el_navigate", { url });
+}
+
+export async function elVisible(visible: boolean): Promise<void> {
+  await command("el_visible", { visible });
+}
+
+export async function elClose(): Promise<void> {
+  await command("el_close", {});
+}
+
+export async function elEval(script: string): Promise<void> {
+  await command("el_eval", { script });
+}
+
+export async function elClick(target: string): Promise<boolean> {
+  return (await command("el_click", { target })) !== null;
+}
+
+export async function elType(selector: string, text: string): Promise<boolean> {
+  return (await command("el_type", { selector, text })) !== null;
+}
+
+export async function elHistory(direction: "back" | "forward"): Promise<void> {
+  await command("el_history", { direction });
+}
+
+export async function elReload(): Promise<void> {
+  await command("el_reload", {});
 }
 
 export function openExternal(url: string) {

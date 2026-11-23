@@ -4,7 +4,7 @@ import { runAppAction } from "./lib/appActions";
 import { fetchInbox } from "./lib/composio";
 import { getElContext } from "./lib/el";
 import { consumeGoogleHash } from "./lib/google";
-import { inTauri, setNativeGlass } from "./lib/native";
+import { elClick, inTauri } from "./lib/native";
 import { buildHistory, buildSystemPrompt, parseImage } from "./lib/chat";
 import { isConfigured, streamChat } from "./lib/providers";
 import { useStore } from "./lib/store";
@@ -260,6 +260,20 @@ export function App() {
         case "/help":
           setHelpOpen(true);
           return true;
+        case "/click": {
+          const target = raw.slice(6).trim();
+          if (!target) {
+            notify("Usage: /click <selector or visible text>", "error");
+            return true;
+          }
+          void elClick(target).then((ok) =>
+            notify(
+              ok ? `Clicked “${target}” in El` : "Open El on a page first",
+              ok ? "default" : "error",
+            ),
+          );
+          return true;
+        }
         case "/compact":
           if (session) {
             updateSession(session.id, (current) => ({
@@ -313,8 +327,7 @@ export function App() {
 
   useEffect(() => {
     if (inTauri()) document.documentElement.classList.add("tauri");
-    void setNativeGlass(state.settings.theme === "glass");
-  }, [state.settings.theme]);
+  }, []);
 
   useEffect(() => {
     if (consumeGoogleHash()) notify("Gmail connected");
@@ -827,11 +840,16 @@ export function App() {
         <Sidebar onOpenSettings={() => openSettings("general")} historyCollapsed={!state.sidebarOpen} />
 
         <main className="main">
-          {state.mode === "browser" ? (
-            <BrowserView />
-          ) : state.mode === "code" ? (
+          <div
+            className={`browser-holder${state.mode === "browser" ? "" : " is-hidden"}`}
+            aria-hidden={state.mode !== "browser"}
+          >
+            <BrowserView visible={state.mode === "browser"} />
+          </div>
+
+          {state.mode === "code" ? (
             <CodeView onOpenFolder={openFolder} />
-          ) : (
+          ) : state.mode === "chat" ? (
             <>
               {state.view === "skills" && <SkillsView />}
               {state.view === "integrations" && <IntegrationsView />}
@@ -860,7 +878,7 @@ export function App() {
                   />
                 ))}
             </>
-          )}
+          ) : null}
         </main>
 
         {state.panelOpen && (

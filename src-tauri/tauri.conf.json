@@ -27,8 +27,7 @@
           "y": 22
         },
         "theme": "Dark",
-        "backgroundColor": "#00000000",
-        "transparent": true
+        "backgroundColor": "#0b0b0a"
       }
     ],
     "security": {

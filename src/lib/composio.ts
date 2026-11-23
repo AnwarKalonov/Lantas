@@ -1,58 +1,134 @@
 import { httpFetch } from "./providers";
 
 const KEY = "lantas.composio.v1";
+const DEVICE_KEY = "lantas.device.v1";
 const BASE = "https://backend.composio.dev/api/v3.1";
+
+/**
+ * The project key ships with the app build (VITE_COMPOSIO_KEY, injected from
+ * the CI secret). People using Lantas never paste a key.
+ */
+const APP_KEY = String(import.meta.env.VITE_COMPOSIO_KEY ?? "").trim();
 
 export interface ComposioConfig {
   apiKey: string;
   userId: string;
 }
 
-export interface Toolkit {
-  slug: string;
-  name: string;
-  description: string;
-  logo?: string;
-  connected: boolean;
-  accountId?: string;
+export interface Connection {
+  id: string;
+  toolkit: string;
+  status: string;
 }
 
-export const TOOLKITS: Array<{ slug: string; name: string; blurb: string }> = [
-  { slug: "gmail", name: "Gmail", blurb: "Read, search and send mail" },
-  { slug: "googlecalendar", name: "Google Calendar", blurb: "Events and availability" },
-  { slug: "googledrive", name: "Google Drive", blurb: "Files and docs" },
-  { slug: "slack", name: "Slack", blurb: "Channels and messages" },
-  { slug: "notion", name: "Notion", blurb: "Pages and databases" },
-  { slug: "github", name: "GitHub", blurb: "Repos, issues and PRs" },
-  { slug: "linear", name: "Linear", blurb: "Issues and projects" },
-  { slug: "jira", name: "Jira", blurb: "Tickets and sprints" },
-  { slug: "discord", name: "Discord", blurb: "Servers and DMs" },
-  { slug: "trello", name: "Trello", blurb: "Boards and cards" },
-  { slug: "airtable", name: "Airtable", blurb: "Records and bases" },
-  { slug: "hubspot", name: "HubSpot", blurb: "Contacts and deals" },
+export type IntegrationCategory =
+  | "Communication"
+  | "Productivity"
+  | "Developer"
+  | "CRM"
+  | "Storage"
+  | "Social";
+
+export interface IntegrationApp {
+  slug: string;
+  name: string;
+  blurb: string;
+  category: IntegrationCategory;
+  icon: string;
+}
+
+export const CATALOG: IntegrationApp[] = [
+  { slug: "gmail", name: "Gmail", blurb: "Read, search and send mail", category: "Communication", icon: "gmail" },
+  { slug: "slack", name: "Slack", blurb: "Channels, DMs and search", category: "Communication", icon: "slack" },
+  { slug: "discord", name: "Discord", blurb: "Servers, channels and DMs", category: "Communication", icon: "discord" },
+  { slug: "telegram", name: "Telegram", blurb: "Chats and channels", category: "Communication", icon: "telegram" },
+  { slug: "whatsapp", name: "WhatsApp", blurb: "Messages and contacts", category: "Communication", icon: "whatsapp" },
+  { slug: "outlook", name: "Outlook", blurb: "Mail and calendar", category: "Communication", icon: "microsoftoutlook" },
+  { slug: "intercom", name: "Intercom", blurb: "Customer conversations", category: "Communication", icon: "intercom" },
+  { slug: "zendesk", name: "Zendesk", blurb: "Support tickets", category: "Communication", icon: "zendesk" },
+
+  { slug: "notion", name: "Notion", blurb: "Pages and databases", category: "Productivity", icon: "notion" },
+  { slug: "googlecalendar", name: "Calendar", blurb: "Events and availability", category: "Productivity", icon: "googlecalendar" },
+  { slug: "googledrive", name: "Drive", blurb: "Files, docs and sheets", category: "Productivity", icon: "googledrive" },
+  { slug: "airtable", name: "Airtable", blurb: "Records and bases", category: "Productivity", icon: "airtable" },
+  { slug: "trello", name: "Trello", blurb: "Boards, lists and cards", category: "Productivity", icon: "trello" },
+  { slug: "asana", name: "Asana", blurb: "Tasks and projects", category: "Productivity", icon: "asana" },
+  { slug: "monday", name: "monday.com", blurb: "Boards and workflows", category: "Productivity", icon: "mondaydotcom" },
+  { slug: "clickup", name: "ClickUp", blurb: "Tasks, docs and goals", category: "Productivity", icon: "clickup" },
+  { slug: "todoist", name: "Todoist", blurb: "Tasks and projects", category: "Productivity", icon: "todoist" },
+
+  { slug: "github", name: "GitHub", blurb: "Repos, issues and PRs", category: "Developer", icon: "github" },
+  { slug: "linear", name: "Linear", blurb: "Issues and cycles", category: "Developer", icon: "linear" },
+  { slug: "jira", name: "Jira", blurb: "Tickets and sprints", category: "Developer", icon: "jira" },
+  { slug: "sentry", name: "Sentry", blurb: "Errors and releases", category: "Developer", icon: "sentry" },
+  { slug: "vercel", name: "Vercel", blurb: "Deployments and projects", category: "Developer", icon: "vercel" },
+  { slug: "supabase", name: "Supabase", blurb: "Projects and tables", category: "Developer", icon: "supabase" },
+
+  { slug: "hubspot", name: "HubSpot", blurb: "Contacts, deals and tickets", category: "CRM", icon: "hubspot" },
+  { slug: "salesforce", name: "Salesforce", blurb: "Leads and opportunities", category: "CRM", icon: "salesforce" },
+  { slug: "pipedrive", name: "Pipedrive", blurb: "Deals and pipelines", category: "CRM", icon: "pipedrive" },
+
+  { slug: "dropbox", name: "Dropbox", blurb: "Files and folders", category: "Storage", icon: "dropbox" },
+  { slug: "box", name: "Box", blurb: "Files and collaboration", category: "Storage", icon: "box" },
+
+  { slug: "x", name: "X", blurb: "Posts and timeline", category: "Social", icon: "x" },
+  { slug: "reddit", name: "Reddit", blurb: "Posts and comments", category: "Social", icon: "reddit" },
+  { slug: "youtube", name: "YouTube", blurb: "Videos and playlists", category: "Social", icon: "youtube" },
+  { slug: "spotify", name: "Spotify", blurb: "Playlists and library", category: "Social", icon: "spotify" },
 ];
 
-export function getComposio(): ComposioConfig | null {
+function deviceId(): string {
   try {
-    const raw = localStorage.getItem(KEY);
+    const saved = localStorage.getItem(DEVICE_KEY);
+    if (saved) return saved;
+    const fresh = `lantas-${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem(DEVICE_KEY, fresh);
+    return fresh;
+  } catch {
+    return "lantas-desktop";
+  }
+}
+
+function profileEmail(): string | null {
+  try {
+    const raw = localStorage.getItem("lantas.el.v1");
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as ComposioConfig;
-    return parsed.apiKey ? parsed : null;
+    const parsed = JSON.parse(raw) as { profile?: { email?: string } };
+    return parsed.profile?.email ?? null;
   } catch {
     return null;
   }
 }
 
-export function setComposio(config: ComposioConfig | null) {
-  if (!config?.apiKey) localStorage.removeItem(KEY);
-  else localStorage.setItem(KEY, JSON.stringify(config));
+export function appKeyPresent(): boolean {
+  return Boolean(APP_KEY || getStoredKey());
+}
+
+function getStoredKey(): string {
+  try {
+    return JSON.parse(localStorage.getItem(KEY) ?? "{}").apiKey ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** A developer override; the shipped app always uses the baked-in key. */
+export function setComposioKey(apiKey: string) {
+  if (apiKey.trim()) localStorage.setItem(KEY, JSON.stringify({ apiKey: apiKey.trim() }));
+  else localStorage.removeItem(KEY);
+}
+
+export function getComposio(): ComposioConfig | null {
+  const apiKey = APP_KEY || getStoredKey();
+  if (!apiKey) return null;
+  return { apiKey, userId: profileEmail() ?? deviceId() };
 }
 
 export class ComposioError extends Error {}
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const config = getComposio();
-  if (!config) throw new ComposioError("Add a Composio API key first.");
+  if (!config) throw new ComposioError("This build has no Composio app key.");
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20_000);
   const response = await httpFetch(`${BASE}${path}`, {
@@ -86,17 +162,6 @@ function list<T>(payload: any): T[] {
   return [];
 }
 
-export async function verifyComposio(): Promise<number> {
-  const data = await api<any>("/toolkits?limit=1");
-  return list<any>(data).length || Number(data?.total_items ?? 0);
-}
-
-export interface Connection {
-  id: string;
-  toolkit: string;
-  status: string;
-}
-
 export async function listConnections(): Promise<Connection[]> {
   const config = getComposio();
   if (!config) return [];
@@ -110,25 +175,22 @@ export async function listConnections(): Promise<Connection[]> {
   }));
 }
 
-async function authConfigId(toolkit: string): Promise<string> {
-  const data = await api<any>(
-    `/auth_configs?toolkit_slug=${encodeURIComponent(toolkit)}&limit=20`,
-  );
-  const items = list<any>(data);
-  const config = items.find((item) => item.id);
-  if (!config) {
+async function authConfigId(app: string): Promise<string> {
+  const data = await api<any>(`/auth_configs?toolkit_slug=${encodeURIComponent(app)}&limit=20`);
+  const found = list<any>(data).find((item) => item.id);
+  if (!found) {
     throw new ComposioError(
-      `No auth config for ${toolkit}. Create one in the Composio dashboard, then retry.`,
+      `No auth config for ${app} in this Composio project. Add one in the Composio dashboard once.`,
     );
   }
-  return config.id;
+  return found.id;
 }
 
-/** Starts the hosted OAuth flow and returns the URL the user must open. */
-export async function connectToolkit(toolkit: string): Promise<{ url: string; id?: string }> {
+/** Starts hosted OAuth and returns the URL the user finishes in a browser. */
+export async function connectToolkit(app: string): Promise<string> {
   const config = getComposio();
-  if (!config) throw new ComposioError("Add a Composio API key first.");
-  const authConfig = await authConfigId(toolkit);
+  if (!config) throw new ComposioError("This build has no Composio app key.");
+  const authConfig = await authConfigId(app);
 
   try {
     const link = await api<any>("/connected_accounts/link", {
@@ -139,32 +201,21 @@ export async function connectToolkit(toolkit: string): Promise<{ url: string; id
         callback_url: window.location.href,
       }),
     });
-    if (link?.redirect_url) return { url: link.redirect_url, id: link.connected_account_id };
+    if (link?.redirect_url) return link.redirect_url;
   } catch {
-    /* older projects only expose connected_accounts */
+    /* projects without the link endpoint fall through */
   }
 
   const created = await api<any>("/connected_accounts", {
     method: "POST",
     body: JSON.stringify({
       auth_config: { id: authConfig },
-      connection: {
-        user_id: config.userId,
-        callback_url: window.location.href,
-      },
+      connection: { user_id: config.userId, callback_url: window.location.href },
     }),
   });
-  const url =
-    created?.redirect_url ??
-    created?.redirectUrl ??
-    created?.connectionData?.redirectUrl;
+  const url = created?.redirect_url ?? created?.connectionData?.redirectUrl;
   if (!url) throw new ComposioError("Composio did not return a redirect URL.");
-  return { url, id: created.id };
-}
-
-export async function accountStatus(id: string): Promise<string> {
-  const data = await api<any>(`/connected_accounts/${id}`);
-  return (data.status ?? data.connectionData?.status ?? "").toUpperCase();
+  return url;
 }
 
 export async function revokeConnection(id: string): Promise<void> {
@@ -177,7 +228,7 @@ export async function executeTool(
   accountId?: string,
 ): Promise<unknown> {
   const config = getComposio();
-  if (!config) throw new ComposioError("Add a Composio API key first.");
+  if (!config) throw new ComposioError("This build has no Composio app key.");
   const data = await api<any>(`/tools/execute/${encodeURIComponent(slug)}`, {
     method: "POST",
     body: JSON.stringify({
@@ -197,7 +248,6 @@ export interface InboxItem {
   snippet: string;
 }
 
-/** Read the unread inbox through Composio's Gmail tools. */
 export async function fetchInbox(limit = 8): Promise<InboxItem[]> {
   const data: any = await executeTool("GMAIL_FETCH_EMAILS", {
     max_results: limit,
@@ -208,9 +258,16 @@ export async function fetchInbox(limit = 8): Promise<InboxItem[]> {
     : (data?.messages ?? data?.emails ?? data?.data ?? []);
   return (Array.isArray(messages) ? messages : []).slice(0, limit).map((item) => ({
     subject:
-      item.subject ?? item.messageSubject ?? item.payload?.headers?.find?.((h: any) => h.name === "Subject")?.value ?? "(no subject)",
+      item.subject ??
+      item.messageSubject ??
+      item.payload?.headers?.find?.((h: any) => h.name === "Subject")?.value ??
+      "(no subject)",
     from:
-      item.sender ?? item.from ?? item.messageSender ?? item.payload?.headers?.find?.((h: any) => h.name === "From")?.value ?? "",
+      item.sender ??
+      item.from ??
+      item.messageSender ??
+      item.payload?.headers?.find?.((h: any) => h.name === "From")?.value ??
+      "",
     snippet: item.snippet ?? item.messageSnippet ?? item.preview ?? "",
   }));
 }

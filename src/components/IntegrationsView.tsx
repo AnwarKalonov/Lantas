@@ -15,8 +15,8 @@ export function IntegrationsView() {
         <div>
           <h1>Integrations</h1>
           <p className="page-lede">
-            Model Context Protocol servers bring tools into a run: issue trackers, error
-            monitoring, databases and the filesystem.
+            Connect the apps you use — mail, chat, docs, code and CRM — then give the model tools
+            through MCP servers.
           </p>
         </div>
         <span className="page-meta">

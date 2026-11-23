@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../lib/store";
 import { getGoogleToken, listMail, type MailItem } from "../lib/google";
-import { openExternal } from "../lib/native";
+import {
+  elBounds,
+  elClick,
+  elClose,
+  elHistory,
+  elOpen,
+  elReload,
+  elVisible,
+  inTauri,
+  openExternal,
+} from "../lib/native";
 import {
   EL_HOME,
   getElContext,
@@ -15,17 +25,30 @@ import {
   type ElPage,
   type ElTab,
 } from "../lib/el";
-import { cx, uid } from "../lib/util";
+import { cx, timeAgo, uid } from "../lib/util";
+import { AppLogo } from "./AppLogo";
 import { Icon } from "./Icons";
 
-const QUICK = [
-  { label: "GitHub", url: "https://github.com", note: "Repos, issues, PRs" },
-  { label: "MDN", url: "https://developer.mozilla.org", note: "Web reference" },
-  { label: "Hacker News", url: "https://news.ycombinator.com", note: "What shipped" },
-  { label: "Google", url: "https://www.google.com", note: "Search" },
+const SHORTCUTS = [
+  { name: "GitHub", slug: "github", url: "https://github.com" },
+  { name: "Gmail", slug: "gmail", url: "https://mail.google.com" },
+  { name: "YouTube", slug: "youtube", url: "https://youtube.com" },
+  { name: "Reddit", slug: "reddit", url: "https://reddit.com" },
+  { name: "Notion", slug: "notion", url: "https://notion.so" },
+  { name: "Figma", slug: "figma", url: "https://figma.com" },
+  { name: "Drive", slug: "googledrive", url: "https://drive.google.com" },
+  { name: "X", slug: "x", url: "https://x.com" },
 ];
 
-export function BrowserView() {
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 5) return "Still up";
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+export function BrowserView({ visible = true }: { visible?: boolean }) {
   const { state, setBrowserUrl, notify } = useStore();
   const [data, setData] = useState<ElData>(() => loadEl());
   const [draft, setDraft] = useState("");
@@ -37,7 +60,14 @@ export function BrowserView() {
   const [profile, setProfile] = useState({ name: "", email: "" });
   const [mail, setMail] = useState<MailItem[]>([]);
   const [reloadTick, setReloadTick] = useState(0);
+  const [nativeReady, setNativeReady] = useState(false);
+  const [clickTarget, setClickTarget] = useState("");
+  const [controlsOpen, setControlsOpen] = useState(false);
   const frameKey = useRef(0);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const trail = useRef<string[]>([EL_HOME]);
+  const trailIndex = useRef(0);
+  const native = inTauri();
 
   const active = data.tabs.find((tab) => tab.id === data.active) ?? data.tabs[0];
   const atHome = active.url === EL_HOME;
@@ -53,6 +83,57 @@ export function BrowserView() {
     setDraft(active.url === EL_HOME ? "" : active.url);
   }, [active.url]);
 
+  const box = () => {
+    const rect = viewportRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+  };
+
+  // Attach or detach the native engine as tabs, modes and URLs change.
+  useEffect(() => {
+    if (!native) return;
+    if (!visible) {
+      void elVisible(false);
+      return;
+    }
+    if (mode === "live" && !atHome) {
+      void elVisible(true);
+      const frame = requestAnimationFrame(() => {
+        const rect = box();
+        if (!rect) return;
+        void elOpen(active.url, rect).then((ok) => setNativeReady(ok));
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+    setNativeReady(false);
+    void elClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [native, visible, active.url, mode, atHome, data.active]);
+
+  useEffect(
+    () => () => {
+      if (native) void elClose();
+    },
+    [native],
+  );
+
+  useEffect(() => {
+    if (!native || !visible) return;
+    const node = viewportRef.current;
+    if (!node) return;
+    const sync = () => {
+      const rect = node.getBoundingClientRect();
+      void elBounds({ x: rect.left, y: rect.top, width: rect.width, height: rect.height });
+    };
+    const observer = new ResizeObserver(sync);
+    observer.observe(node);
+    window.addEventListener("resize", sync);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", sync);
+    };
+  }, [native, visible]);
+
   const patchTab = (id: string, patch: Partial<ElTab>) =>
     setData((current) => ({
       ...current,
@@ -66,6 +147,8 @@ export function BrowserView() {
     setError("");
     setPage(null);
     setMode("live");
+    trail.current = [...trail.current.slice(0, trailIndex.current + 1), url];
+    trailIndex.current = trail.current.length - 1;
     setData((current) => ({
       ...current,
       tabs: current.tabs.map((tab) =>
@@ -109,6 +192,31 @@ export function BrowserView() {
     });
   };
 
+  const step = (direction: "back" | "forward") => {
+    if (native) {
+      void elHistory(direction);
+      return;
+    }
+    const next = trailIndex.current + (direction === "back" ? -1 : 1);
+    if (next < 0 || next >= trail.current.length) return;
+    trailIndex.current = next;
+    const url = trail.current[next];
+    setData((current) => ({
+      ...current,
+      tabs: current.tabs.map((tab) =>
+        tab.id === current.active ? { ...tab, url, title: hostOf(url) } : tab,
+      ),
+    }));
+    setBrowserUrl(url);
+  };
+
+  const reload = () => {
+    setError("");
+    setPage(null);
+    if (native) void elReload();
+    setReloadTick((tick) => tick + 1);
+  };
+
   const reader = async () => {
     if (atHome) return;
     setBusy(true);
@@ -133,7 +241,7 @@ export function BrowserView() {
   const ask = () => {
     const current = page ?? getElContext();
     if (!current) {
-      notify("Read the page first, then ask about it", "error");
+      notify("Open the reader on a page first", "error");
       return;
     }
     window.dispatchEvent(
@@ -143,6 +251,16 @@ export function BrowserView() {
         },
       }),
     );
+  };
+
+  const click = async (target = clickTarget) => {
+    if (!target.trim()) return;
+    if (!native) {
+      notify("Clicking needs the desktop app — the web preview cannot script pages", "error");
+      return;
+    }
+    const ok = await elClick(target.trim());
+    notify(ok ? `Clicked “${target.trim()}” in El` : "El could not click that", ok ? "default" : "error");
   };
 
   const toggleBookmark = () => {
@@ -196,14 +314,14 @@ export function BrowserView() {
         .filter(
           (visit, index, all) => all.findIndex((item) => item.url === visit.url) === index,
         )
-        .slice(0, 6),
+        .slice(0, 5),
     [data.history],
   );
 
   return (
     <section className={cx("el", mode === "reader" && "is-reader")}>
-      <div className="el-tabs">
-        <div className="el-tab-strip">
+      <div className="el-chrome">
+        <div className="el-tabstrip">
           {data.tabs.map((tab) => (
             <div
               key={tab.id}
@@ -216,8 +334,12 @@ export function BrowserView() {
                   setData((current) => ({ ...current, active: tab.id }));
               }}
             >
-              <span className="el-tab-dot" />
-              <span className="el-tab-title">{tab.title || hostOf(tab.url)}</span>
+              <span className="el-tab-mark">
+                {tab.url === EL_HOME ? "⌘" : hostOf(tab.url).charAt(0).toUpperCase()}
+              </span>
+              <span className="el-tab-title">
+                {tab.url === EL_HOME ? "New tab" : tab.title || hostOf(tab.url)}
+              </span>
               <button
                 type="button"
                 className="el-tab-close"
@@ -227,7 +349,7 @@ export function BrowserView() {
                   closeTab(tab.id);
                 }}
               >
-                <Icon name="close" size={11} />
+                <Icon name="close" size={10} />
               </button>
             </div>
           ))}
@@ -237,80 +359,168 @@ export function BrowserView() {
             onClick={() => newTab()}
             aria-label="New tab"
           >
-            <Icon name="plus" size={13} />
+            <Icon name="plus" size={12} />
           </button>
         </div>
-        <div className="el-brand">
-          <span className="el-wordmark">El</span>
-          <span className="el-tag">browser</span>
+
+        <div className="el-identity">
+          <span className="el-mini-wordmark">El</span>
+          <button
+            type="button"
+            className={cx("el-avatar", data.profile && "is-signed")}
+            onClick={() => setProfileOpen((open) => !open)}
+            aria-label="El profile"
+          >
+            {data.profile ? data.profile.name.charAt(0).toUpperCase() : "?"}
+          </button>
+          {profileOpen && (
+            <div className="el-profile-pop">
+              {data.profile ? (
+                <>
+                  <p className="el-profile-name">{data.profile.name}</p>
+                  <p className="el-muted">{data.profile.email}</p>
+                  <div className="el-actions">
+                    <button type="button" className="button-quiet" onClick={() => void importMail()}>
+                      Import Gmail
+                    </button>
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => {
+                        setData((current) => ({ ...current, profile: null }));
+                        setMail([]);
+                        setProfileOpen(false);
+                      }}
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                  {mail.length > 0 && (
+                    <ul className="el-mail">
+                      {mail.slice(0, 3).map((item) => (
+                        <li key={item.id}>
+                          <span>{item.subject}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="el-pop-title">Sign in to El</p>
+                  <p className="el-muted">
+                    Bookmarks, history and imported mail stay under one local profile. No account
+                    server.
+                  </p>
+                  <div className="el-signin">
+                    <input
+                      placeholder="Name"
+                      value={profile.name}
+                      onChange={(event) =>
+                        setProfile((current) => ({ ...current, name: event.target.value }))
+                      }
+                    />
+                    <input
+                      placeholder="you@example.com"
+                      value={profile.email}
+                      onChange={(event) =>
+                        setProfile((current) => ({ ...current, email: event.target.value }))
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") signIn();
+                      }}
+                    />
+                    <button type="button" className="button-primary" onClick={signIn}>
+                      Continue
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => window.dispatchEvent(new CustomEvent("lantas:gmail"))}
+                  >
+                    Use Gmail data instead
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="el-bar">
-        <button
-          type="button"
-          className="bar-icon"
-          onClick={() => navigate(EL_HOME)}
-          aria-label="Home"
-          title="Start page"
-        >
-          <Icon name="panelLeft" size={14} />
-        </button>
+      <div className="el-toolbar">
+        <div className="el-nav">
+          <button
+            type="button"
+            className="el-round"
+            onClick={() => step("back")}
+            aria-label="Back"
+          >
+            <Icon name="chevronRight" size={13} className="flip-x" />
+          </button>
+          <button
+            type="button"
+            className="el-round"
+            onClick={() => step("forward")}
+            aria-label="Forward"
+          >
+            <Icon name="chevronRight" size={13} />
+          </button>
+          <button type="button" className="el-round" onClick={reload} aria-label="Reload">
+            <Icon name="refresh" size={13} />
+          </button>
+        </div>
+
         <form
-          className="el-url"
+          className={cx("el-address", atHome && "is-empty")}
           onSubmit={(event) => {
             event.preventDefault();
             navigate(draft);
           }}
         >
-          <Icon name="compass" size={13} />
+          <AppLogo slug="google" name="Google" size={14} />
           <input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="Search or enter an address"
+            placeholder="Search Google or type a URL"
             spellCheck={false}
             aria-label="El address bar"
           />
+          {draft && <span className="el-enter">↵</span>}
         </form>
-        <button
-          type="button"
-          className="bar-icon"
-          onClick={() => void reader()}
-          disabled={busy || atHome}
-          title="Read this page as text and hand it to the model"
-          aria-label="Reader"
-        >
-          <Icon name="book" size={14} />
-        </button>
-        <button
-          type="button"
-          className={cx("bar-icon", bookmarked && "is-on")}
-          onClick={toggleBookmark}
-          disabled={atHome}
-          title={bookmarked ? "Remove bookmark" : "Bookmark"}
-          aria-label="Bookmark"
-        >
-          <Icon name="book" size={14} />
-        </button>
-        <button
-          type="button"
-          className="bar-icon"
-          onClick={() => setReloadTick((tick) => tick + 1)}
-          title="Reload"
-          aria-label="Reload"
-        >
-          <Icon name="refresh" size={14} />
-        </button>
-        <button
-          type="button"
-          className="bar-icon"
-          onClick={() => !atHome && openExternal(active.url)}
-          disabled={atHome}
-          title="Open in your default browser"
-          aria-label="Open externally"
-        >
-          <Icon name="external" size={14} />
-        </button>
+
+        <div className="el-tools">
+          <button
+            type="button"
+            className="el-round"
+            onClick={() => void reader()}
+            disabled={busy || atHome}
+            title="Reader — extract the page for the model"
+            aria-label="Reader"
+          >
+            <Icon name="book" size={13} />
+          </button>
+          <button
+            type="button"
+            className={cx("el-round", bookmarked && "is-on")}
+            onClick={toggleBookmark}
+            disabled={atHome}
+            title={bookmarked ? "Remove bookmark" : "Bookmark"}
+            aria-label="Bookmark"
+          >
+            <Icon name="sparkle" size={13} />
+          </button>
+          <button
+            type="button"
+            className="el-round"
+            onClick={() => !atHome && openExternal(active.url)}
+            disabled={atHome}
+            title="Open in your default browser"
+            aria-label="Open externally"
+          >
+            <Icon name="external" size={13} />
+          </button>
+        </div>
       </div>
 
       {error && <p className="status-line is-error el-error">{error}</p>}
@@ -318,184 +528,116 @@ export function BrowserView() {
       <div className="el-body">
         {atHome ? (
           <div className="el-home">
-            <div className="el-hero">
-              <span className="el-hero-word">El</span>
-              <p>Your own browser. Ask the model about any page it reads here.</p>
-            </div>
+            <div className="el-home-inner">
+              <div className="el-greeting">
+                <span className="el-mark">El</span>
+                <h1>
+                  {greeting()}
+                  {data.profile ? `, ${data.profile.name.split(" ")[0]}` : ""}
+                </h1>
+                <p>A browser with a brain. Ask the model to read, search and click.</p>
+              </div>
 
-            <form
-              className="el-search"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const input = new FormData(event.currentTarget).get("q");
-                if (typeof input === "string" && input.trim()) navigate(input);
-              }}
-            >
-              <Icon name="search" size={15} />
-              <input name="q" placeholder="Search the web or enter a URL" spellCheck={false} />
-              <button type="submit" className="button-primary">
-                Go
-              </button>
-            </form>
+              <form
+                className="el-big-search"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const input = new FormData(event.currentTarget).get("q");
+                  if (typeof input === "string" && input.trim()) navigate(input);
+                }}
+              >
+                <Icon name="search" size={17} />
+                <input
+                  name="q"
+                  placeholder="Search Google or enter an address"
+                  spellCheck={false}
+                  autoFocus
+                />
+                <kbd>↵</kbd>
+              </form>
 
-            <div className="el-quick">
-              {QUICK.map((item) => (
-                <button
-                  key={item.url}
-                  type="button"
-                  className="el-quick-card"
-                  onClick={() => navigate(item.url)}
-                >
-                  <span>{item.label}</span>
-                  <small>{item.note}</small>
-                </button>
-              ))}
-            </div>
+              <div className="el-shortcut-row">
+                {SHORTCUTS.map((item) => (
+                  <button
+                    key={item.url}
+                    type="button"
+                    className="el-shortcut"
+                    onClick={() => navigate(item.url)}
+                    title={item.name}
+                  >
+                    <span className="el-shortcut-logo">
+                      <AppLogo slug={item.slug} name={item.name} size={20} />
+                    </span>
+                    <span>{item.name}</span>
+                  </button>
+                ))}
+              </div>
 
-            <div className="el-home-grid">
-              <section className="el-card">
-                <div className="el-card-head">
-                  <h3>Profile</h3>
-                  <span className="tag">local</span>
+              <div className="el-recents">
+                <div className="el-recents-head">
+                  <span>Recent</span>
+                  {data.history.length > 0 && (
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => setData((current) => ({ ...current, history: [] }))}
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
-                {data.profile ? (
-                  <>
-                    <p className="el-profile-name">{data.profile.name}</p>
-                    <p className="el-muted">{data.profile.email}</p>
-                    <div className="el-actions">
-                      <button
-                        type="button"
-                        className="button-quiet"
-                        onClick={() => void importMail()}
-                      >
-                        Import Gmail inbox
-                      </button>
-                      <button
-                        type="button"
-                        className="text-button"
-                        onClick={() => {
-                          setData((current) => ({ ...current, profile: null }));
-                          setMail([]);
-                        }}
-                      >
-                        Sign out
-                      </button>
-                    </div>
-                  </>
+                {recent.length === 0 ? (
+                  <p className="el-muted">
+                    Nothing yet. Search above, or open a bookmark from the sidebar.
+                  </p>
                 ) : (
-                  <>
-                    <p className="el-muted">
-                      Sign in with an email to keep bookmarks, history and imported mail under one
-                      profile. It lives on this Mac — El has no account server.
-                    </p>
-                    {profileOpen ? (
-                      <div className="el-signin">
-                        <input
-                          placeholder="Name"
-                          value={profile.name}
-                          onChange={(event) =>
-                            setProfile((current) => ({ ...current, name: event.target.value }))
-                          }
-                        />
-                        <input
-                          placeholder="you@example.com"
-                          value={profile.email}
-                          onChange={(event) =>
-                            setProfile((current) => ({ ...current, email: event.target.value }))
-                          }
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") signIn();
-                          }}
-                        />
-                        <div className="el-actions">
-                          <button type="button" className="button-primary" onClick={signIn}>
-                            Save profile
-                          </button>
-                          <button
-                            type="button"
-                            className="text-button"
-                            onClick={() => setProfileOpen(false)}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="el-actions">
-                        <button
-                          type="button"
-                          className="button-primary"
-                          onClick={() => setProfileOpen(true)}
-                        >
-                          Sign in with email
-                        </button>
-                        <button
-                          type="button"
-                          className="button-quiet"
-                          onClick={() => window.dispatchEvent(new CustomEvent("lantas:gmail"))}
-                        >
-                          Continue with Gmail
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-                {mail.length > 0 && (
-                  <ul className="el-mail">
-                    {mail.slice(0, 4).map((item) => (
-                      <li key={item.id}>
-                        <span>{item.subject}</span>
-                        <small>{item.from.replace(/<.*>/, "").trim()}</small>
-                      </li>
+                  <div className="el-recent-list">
+                    {recent.map((visit) => (
+                      <button
+                        key={visit.url}
+                        type="button"
+                        className="el-recent-row"
+                        onClick={() => navigate(visit.url)}
+                      >
+                        <span className="el-recent-logo">
+                          {hostOf(visit.url).charAt(0).toUpperCase()}
+                        </span>
+                        <span className="el-recent-text">
+                          <span>{visit.title || hostOf(visit.url)}</span>
+                          <small>{hostOf(visit.url)}</small>
+                        </span>
+                        <span className="el-recent-time">{timeAgo(visit.at)}</span>
+                      </button>
                     ))}
-                  </ul>
+                  </div>
                 )}
-              </section>
+              </div>
 
-              <section className="el-card">
-                <div className="el-card-head">
-                  <h3>Bookmarks</h3>
-                  <span className="tag">{data.bookmarks.length}</span>
-                </div>
-                {data.bookmarks.length === 0 && <p className="el-muted">Nothing saved yet.</p>}
-                <ul className="el-links">
-                  {data.bookmarks.slice(0, 5).map((item) => (
-                    <li key={item.url}>
-                      <button type="button" onClick={() => navigate(item.url)}>
-                        <span>{item.title || hostOf(item.url)}</span>
-                        <small>{hostOf(item.url)}</small>
-                      </button>
-                    </li>
+              {data.bookmarks.length > 0 && (
+                <div className="el-bookmarks">
+                  {data.bookmarks.slice(0, 4).map((item) => (
+                    <button
+                      key={item.url}
+                      type="button"
+                      className="el-bookmark"
+                      onClick={() => navigate(item.url)}
+                    >
+                      <span>{item.title || hostOf(item.url)}</span>
+                      <small>{hostOf(item.url)}</small>
+                    </button>
                   ))}
-                </ul>
-              </section>
-
-              <section className="el-card">
-                <div className="el-card-head">
-                  <h3>Recent</h3>
-                  <span className="tag">{data.history.length}</span>
                 </div>
-                {recent.length === 0 && <p className="el-muted">Pages you open show up here.</p>}
-                <ul className="el-links">
-                  {recent.map((visit) => (
-                    <li key={visit.url}>
-                      <button type="button" onClick={() => navigate(visit.url)}>
-                        <span>{visit.title}</span>
-                        <small>{hostOf(visit.url)}</small>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              )}
             </div>
           </div>
         ) : mode === "reader" && page ? (
           <div className="el-reader">
             <div className="el-reader-head">
               <div>
+                <p className="el-kicker">{hostOf(page.url)}</p>
                 <h2>{page.title}</h2>
                 <p className="el-muted">
-                  {hostOf(page.url)} · {page.words.toLocaleString()} words · read through El
+                  {page.words.toLocaleString()} words · extracted by El
                 </p>
               </div>
               <div className="el-actions">
@@ -511,34 +653,70 @@ export function BrowserView() {
             <div className="el-reader-body">{page.text}</div>
           </div>
         ) : (
-          <div className="el-frame-wrap">
-            <iframe
-              key={`${active.id}-${reloadTick}`}
-              className="el-frame"
-              src={active.url}
-              title={active.title}
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals"
-            />
-            <div className="el-frame-foot">
-              <span className="el-muted">{hostOf(active.url)} · embedded page</span>
-              <div className="el-actions">
-                <button type="button" className="button-quiet" onClick={() => void reader()}>
-                  {busy ? "Reading" : "Reader + AI"}
-                </button>
+          <div className="el-viewport" ref={viewportRef}>
+            {native ? (
+              <div className={cx("el-engine", nativeReady && "is-ready")}>
+                <span className="el-engine-mark">El</span>
+                <span className="el-muted">
+                  {nativeReady ? "Native page" : "Starting El's browser engine…"}
+                </span>
               </div>
-            </div>
+            ) : (
+              <iframe
+                key={`${active.id}-${reloadTick}`}
+                className="el-frame"
+                src={active.url}
+                title={active.title}
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals"
+              />
+            )}
+            {!native && (
+              <div className="el-viewport-note">
+                Web preview: embedded frame. The desktop app runs a native browser engine, so
+                Google and frame-blocking sites load and the model can click.
+              </div>
+            )}
           </div>
         )}
       </div>
 
       <div className="el-foot">
-        <span className="status-dot is-ok" />
-        <span>{page ? `El has “${page.title.slice(0, 48)}” ready for the model` : "El is idle"}</span>
+        <span className={cx("el-dot", native && "is-native")} />
+        <span className="el-foot-status">
+          {page ? `“${page.title.slice(0, 40)}” ready for the model` : native ? "Native engine" : "Web preview"}
+        </span>
+        <button
+          type="button"
+          className="el-foot-toggle"
+          onClick={() => setControlsOpen((open) => !open)}
+        >
+          {controlsOpen ? "Hide controls" : "Click controls"}
+        </button>
         <span className="el-foot-spacer" />
         <button type="button" className="text-button" onClick={ask} disabled={!page}>
-          Ask the model about this page
+          Ask about this page
         </button>
       </div>
+
+      {controlsOpen && (
+        <div className="el-controls">
+          <input
+            value={clickTarget}
+            onChange={(event) => setClickTarget(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void click();
+            }}
+            placeholder="Click by selector or visible text"
+            spellCheck={false}
+          />
+          <button type="button" className="button-primary" onClick={() => void click()}>
+            Click in page
+          </button>
+          <span className="el-controls-hint">
+            The model triggers this with <code>/click &lt;text&gt;</code>
+          </span>
+        </div>
+      )}
     </section>
   );
 }

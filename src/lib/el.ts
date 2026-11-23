@@ -104,7 +104,7 @@ export function normalizeUrl(raw: string): string {
   if (value === EL_HOME) return value;
   if (/^https?:\/\//i.test(value)) return value;
   if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(value)) return `https://${value}`;
-  return `https://duckduckgo.com/?q=${encodeURIComponent(value)}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(value)}`;
 }
 
 export function hostOf(url: string): string {

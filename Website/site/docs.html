@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docs — Residual Pulse</title>
+<meta name="description" content="Install Pulse, start it, read findings, tune auto-fix and the approver, run monitor and brain separately, and see what the training process pays.">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 138 75'%3E%3Cpath d='M0 10.5H73A21 21 0 0 1 94 31.5V37.5M0 37.5H138M0 64.5H138' stroke='%232c6a4e' stroke-width='21' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+<script>try{var t=localStorage.getItem("residual-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.dataset.theme=t;}catch(e){}</script>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 138 75" fill="none" aria-hidden="true">
+        <path d="M0 10.5H73A21 21 0 0 1 94 31.5V37.5M0 37.5H138M0 64.5H138" stroke="currentColor" stroke-width="21"/>
+      </svg>
+      Residual <span class="slash">/</span> <span class="sub">Docs</span>
+    </a>
+
+    <nav class="nav-links" aria-label="Docs sections">
+      <a href="#installation">Install</a>
+      <a href="#how">How it works</a>
+      <a href="#autofix">Auto-fix</a>
+      <a href="#processes">Processes</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+    </nav>
+
+    <div class="nav-right">
+      <button class="theme-btn" type="button" data-theme-toggle aria-label="Switch to dark mode" title="Switch theme">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" aria-hidden="true"><path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/></svg>
+      </button>
+            <a class="txt" href="index.html">Home</a>
+      <a class="txt" href="https://github.com/codeyash09/PulseML">GitHub</a>
+      <a class="btn btn-primary btn-sm" href="download.html">Download</a>
+      <button class="menu-btn" aria-label="Menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="nav-progress" aria-hidden="true"><span></span></div>
+</header>
+
+<main>
+
+<div class="doc-hero">
+  <div class="wrap">
+    <p class="eyebrow"><span class="dot"></span>pulse docs · 2.0.0</p>
+    <h1>Debug ML while it’s training</h1>
+    <p>Track → Diagnose → Verify → Patch. Pulse catches the bug while the run is still training: about 1.3 minutes to a fix and $0.19 per task in our benchmark. Built for terminals, SSH, containers, Colab, remote servers and cloud GPUs.</p>
+    <div class="actions">
+      <a class="btn btn-primary" href="#installation">Install Pulse
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+      <a class="btn btn-ghost" href="#quickstart">Quickstart
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+      <a class="btn btn-ghost" href="https://residualml.com/dashboard/">Open the dashboard
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="wrap doc-layout">
+  <nav class="doc-nav" aria-label="Contents">
+    <div class="group">
+      <p class="group-t">Getting started</p>
+      <a href="#installation">Installation</a>
+      <a href="#start">Start Pulse</a>
+      <a href="#quickstart">Quickstart</a>
+      <a href="#app">The Pulse app</a>
+      <a href="#backends">Supported backends</a>
+    </div>
+    <div class="group">
+      <p class="group-t">Core concepts</p>
+      <a href="#how">How Pulse works</a>
+      <a href="#detection">Detection and auditing</a>
+      <a href="#benchmark">Benchmark</a>
+    </div>
+    <div class="group">
+      <p class="group-t">Tracking</p>
+      <a href="#tracking">Tracking</a>
+      <a href="#gpu">GPU tracking</a>
+    </div>
+    <div class="group">
+      <p class="group-t">CLI</p>
+      <a href="#commands">Command explorer</a>
+    </div>
+    <div class="group">
+      <p class="group-t">Agents</p>
+      <a href="#agent">Choose your agent</a>
+      <a href="#autofix">Auto-fix and approver</a>
+    </div>
+    <div class="group">
+      <p class="group-t">Cloud</p>
+      <a href="#cloud">Workspaces and dashboard</a>
+      <a href="#telemetry">Telemetry</a>
+    </div>
+    <div class="group">
+      <p class="group-t">Advanced</p>
+      <a href="#processes">Monitor and brain</a>
+      <a href="#overhead">Overhead</a>
+      <a href="#keras">Keras</a>
+    </div>
+    <div class="group">
+      <p class="group-t">Reference</p>
+      <a href="#troubleshooting">Troubleshooting</a>
+    </div>
+  </nav>
+
+  <div class="doc-body">
+
+    <section class="doc-sec" id="installation">
+      <p class="eyebrow"><span class="dot"></span>getting started</p>
+      <h2>Installation</h2>
+      <p>Requires Python 3.9+, a supported backend (NumPy, PyTorch, TensorFlow, CuPy or JAX), and a model for the agent: sign in to OpenRouter from Pulse (no key to handle, free models available) or bring an API key.</p>
+      <div class="cmdblock">
+        <div class="row">
+          <span class="prompt">$</span><span>pip install pulseml</span>
+          <button class="cmd-copy" data-copy="pip install pulseml">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+            <span class="label">copy</span>
+          </button>
+        </div>
+      </div>
+      <p>Installing puts a <code>pulse</code> command on your path. Run it and Pulse takes you through setup.</p>
+
+      <h3>Start Pulse</h3>
+      <div class="cmdblock">
+        <div class="row">
+          <span class="prompt">$</span><span>python3 -m pulse</span>
+          <button class="cmd-copy" data-copy="python3 -m pulse">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+            <span class="label">copy</span>
+          </button>
+        </div>
+      </div>
+      <p>To make the plain <code>pulse</code> command work, add Python's scripts folder to your PATH once:</p>
+      <div class="cmdblock">
+        <div class="row">
+          <span class="prompt">$</span><span>export PATH="$PATH:$(python -c 'import sysconfig; print(sysconfig.get_path("scripts"))')" &amp;&amp; pulse</span>
+          <button class="cmd-copy" data-copy="export PATH=&quot;$PATH:$(python -c 'import sysconfig; print(sysconfig.get_path(&quot;scripts&quot;))')&quot; &amp;&amp; pulse">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+            <span class="label">copy</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="start">
+      <p class="eyebrow"><span class="dot"></span>getting started</p>
+      <h2>Start Pulse</h2>
+      <p>One command. It does the rest: setup, running scripts, watching runs, the agent.</p>
+      <div class="cmdblock">
+        <div class="row">
+          <span class="prompt">$</span><span>pulse</span>
+          <button class="cmd-copy" data-copy="pulse">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+            <span class="label">copy</span>
+          </button>
+        </div>
+      </div>
+      <p>For most cases, just use <code>pulse</code>. It is the better default. Stream mode is for when you want a run to keep going with nobody attached.</p>
+    </section>
+
+    <section class="doc-sec" id="quickstart">
+      <p class="eyebrow"><span class="dot"></span>getting started</p>
+      <h2>Quickstart</h2>
+      <p>Three steps, and no changes to your training code.</p>
+      <ol>
+        <li>Install Pulse and run it in the folder you train in.</li>
+        <li>Let it attach to the run. It reads the variables you already have, a few times a second.</li>
+        <li>Ask the agent a question, or read the findings it raises while the run continues.</li>
+      </ol>
+      <div class="callout warn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v5M12 17.5v.5M10.3 4.6 2.7 18a1.6 1.6 0 0 0 1.4 2.4h15.8a1.6 1.6 0 0 0 1.4-2.4L13.7 4.6a1.6 1.6 0 0 0-2.8 0Z"/></svg>
+        <span>Nothing is installed into your loop: no <code>sys.settrace</code>, no callback into user code.</span>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="app">
+      <p class="eyebrow"><span class="dot"></span>getting started</p>
+      <h2>The Pulse app</h2>
+      <p>This is what Pulse looks like in your terminal: the run on the left, the agent on the right. It is a working illustration, not live data. Click a thought, a tool line or an edit to open it. Press Ctrl O to open all of them. Type a message, or start with <code>/</code> to see commands.</p>
+      <p>Colour has a job, and it is the only colour on the screen.</p>
+      <div class="kv">
+        <div class="k">ember</div><div class="v">what is live, selected or worth a look. The agent's thinking, the trace head, the one finding that matters</div>
+        <div class="k">red</div><div class="v">what is wrong: a diverging curve, a failed check, a removed line</div>
+        <div class="k">grey</div><div class="v">everything else. A command the agent ran is a brighter grey than its output, and Pulse's own output is dim</div>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="backends">
+      <p class="eyebrow"><span class="dot"></span>getting started</p>
+      <h2>Supported backends</h2>
+      <p>Pulse reads the values already in your training loop, so the backend decides how much it can see without extra work.</p>
+      <div class="kv">
+        <div class="k">PyTorch</div><div class="v">tensors, autograd state, optimizer state, gradients and loss</div>
+        <div class="k">TensorFlow</div><div class="v">tensors and metrics; Keras metrics need one line of setup in stream mode</div>
+        <div class="k">JAX</div><div class="v">arrays and pytrees inside the training step</div>
+        <div class="k">NumPy</div><div class="v">arrays and scalars, no device transfer</div>
+        <div class="k">CuPy</div><div class="v">GPU arrays, opt-in through <code>/gputrack</code></div>
+      </div>
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.5"/></svg>
+        <span>Keras metrics live in the callback <code>logs</code> dict, not in local variables, so the stream monitor can't see them by sampling. See <a href="#keras" style="color:var(--text);border-bottom:1px solid var(--hair-2)">Keras</a>.</span>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="how">
+      <p class="eyebrow"><span class="dot"></span>core concepts</p>
+      <h2>How Pulse works</h2>
+      <p>Pulse separates AI reasoning from exact numerical calculation: instead of asking a model to estimate whether a gradient or update is unusually large, Pulse calculates the quantity directly.</p>
+      <p>Deterministic checks compute gradient and update ratios, scaling factors and normalization statistics from the tensors. When a check holds, it raises a finding with its numbers. The agent reads that evidence with your source code, proposes the smallest patch that explains the failure, and Pulse verifies the patch afterwards.</p>
+      <div class="linkrow">
+        <a href="index.html#analysis">The seven stages, on the landing page
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="detection">
+      <p class="eyebrow"><span class="dot"></span>core concepts</p>
+      <h2>Detection and auditing</h2>
+
+      <h3>Findings</h3>
+      <p>A finding carries a check id, a variable, a severity, its numbers and a confidence. It is deduplicated on (check, variable), so "spiked to 4.12" and "4.13" aren't two problems. A check must hold for two consecutive evaluations before it is raised, except NaN and Inf, where waiting is itself the damage. Findings clear when the condition goes away and can fire again. Detection runs whether or not auto-fix is on.</p>
+
+      <h3>When the agent looks again</h3>
+      <p>After each model turn the brain asks when to come back, and why. A fix that just landed, a metric heading the wrong way or anything uncertain pulls the next look in to minutes; a smoothly descending run is left alone for an hour. A NaN, a critical finding or a fix brings the next look forward immediately, and the schedule survives a brain restart.</p>
+
+      <h3>The audit pass</h3>
+      <p>It is handed the whole run: every curve downsampled into min/mean/max buckets (a two-step spike survives), current findings, tensors, what was fixed, earlier audits, and how many samples were dropped. It is asked for what deterministic checks can't see: a loss decreasing far slower than it should, two metrics that disagree, a plausible-but-wrong value.</p>
+
+      <h3>ML lint (mllint)</h3>
+      <p>Deterministic code-level checks: incompatible loss/metric combinations, redundant activation/loss combinations, <code>backward()</code> without the expected optimizer update, train/eval mode issues, suspicious learning rates, and other ML-specific static patterns.</p>
+    </section>
+
+    <section class="doc-sec" id="benchmark">
+      <p class="eyebrow"><span class="dot"></span>core concepts</p>
+      <h2>Benchmark</h2>
+      <p>Injected ML faults in real training code. Each tool must find the cause and apply the fix. Pulse runs on DeepSeek v4.1; Claude Code on Opus.</p>
+
+      <div class="stats">
+        <div class="stat">
+          <p class="label">Time to fix</p>
+          <p class="fig">1.3<span class="unit">min</span></p>
+          <p class="sub">Claude Code 3.9 min</p>
+        </div>
+        <div class="stat">
+          <p class="label">Cost per task</p>
+          <p class="fig">$0.19</p>
+          <p class="sub">Claude Code Opus $0.39</p>
+        </div>
+        <div class="stat">
+          <p class="label">Cases fixed</p>
+          <p class="fig">11<span class="unit">/ 11</span></p>
+          <p class="sub">Claude Code 9 / 11</p>
+        </div>
+      </div>
+
+      <p style="margin-top:20px">Mean time over the cases each tool fixed: Pulse 1.3 min (11 fixes), Claude Code 3.9 min (9 fixes; one fault missed, one found but not applied). Residual's internal benchmark.</p>
+
+      <h3>How the benchmark changed Pulse</h3>
+      <ul>
+        <li>Expanded mllint checks</li>
+        <li>Minimal-fix-first behaviour</li>
+        <li>Whitespace-tolerant patch matching</li>
+        <li>Retry-on-mismatch patching</li>
+        <li>Stronger verification of correctness and patch scope</li>
+        <li>More agentic debugging workflows</li>
+      </ul>
+      <div class="tablewrap" style="margin-top:16px">
+        <table>
+          <thead><tr><th style="width:44px">#</th><th>Case</th><th class="num">Claude Code</th><th class="num">Pulse</th></tr></thead>
+          <tbody>
+            <tr><td class="num">1</td><td><span class="nm">sparrow sched_per_micro</span></td><td class="num">34 s</td><td class="num"><span class="ok">85 s</span></td></tr>
+            <tr><td class="num">2</td><td><span class="nm">sparrow qkv_unscaled_init</span></td><td class="num">11.9 min</td><td class="num"><span class="ok">74 s</span></td></tr>
+            <tr><td class="num">3</td><td><span class="nm">sparrow train_mb_units</span></td><td class="num">2.4 min</td><td class="num"><span class="ok">60 s</span></td></tr>
+            <tr><td class="num">4</td><td><span class="nm">kestrel best_ckpt_min_mode</span></td><td class="num">12.2 min</td><td class="num"><span class="ok">49 s</span></td></tr>
+            <tr><td class="num">5</td><td><span class="nm">kestrel zero_grad_each_micro</span></td><td class="num">1.5 min</td><td class="num"><span class="ok">2.7 min</span></td></tr>
+            <tr><td class="num">6</td><td><span class="nm">kestrel bn_momentum_keras</span></td><td class="num"><span class="miss">missed</span></td><td class="num"><span class="ok">1.8 min</span></td></tr>
+            <tr><td class="num">7</td><td><span class="nm">kestrel mixup_partner_swap</span></td><td class="num">2.9 min</td><td class="num"><span class="ok">3.1 min</span></td></tr>
+            <tr><td class="num">8</td><td><span class="nm">heron logvar_head_copy_paste</span></td><td class="num">38 s</td><td class="num"><span class="ok">23 s</span></td></tr>
+            <tr><td class="num">9</td><td><span class="nm">heron kl_warmup_hoisted</span></td><td class="num">34 s</td><td class="num"><span class="ok">39 s</span></td></tr>
+            <tr><td class="num">10</td><td><span class="nm">heron recon_mean_not_sum</span></td><td class="num">2 min</td><td class="num"><span class="ok">30 s</span></td></tr>
+            <tr><td class="num">11</td><td><span class="nm">heron reparam_std_is_var</span></td><td class="num"><span class="miss">found, not applied</span></td><td class="num"><span class="ok">43 s</span></td></tr>
+            <tr class="total"><td class="num"></td><td><span class="nm">Mean over cases fixed</span></td><td class="num">3.9 min · 9 / 11</td><td class="num">1.3 min · 11 / 11</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="tracking">
+      <p class="eyebrow"><span class="dot"></span>tracking</p>
+      <h2>Tracking</h2>
+      <p>Pick a variable. Pulse keeps six things for each one:</p>
+      <div class="kv">
+        <div class="k">shape</div><div class="v">dimensions, read without converting the tensor</div>
+        <div class="k">dtype</div><div class="v">float32, bf16, int64, and whatever else the run uses</div>
+        <div class="k">device</div><div class="v">cpu, cuda:0, and where the value actually lives</div>
+        <div class="k">statistics</div><div class="v">min, mean, max, and the spread, on a schedule</div>
+        <div class="k">NaN / Inf</div><div class="v">status, raised immediately rather than after two evaluations</div>
+        <div class="k">history</div><div class="v">downsampled into min/mean/max buckets so a two-step spike survives</div>
+      </div>
+      <p>Illustrative example, not real runtime data. GPU data is touched only on request.</p>
+    </section>
+
+    <section class="doc-sec" id="gpu">
+      <p class="eyebrow"><span class="dot"></span>tracking</p>
+      <h2>GPU tracking</h2>
+      <p>If nobody asks Pulse to touch the GPU, Pulse doesn't touch the GPU.</p>
+      <p>CPU-first is the default. Turn on GPU tracking for the variables you care about:</p>
+      <div class="cmdblock">
+        <div class="row"><span class="prompt">&gt;</span><span>/gputrack activations</span>
+          <button class="cmd-copy" data-copy="/gputrack activations">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+            <span class="label">copy</span>
+          </button>
+        </div>
+      </div>
+      <div class="callout warn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v5M12 17.5v.5M10.3 4.6 2.7 18a1.6 1.6 0 0 0 1.4 2.4h15.8a1.6 1.6 0 0 0 1.4-2.4L13.7 4.6a1.6 1.6 0 0 0-2.8 0Z"/></svg>
+        <span>GPU tracking can introduce device-to-host transfer overhead. It is opt-in.</span>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="commands">
+      <p class="eyebrow"><span class="dot"></span>cli</p>
+      <h2>Command explorer</h2>
+      <p>The commands the docs use, and what each one does.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><span class="nm">pulse</span></td><td>Setup, run a script, watch the run, open the agent</td></tr>
+            <tr><td><span class="nm">python3 -m pulse</span></td><td>Same, for when the console script is not on your path</td></tr>
+            <tr><td><span class="nm">pulse run --stream train.py</span></td><td>Stream mode: a monitor in the training process, the brain elsewhere</td></tr>
+            <tr><td><span class="nm">python -m pulse.brain</span></td><td>Attach a brain to the newest session</td></tr>
+            <tr><td><span class="nm">python -m pulse.brain &lt;dir&gt; --model &lt;model&gt;</span></td><td>Attach to a session folder with a chosen model</td></tr>
+            <tr><td><span class="nm">python -m pulse.brain &lt;dir&gt; --once</span></td><td>One pass over a finished run</td></tr>
+            <tr><td><span class="nm">/autofix on</span></td><td>Let the agent propose and apply fixes</td></tr>
+            <tr><td><span class="nm">/gputrack &lt;var&gt;</span></td><td>Opt in to GPU tracking for one variable</td></tr>
+            <tr><td><span class="nm">/undo</span></td><td>Revert the last applied edit</td></tr>
+            <tr><td><span class="nm">/run · /monitor</span></td><td>Open a run in the app, or attach the monitor to one</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="agent">
+      <p class="eyebrow"><span class="dot"></span>agents</p>
+      <h2>Choose your agent</h2>
+      <p>With no API key, sign in with OpenRouter from inside Pulse and use free models. Or bring your own key: Anthropic, OpenAI, Gemini, DeepSeek, Mistral or OpenRouter.</p>
+      <p>Pulse adds about 20 MB of overhead, and nothing is installed into your loop.</p>
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.5"/></svg>
+        <span>A pasted key is never written to disk.</span>
+      </div>
+    </section>
+
+    <section class="doc-sec" id="autofix">
+      <p class="eyebrow"><span class="dot"></span>debugging</p>
+      <h2>Auto-fix and approver</h2>
+      <div class="cmdblock">
+        <div class="row"><span class="prompt">&gt;</span><span>/autofix on</span>
+          <button class="cmd-copy" data-copy="/autofix on">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+            <span class="label">copy</span>
+          </button>
+        </div>
+      </div>
+
+      <h3>Who approves commands</h3>
+      <p>Some shell commands the agent wants need an OK first: ones that delete files, rewrite git state, reach outside the project, start a background process or overwrite a file. So a long run never stops to wait, a model answers that y/N. By default it is the agent's own model, asked separately.</p>
+      <div class="cmdblock">
+        <div class="row"><span class="prompt">#</span><span>in pulse_config.json</span></div>
+        <div class="row"><span>"approver": "off"</span><span style="color:var(--text-3)"># you answer yourself</span>
+          <button class="cmd-copy" data-copy='"approver": "off"'>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+            <span class="label">copy</span>
+          </button>
+        </div>
+      </div>
+      <p>Or set <code>"approver": "&lt;model&gt;"</code> to pick a different model. The same commands are flagged either way; only who answers changes.</p>
+
+      <h3>What the approver sees and decides</h3>
+      <p>Only the command, why it was flagged, the project folder, and what the agent was working on, never the agent's reasoning. It answers APPROVE or DENY with a reason that goes back to the agent. It is told to deny anything that could destroy work that can't be regenerated, touch files outside the project, handle credentials or use sudo, and to deny when unsure.</p>
+      <p>It also answers "apply this change?" for each edit the agent proposes, judging the diff against your request. Every applied change stays one <code>/undo</code> away. If it can't be reached, Pulse asks you (or declines in a non-interactive run). Every decision is printed and recorded in the agent log.</p>
+    </section>
+
+    <section class="doc-sec" id="cloud">
+      <p class="eyebrow"><span class="dot"></span>cloud</p>
+      <h2>Cloud workspaces and dashboard</h2>
+      <div class="kv">
+        <div class="k">training machine</div><div class="v"><code>pulse</code> runs next to your training script, on the box that has the GPU</div>
+        <div class="k">pulse workspace</div><div class="v">Sessions · Incidents · Agent logs · Tracebacks · Commit · Team members</div>
+      </div>
+      <div class="callout warn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v5M12 17.5v.5M10.3 4.6 2.7 18a1.6 1.6 0 0 0 1.4 2.4h15.8a1.6 1.6 0 0 0 1.4-2.4L13.7 4.6a1.6 1.6 0 0 0-2.8 0Z"/></svg>
+        <span>Cloud synchronization is best-effort and is not intended to block the training loop. For sensitive projects, review your cloud and telemetry configuration carefully.</span>
+      </div>
+
+      <h3>Dashboard</h3>
+      <p>Workspaces can be named and managed from the CLI; members can leave, and admins can delete one. A run opened in the app (via <code>/run</code>, <code>/monitor</code>, or attached) gets its own session, with its environment, metric snapshots, findings and crashes as incidents, the agent's turns, and uptime, synced in the background. Sign in at the <a href="https://residualml.com/dashboard/" style="color:var(--text);border-bottom:1px solid var(--hair-2)">dashboard</a> to pick a workspace, then a project, then a run.</p>
+      <p>Runs show loss, grad norm, learning rate, uptime/downtime, commit, GPU and incidents. A run counts as live if it had activity in the last 5 minutes. Secret projects appear only to workspace admins and members who joined with the project's join code.</p>
+    </section>
+
+    <section class="doc-sec" id="telemetry">
+      <p class="eyebrow"><span class="dot"></span>advanced</p>
+      <h2>Telemetry</h2>
+      <p>Telemetry is on by default and can be switched off with one environment variable:</p>
+      <div class="cmdblock">
+        <div class="row"><span class="prompt">$</span><span>PULSE_TELEMETRY=off</span>
+          <button class="cmd-copy" data-copy="PULSE_TELEMETRY=off">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+            <span class="label">copy</span>
+          </button>
+        </div>
+      </div>
+      <p>Cloud synchronization is best-effort and is not intended to block the training loop.</p>
+    </section>
+
+    <section class="doc-sec" id="processes">
+      <p class="eyebrow"><span class="dot"></span>advanced</p>
+      <h2>Two processes: monitor and brain</h2>
+      <div class="kv">
+        <div class="k">training process</div><div class="v"><code>pulse_monitor.Monitor</code> reads values and writes frames. It never blocks, never thinks.</div>
+        <div class="k">brain process</div><div class="v"><code>pulse_brain.Brain</code> keeps history and detection, runs the audit and the agent.</div>
+      </div>
+      <p>For most cases, just use <code>pulse</code>. It is the better default. Stream mode is for when you want a run to keep going with nobody attached.</p>
+      <p>Pulse used to be one process, so a run stopped dead while the model thought. Measured on a 20k-step loop, <code>PulseCLI.update()</code> held the training thread for 84% of the wall clock, almost all of it two blocking model calls.</p>
+
+      <div class="cmdblock">
+        <div class="row"><span class="prompt">$</span><span>pulse run --stream train.py</span>
+          <button class="cmd-copy" data-copy="pulse run --stream train.py">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+            <span class="label">copy</span>
+          </button>
+        </div>
+      </div>
+
+      <h3>What the training process pays</h3>
+      <p>Nothing is installed into the loop: no <code>sys.settrace</code>, no callback into user code. A background thread reads the training thread's variables a few times a second. It never converts data to answer a question about its shape; only 0-d and few-element values cross the device boundary, on a schedule; and it holds no references, so tracking a tensor doesn't keep it alive.</p>
+
+      <h3>Why the stream is lossy on purpose</h3>
+      <p>Under backpressure the oldest frame is dropped and the loss is recorded, so the brain knows its view has a hole rather than the loop being slowed. It is an append-only file, not a socket, so the brain can attach late, crash or restart without the run ever waiting.</p>
+    </section>
+
+    <section class="doc-sec" id="overhead">
+      <p class="eyebrow"><span class="dot"></span>advanced</p>
+      <h2>A debugger shouldn't become the bottleneck</h2>
+      <div class="kv">
+        <div class="k">stream mode</div><div class="v">0 s of the training thread, 20k steps. The monitor and the brain are separate processes.</div>
+        <div class="k">single process</div><div class="v">0.059 s over the same loop</div>
+        <div class="k">single process, agent</div><div class="v">13.39 s of a 15.9 s run</div>
+      </div>
+      <p>Measured on a 20k-step loop in stream mode. In stream mode the training process runs no Pulse code beyond a background thread, and never waits for a model. Method and caveats are in <code>docs/overhead.md</code> in the repo.</p>
+    </section>
+
+    <section class="doc-sec" id="keras">
+      <p class="eyebrow"><span class="dot"></span>advanced</p>
+      <h2>Keras</h2>
+      <p>Keras metrics live in the callback <code>logs</code> dict, not in local variables, so the stream monitor can't see them by sampling. Streaming needs one line of setup, documented in <code>docs/streaming-keras.md</code>.</p>
+      <p>In-process modes (<code>cli</code>, <code>ui</code>) patch <code>Model.fit</code> and need nothing.</p>
+    </section>
+
+    <section class="doc-sec" id="troubleshooting">
+      <p class="eyebrow"><span class="dot"></span>reference</p>
+      <h2>Troubleshooting</h2>
+
+      <h3><code>pulse</code> not found</h3>
+      <p>Add Python's scripts folder to PATH (see <a href="#installation" style="color:var(--text);border-bottom:1px solid var(--hair-2)">Installation</a>), or use <code>python3 -m pulse</code>.</p>
+
+      <h3>The app doesn't open</h3>
+      <p>Pulse falls back to line-by-line screens without a real terminal (a pipe, CI), on a very small one. On Windows it needs a console that understands escape sequences: Windows Terminal, or the console of Windows 10 and later.</p>
+
+      <h3>Keys and secrets</h3>
+      <p>Don't put API keys in source code or commit them. A pasted key is never written to disk.</p>
+    </section>
+
+    <div class="doc-foot">
+      <a href="index.html">← Home</a>
+      <a class="next" href="download.html">Download the build for your system →</a>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-mark">
+        <svg class="mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          
+        </svg>
+        Residual
+      </div>
+      <div class="foot-links">
+        <a href="docs.html">Docs</a>
+        <a href="download.html">Download</a>
+        <a href="https://github.com/codeyash09/PulseML">GitHub</a>
+        <a href="https://pypi.org/project/pulseml/">PyPI</a>
+        <a href="https://residualml.com/dashboard/">Dashboard</a>
+        <a href="mailto:founders@residualml.com">Contact</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span class="line">for ML breakers everywhere</span>
+      <span class="mono">© 2026 Residual ML</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/site.js"></script>
+</body>
+</html>

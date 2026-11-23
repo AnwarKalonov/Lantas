@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Download — Residual Pulse</title>
+<meta name="description" content="Prebuilt Pulse 2.0.0 wheels for Linux and Windows, matched to your Python version, or install from PyPI.">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 138 75'%3E%3Cpath d='M0 10.5H73A21 21 0 0 1 94 31.5V37.5M0 37.5H138M0 64.5H138' stroke='%232c6a4e' stroke-width='21' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+<script>try{var t=localStorage.getItem("residual-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.dataset.theme=t;}catch(e){}</script>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 138 75" fill="none" aria-hidden="true">
+        <path d="M0 10.5H73A21 21 0 0 1 94 31.5V37.5M0 37.5H138M0 64.5H138" stroke="currentColor" stroke-width="21"/>
+      </svg>
+      Residual <span class="slash">/</span> <span class="sub">Download</span>
+    </a>
+
+    <nav class="nav-links" aria-label="Sections">
+      <a href="index.html#observability">Observability</a>
+      <a href="docs.html">Docs</a>
+      <a href="#builds">All builds</a>
+    </nav>
+
+    <div class="nav-right">
+      <button class="theme-btn" type="button" data-theme-toggle aria-label="Switch to dark mode" title="Switch theme">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" aria-hidden="true"><path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/></svg>
+      </button>
+            <a class="txt" href="docs.html">Docs</a>
+      <a class="txt" href="https://github.com/codeyash09/PulseML">GitHub</a>
+      <a class="btn btn-primary btn-sm" href="#builds">Get the build</a>
+      <button class="menu-btn" aria-label="Menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="nav-progress" aria-hidden="true"><span></span></div>
+</header>
+
+<main data-download>
+
+<section class="dl-hero">
+  <div class="wrap">
+    <p class="eyebrow"><span class="dot"></span>Pulse 2.0.0 · prebuilt wheels</p>
+    <h1>Download the build for your system</h1>
+    <p>Match your Python version and platform. pip refuses a wheel that doesn't match your system, so a wrong pick fails loudly instead of installing something broken — and <b style="color:var(--text);font-weight:500">pip install pulseml</b> picks the right one for you.</p>
+  </div>
+</section>
+
+<div class="wrap dl-grid" id="builds">
+  <div>
+    <div class="dl-controls">
+      <div class="seg" role="group" aria-label="Platform">
+        <button data-os="linux" aria-pressed="true">Linux · glibc</button>
+        <button data-os="musl" aria-pressed="false">Linux · musl</button>
+        <button data-os="win" aria-pressed="false">Windows</button>
+      </div>
+      <span class="count">21 builds · Python 3.9–3.15</span>
+    </div>
+
+    <div class="tablewrap">
+      <table class="dl-table">
+        <thead>
+          <tr>
+            <th style="width:96px">Python</th>
+            <th>Platform</th>
+            <th class="num" style="width:84px">Size</th>
+            <th style="width:104px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr data-os="linux">
+            <td class="py">cp39</td><td class="plat">manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64</td><td class="sz">67.0 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp39-cp39-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="linux">
+            <td class="py">cp310</td><td class="plat">manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64</td><td class="sz">67.3 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="linux">
+            <td class="py">cp311</td><td class="plat">manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64</td><td class="sz">70.5 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="linux">
+            <td class="py">cp312</td><td class="plat">manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64</td><td class="sz">66.2 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="linux">
+            <td class="py">cp313</td><td class="plat">manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64</td><td class="sz">66.1 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="linux">
+            <td class="py">cp314</td><td class="plat">manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64</td><td class="sz">65.2 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="linux">
+            <td class="py">cp315</td><td class="plat">manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64</td><td class="sz">65.6 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp315-cp315-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+
+          <tr data-os="musl">
+            <td class="py">cp39</td><td class="plat">musllinux_1_2_x86_64</td><td class="sz">67.0 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp39-cp39-musllinux_1_2_x86_64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="musl">
+            <td class="py">cp310</td><td class="plat">musllinux_1_2_x86_64</td><td class="sz">67.4 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp310-cp310-musllinux_1_2_x86_64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="musl">
+            <td class="py">cp311</td><td class="plat">musllinux_1_2_x86_64</td><td class="sz">70.6 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp311-cp311-musllinux_1_2_x86_64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="musl">
+            <td class="py">cp312</td><td class="plat">musllinux_1_2_x86_64</td><td class="sz">65.1 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp312-cp312-musllinux_1_2_x86_64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="musl">
+            <td class="py">cp313</td><td class="plat">musllinux_1_2_x86_64</td><td class="sz">65.0 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp313-cp313-musllinux_1_2_x86_64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="musl">
+            <td class="py">cp314</td><td class="plat">musllinux_1_2_x86_64</td><td class="sz">64.3 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp314-cp314-musllinux_1_2_x86_64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="musl">
+            <td class="py">cp315</td><td class="plat">musllinux_1_2_x86_64</td><td class="sz">64.7 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp315-cp315-musllinux_1_2_x86_64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+
+          <tr data-os="win">
+            <td class="py">cp39</td><td class="plat">win_amd64</td><td class="sz">8.0 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp39-cp39-win_amd64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="win">
+            <td class="py">cp310</td><td class="plat">win_amd64</td><td class="sz">8.0 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp310-cp310-win_amd64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="win">
+            <td class="py">cp311</td><td class="plat">win_amd64</td><td class="sz">8.0 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp311-cp311-win_amd64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="win">
+            <td class="py">cp312</td><td class="plat">win_amd64</td><td class="sz">7.4 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp312-cp312-win_amd64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="win">
+            <td class="py">cp313</td><td class="plat">win_amd64</td><td class="sz">7.4 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp313-cp313-win_amd64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="win">
+            <td class="py">cp314</td><td class="plat">win_amd64</td><td class="sz">7.5 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp314-cp314-win_amd64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+          <tr data-os="win">
+            <td class="py">cp315</td><td class="plat">win_amd64</td><td class="sz">7.5 MB</td>
+            <td><a class="dl-link" href="https://residualml.com/builds/pulseml-2.0.0-cp315-cp315-win_amd64.whl">download
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg></a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="dl-note">Wheel names follow <code>{distribution}-{version}-{python}-{abi}-{platform}.whl</code>. pip refuses a wheel that doesn't match your system, so a wrong pick fails loudly instead of installing something broken. The last row for each platform is the newest Python build.</p>
+  </div>
+
+  <aside>
+    <div class="side-card">
+      <h3>Install from PyPI</h3>
+      <p>One line, and pip resolves the right wheel for your interpreter and platform.</p>
+      <div class="cmdblock">
+        <div class="row">
+          <span class="prompt">$</span><span>pip install pulseml</span>
+          <button class="cmd-copy" data-copy="pip install pulseml">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+            <span class="label">copy</span>
+          </button>
+        </div>
+      </div>
+      <p class="meta">21 builds · 2.0.0<br>cp39 · cp310 · cp311 · cp312 · cp313 · cp314 · cp315<br>Linux · glibc, Linux · musl, Windows</p>
+    </div>
+
+    <div class="side-card" style="margin-top:16px">
+      <h3>After the download</h3>
+      <p>Install the wheel, then start Pulse. Setup takes it from there: the backend, the model, the first run.</p>
+      <div class="cmdblock">
+        <div class="row">
+          <span class="prompt">$</span><span>python3 -m pulse</span>
+          <button class="cmd-copy" data-copy="python3 -m pulse">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+            <span class="label">copy</span>
+          </button>
+        </div>
+      </div>
+      <div class="linkrow">
+        <a href="docs.html#installation">Install docs
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a href="https://pypi.org/project/pulseml/">PyPI
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
+        </a>
+      </div>
+    </div>
+
+    <div class="side-card" style="margin-top:16px">
+      <h3>No build listed for your system?</h3>
+      <p>Only these wheels are published. On anything else, install from PyPI and pip builds it for your interpreter.</p>
+      <p class="meta" style="border-top:0;padding-top:0">Python 3.9+ · 20 MB overhead · no changes to your training code</p>
+    </div>
+  </aside>
+</div>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-mark">
+        <svg class="mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          
+        </svg>
+        Residual
+      </div>
+      <div class="foot-links">
+        <a href="docs.html">Docs</a>
+        <a href="download.html">Download</a>
+        <a href="https://github.com/codeyash09/PulseML">GitHub</a>
+        <a href="https://pypi.org/project/pulseml/">PyPI</a>
+        <a href="https://residualml.com/dashboard/">Dashboard</a>
+        <a href="mailto:founders@residualml.com">Contact</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span class="line">for ML breakers everywhere</span>
+      <span class="mono">© 2026 Residual ML</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/site.js"></script>
+</body>
+</html>

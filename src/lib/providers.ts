@@ -28,8 +28,15 @@ export function getProvider(id: ProviderId): ProviderMeta {
 }
 
 export function resolveBase(config: ProviderConfig, meta: ProviderMeta): string {
-  const base = (config.baseUrl || meta.baseUrl).trim().replace(/\/+$/, "");
-  return base;
+  const configured = (config.baseUrl || "").trim();
+  // A key pasted into the Base URL field would otherwise produce an invalid URL.
+  const base = /^https?:\/\//i.test(configured) ? configured : meta.baseUrl.trim();
+  return base.replace(/\/+$/, "");
+}
+
+/** Keys arrive from clipboard with stray whitespace or quotes often enough to strip. */
+export function apiKeyOf(config: ProviderConfig): string {
+  return (config.apiKey || "").trim().replace(/^["'`]|["'`]$/g, "").trim();
 }
 
 const PRETTY: Record<string, string> = {
@@ -64,7 +71,7 @@ export function prettyModel(model: string): string {
 export function isConfigured(id: ProviderId, config: ProviderConfig): boolean {
   const meta = getProvider(id);
   if (!config.enabled) return false;
-  if (meta.needsKey && !config.apiKey.trim()) return false;
+  if (meta.needsKey && !apiKeyOf(config)) return false;
   return Boolean(resolveBase(config, meta));
 }
 
@@ -136,7 +143,7 @@ async function streamAnthropic(options: StreamOptions): Promise<void> {
     signal: options.signal,
     headers: {
       "content-type": "application/json",
-      "x-api-key": options.config.apiKey.trim(),
+      "x-api-key": apiKeyOf(options.config),
       "anthropic-version": "2023-06-01",
       "anthropic-dangerous-direct-browser-access": "true",
     },
@@ -197,9 +204,7 @@ async function streamOpenAI(options: StreamOptions): Promise<void> {
     signal: options.signal,
     headers: {
       "content-type": "application/json",
-      ...(options.config.apiKey.trim()
-        ? { authorization: `Bearer ${options.config.apiKey.trim()}` }
-        : {}),
+      ...(apiKeyOf(options.config) ? { authorization: `Bearer ${apiKeyOf(options.config)}` } : {}),
     },
     body: JSON.stringify({
       model: options.model,
@@ -250,13 +255,14 @@ async function streamGoogle(options: StreamOptions): Promise<void> {
   }));
 
   const response = await httpFetch(
-    `${base}/models/${encodeURIComponent(options.model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(
-      options.config.apiKey.trim(),
-    )}`,
+    `${base}/models/${encodeURIComponent(options.model)}:streamGenerateContent?alt=sse`,
     {
       method: "POST",
       signal: options.signal,
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "x-goog-api-key": apiKeyOf(options.config),
+      },
       body: JSON.stringify({
         contents,
         ...(options.system ? { systemInstruction: { parts: [{ text: options.system }] } } : {}),
@@ -339,8 +345,11 @@ async function httpError(response: Response): Promise<Error> {
   try {
     const text = await response.text();
     detail = text.slice(0, 400);
+    // Providers answer with {error:{message}}; show the sentence, not the wrapper.
+    const parsed = JSON.parse(text);
+    detail = parsed?.error?.message ?? parsed?.message ?? detail;
   } catch {
-    /* ignore */
+    /* keep the raw text */
   }
   const auth = response.status === 401 || response.status === 403;
   const hint = auth ? " Check the API key in Settings → Providers." : "";
@@ -392,10 +401,10 @@ export async function listModels(
     if (id === "google") {
       // AI Studio keys can list their own models, so the picker reflects what
       // this key can actually call instead of a hardcoded guess.
-      const response = await httpFetch(
-        `${base}/models?pageSize=200&key=${encodeURIComponent(config.apiKey.trim())}`,
-        { method: "GET" },
-      );
+      const response = await httpFetch(`${base}/models?pageSize=200`, {
+        method: "GET",
+        headers: { "x-goog-api-key": apiKeyOf(config) },
+      });
       if (!response.ok) return { ok: false, detail: await failure(response) };
       const data = await response.json();
       const models: string[] = (data.models ?? [])
@@ -417,9 +426,7 @@ export async function listModels(
 
     const response = await httpFetch(`${base}/models`, {
       method: "GET",
-      headers: config.apiKey.trim()
-        ? { authorization: `Bearer ${config.apiKey.trim()}` }
-        : undefined,
+      headers: apiKeyOf(config) ? { authorization: `Bearer ${apiKeyOf(config)}` } : undefined,
     });
     if (!response.ok) return { ok: false, detail: await failure(response) };
     const data = await response.json();
@@ -436,18 +443,28 @@ export async function listModels(
 async function failure(response: Response): Promise<string> {
   let text = "";
   try {
-    text = (await response.text()).slice(0, 200);
+    const raw = await response.text();
+    text = raw.slice(0, 200);
+    // Providers answer with {error:{message}}; show the sentence, not the wrapper.
+    try {
+      const parsed = JSON.parse(raw);
+      text = parsed?.error?.message ?? parsed?.message ?? text;
+    } catch {
+      /* not JSON — keep the text */
+    }
   } catch {
     /* ignore */
   }
-  return `${response.status} ${response.statusText}${text ? ` · ${text}` : ""}`;
+  const status = `${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
+  return `${status}${text ? ` · ${text}` : ""}`;
 }
 
 function describeError(error: unknown, meta: ProviderMeta): string {
   if (error instanceof TypeError) {
+    const detail = error.message && error.message !== "Failed to fetch" ? ` (${error.message})` : "";
     return meta.local
-      ? `Could not reach ${meta.name} at ${meta.baseUrl}. Is it running?`
-      : `Could not reach ${meta.name}. Check your connection, or the base URL.`;
+      ? `Could not reach ${meta.name} at ${meta.baseUrl}. Is it running?${detail}`
+      : `Could not reach ${meta.name}. The request never left the app${detail}. Check that the Base URL is ${meta.baseUrl} and that this machine is online.`;
   }
   return error instanceof Error ? error.message : String(error);
 }
@@ -458,7 +475,7 @@ export async function testProvider(
 ): Promise<ProviderStatus> {
   const meta = getProvider(id);
 
-  if (meta.needsKey && !config.apiKey.trim()) {
+  if (meta.needsKey && !apiKeyOf(config)) {
     return { ok: false, detail: "Add an API key first" };
   }
 

@@ -123,6 +123,7 @@ function ProviderCard({ meta }: { meta: ProviderMeta }) {
               type="password"
               value={config.apiKey}
               onChange={(event) => updateProvider(meta.id, { apiKey: event.target.value })}
+              onBlur={(event) => updateProvider(meta.id, { apiKey: event.target.value.trim() })}
               placeholder="Paste a key"
               autoComplete="off"
               spellCheck={false}

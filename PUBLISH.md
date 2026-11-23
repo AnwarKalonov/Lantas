@@ -35,18 +35,20 @@ npm install
 npm run tauri signer generate -- -w ~/.tauri/lantas.key
 ```
 
-It asks for a password (you may leave it empty), writes `~/.tauri/lantas.key`, and prints
-two long strings. Then:
+It asks for a password (you may leave it empty) and writes two single-line files:
+`~/.tauri/lantas.key` (base64 private key) and `~/.tauri/lantas.key.pub` (base64 public
+key). Then:
 
-1. **Public key** — copy the value printed as `Public key:` (it starts with
-   `dW50cnVzdGVkIGNvbW1lbnQ6`, the base64 of the key file). Paste it into
-   `src-tauri/tauri.conf.json` → `plugins.updater.pubkey`, replacing
-   `REPLACE_WITH_YOUR_PUBLIC_KEY`, and commit. This key is compiled into the app; it is
-   what makes a tampered download impossible.
+1. **Public key** — `cat ~/.tauri/lantas.key.pub` prints one line starting with
+   `dW50cnVzdGVkIGNvbW1lbnQ6`. That whole line is the value for
+   `src-tauri/tauri.conf.json` → `plugins.updater.pubkey`: replace
+   `REPLACE_WITH_YOUR_PUBLIC_KEY` with it and commit. The key is compiled into the app;
+   it is what makes a tampered download impossible. It is public, so it is safe to share.
 2. **Private key** — repo → Settings → Secrets and variables → Actions → new secret
-   `TAURI_SIGNING_PRIVATE_KEY`, value = the contents of `~/.tauri/lantas.key`
-   (`pbcopy < ~/.tauri/lantas.key`).
-3. If you set a password: secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, same place.
+   `TAURI_SIGNING_PRIVATE_KEY`, value = the contents of `~/.tauri/lantas.key`:
+   `pbcopy < ~/.tauri/lantas.key`. Never paste this anywhere else.
+3. If you set a password: secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, same place. CI
+   cannot sign without it.
 4. **Publishing token** (optional, makes releases automatic) — a classic PAT with
    `contents: write` on `Lantas-download`, saved as `LANTAS_RELEASE_TOKEN`. Without it,
    CI still builds and signs; download the `Lantas-macOS` artifact and attach its files

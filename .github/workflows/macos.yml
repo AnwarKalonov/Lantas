@@ -25,8 +25,8 @@ env:
 
 jobs:
   macos:
-    # macos-14 runs on Apple Silicon; use macos-13 for an Intel build.
-    runs-on: macos-14
+    # macos-latest runs on Apple Silicon; use macos-13 for an Intel build.
+    runs-on: macos-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4

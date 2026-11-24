@@ -1,5 +1,6 @@
 import type { AgentId, DiffLine, Skill, WorkspaceFile } from "./types";
 import { languageFor } from "./workspace";
+import { semanticSearch } from "./semantic";
 import {
   BROWSER_GUIDE,
   agentClick,
@@ -15,9 +16,13 @@ import {
   agentSnapshot,
   agentType,
   describeSnapshot,
+  resetDomObservation,
   resolveBrowserAddress,
+  waitForDomChange,
+  waitForNavigation,
 } from "./browserAgent";
-import { aiDriving } from "./el";
+import { openInChrome } from "./chrome";
+import { aiDriving, getElContext } from "./el";
 import { runTerminalCommand } from "./terminal";
 import {
   activeToolkits,
@@ -45,6 +50,10 @@ export interface ToolContext {
   skills: Skill[];
   /** Writes to disk; resolves false when the workspace is read-only. */
   saveFile: (path: string, text: string) => Promise<boolean>;
+  /** Reads the file back from disk. Null means verification is unavailable. */
+  readFile?: (path: string) => Promise<string | null>;
+  /** A live stdout/stderr line from the terminal tool. */
+  onShellLine?: (line: string) => void;
   /** Overrides the browser drive switch for one turn (the Chrome panel's Act mode). */
   drive?: boolean;
   /** The user's request for this turn, used to resolve ambiguous browser targets. */
@@ -75,6 +84,7 @@ export const TOOL_NAMES = [
   "read",
   "glob",
   "grep",
+  "semantic_search",
   "write",
   "edit",
   "skill",
@@ -90,6 +100,7 @@ export const TOOL_LABELS: Record<string, string> = {
   read: "Read file",
   glob: "Find files",
   grep: "Search code",
+  semantic_search: "Find by meaning",
   write: "Write file",
   edit: "Edit file",
   skill: "Load skill",
@@ -136,7 +147,9 @@ export function toolResource(call: ToolCall): string {
     const slug = call.args.slug ?? call.args.toolkit ?? "";
     return slug ? `${action} ${String(slug)}` : action;
   }
-  return String(call.args.path ?? call.args.pattern ?? call.args.name ?? "*");
+  return String(
+    call.args.path ?? call.args.pattern ?? call.args.query ?? call.args.name ?? "*",
+  );
 }
 
 function normalizePath(raw: unknown): string {
@@ -160,12 +173,27 @@ function findFile(files: WorkspaceFile[], path: string): WorkspaceFile | undefin
   return undefined;
 }
 
+async function verifyWrite(
+  context: ToolContext,
+  path: string,
+  text: string,
+): Promise<string | null> {
+  if (!context.readFile) return null;
+  let actual = await context.readFile(path);
+  if (actual === null || actual === text) return null;
+  // One retry: a sync client, formatter or watcher can race the first write.
+  await context.saveFile(path, text);
+  actual = await context.readFile(path);
+  if (actual === null || actual === text) return null;
+  return `Write verification failed for ${path}: the disk copy does not match the requested content.`;
+}
+
 function truncate(text: string, limit = 24_000): string {
   return text.length > limit ? `${text.slice(0, limit)}\n…[truncated]` : text;
 }
 
 /** Minimal line diff for the transcript. Good enough to show what changed. */
-function diffLines(before: string, after: string): { lines: DiffLine[]; added: number; removed: number } {
+export function diffLines(before: string, after: string): { lines: DiffLine[]; added: number; removed: number } {
   const oldLines = before ? before.split("\n") : [];
   const newLines = after ? after.split("\n") : [];
 
@@ -297,6 +325,26 @@ export async function runTool(
         };
       }
 
+      case "semantic_search": {
+        const query = String(call.args.query ?? "").trim();
+        if (!query) throw new Error("A query is required.");
+        const limit = Math.min(20, Math.max(1, Number(call.args.limit ?? 8) || 8));
+        const hits = semanticSearch(files, query, limit);
+        return {
+          ok: true,
+          summary: `${hits.length} relevant file${hits.length === 1 ? "" : "s"}`,
+          content: hits.length
+            ? hits
+                .map(
+                  (hit) =>
+                    `${hit.path}:${hit.line} (score ${hit.score.toFixed(2)})\n${hit.snippet}`,
+                )
+                .join("\n\n")
+            : `Nothing relevant to “${query}” in this workspace. Try a broader description or grep for an exact name.`,
+          resource: query,
+        };
+      }
+
       case "grep": {
         const pattern = String(call.args.pattern ?? "");
         if (!pattern) throw new Error("A search pattern is required.");
@@ -323,7 +371,19 @@ export async function runTool(
         return {
           ok: true,
           summary: `${hits.length} match${hits.length === 1 ? "" : "es"} for ${pattern}`,
-          content: hits.length ? hits.join("\n") : `No match for ${pattern} in this workspace.`,
+          content: hits.length
+            ? hits.join("\n")
+            : (() => {
+                const likely = semanticSearch(files, pattern, 5);
+                return [
+                  `No exact match for ${pattern} in this workspace.`,
+                  likely.length
+                    ? `Likely files:\n${likely
+                        .map((hit) => `${hit.path}:${hit.line} — ${hit.snippet.split("\n")[0]}`)
+                        .join("\n")}`
+                    : "Try semantic_search with a description of what the code does.",
+                ].join("\n\n");
+              })(),
           resource: scope || pattern,
         };
       }
@@ -342,13 +402,18 @@ export async function runTool(
         const existing = findFile(files, path);
         const before = existing?.text ?? "";
         const saved = await context.saveFile(path, text);
+        const verification = await verifyWrite(context, path, text);
         const diff = diffLines(before, text);
         return {
-          ok: true,
-          summary: `${existing ? "Updated" : "Created"} ${path} (+${diff.added} −${diff.removed})`,
-          content: `${existing ? "Updated" : "Created"} ${path} (${text.split("\n").length} lines)${
-            saved ? "" : ". The file is updated in the workspace but could not be written to disk, so the user can save it."
-          }`,
+          ok: !verification,
+          summary: verification
+            ? `Write verification failed for ${path}`
+            : `${existing ? "Updated" : "Created"} ${path} (+${diff.added} −${diff.removed})`,
+          content:
+            verification ??
+            `${existing ? "Updated" : "Created"} ${path} (${text.split("\n").length} lines)${
+              saved ? "" : ". The file is updated in the workspace but could not be written to disk, so the user can save it."
+            }`,
           diff: { path, added: diff.added, removed: diff.removed, lines: diff.lines },
           changed: { path, text },
           resource: path,
@@ -403,12 +468,17 @@ export async function runTool(
         // Diff before saving: saveFile may replace the workspace entry in place.
         const diff = diffLines(before, next);
         const saved = await context.saveFile(file.path, next);
+        const verification = await verifyWrite(context, file.path, next);
         return {
-          ok: true,
-          summary: `Edited ${file.path} (+${diff.added} −${diff.removed})`,
-          content: `Edited ${file.path}.${
-            saved ? "" : " The workspace copy is updated but disk could not be written."
-          }`,
+          ok: !verification,
+          summary: verification
+            ? `Write verification failed for ${file.path}`
+            : `Edited ${file.path} (+${diff.added} −${diff.removed})`,
+          content:
+            verification ??
+            `Edited ${file.path}.${
+              saved ? "" : " The workspace copy is updated but disk could not be written."
+            }`,
           diff: { path: file.path, added: diff.added, removed: diff.removed, lines: diff.lines },
           changed: { path: file.path, text: next },
           resource: file.path,
@@ -490,7 +560,12 @@ async function runTerminalTool(
     Math.max(5_000, Number(args.timeoutMs ?? 120_000) || 120_000),
   );
   try {
-    const result = await runTerminalCommand(context.root, command, timeoutMs);
+    const result = await runTerminalCommand(
+      context.root,
+      command,
+      timeoutMs,
+      context.onShellLine,
+    );
     const output = result.output.slice(-240);
     const body = [
       `$ ${command}`,
@@ -540,6 +615,15 @@ async function runBrowserTool(
     );
   }
 
+  const compare = ["click", "click_at", "type", "navigate", "back", "forward"].includes(
+    action,
+  );
+  const beforeSnapshot = compare
+    ? await agentSnapshot().catch(() => null)
+    : null;
+  const beforePage = beforeSnapshot?.page ?? getElContext();
+  if (!readOnly) await resetDomObservation().catch(() => undefined);
+
   /**
    * A cheap model needs to see the page after an action, not guess. Append the
    * new URL, title and control map to the tool result so the next step has
@@ -547,6 +631,7 @@ async function runBrowserTool(
    */
   const afterAction = async (base: string): Promise<string> => {
     try {
+      const domChanged = await waitForDomChange(1_800);
       const snapshot = await agentSnapshot();
       if (!snapshot.page) return base;
       const controls = snapshot.elements
@@ -556,8 +641,39 @@ async function runBrowserTool(
       const verifiedState = snapshot.page.text
         .split("\n")
         .find((line) => line.startsWith("Graph expressions:"));
+      const changes = [];
+      if (beforePage && beforePage.url !== snapshot.page.url) {
+        changes.push(`URL ${beforePage.url} -> ${snapshot.page.url}`);
+      }
+      if (beforePage && beforePage.title !== snapshot.page.title) {
+        changes.push(`title “${beforePage.title}” -> “${snapshot.page.title}”`);
+      }
+      if (beforeSnapshot) {
+        const beforeLabels = new Set(beforeSnapshot.elements.map((el) => el.label));
+        const afterLabels = new Set(snapshot.elements.map((el) => el.label));
+        const appeared = snapshot.elements
+          .filter((el) => !beforeLabels.has(el.label))
+          .slice(0, 5)
+          .map((el) => el.label);
+        const disappeared = beforeSnapshot.elements
+          .filter((el) => !afterLabels.has(el.label))
+          .slice(0, 5)
+          .map((el) => el.label);
+        if (beforeSnapshot.elements.length !== snapshot.elements.length) {
+          changes.push(
+            `controls ${beforeSnapshot.elements.length} -> ${snapshot.elements.length}`,
+          );
+        }
+        if (appeared.length) changes.push(`appeared: ${appeared.join(", ")}`);
+        if (disappeared.length) changes.push(`disappeared: ${disappeared.join(", ")}`);
+      }
       return [
         base,
+        changes.length
+          ? `State changed: ${changes.join("; ")}.`
+          : domChanged
+            ? "The page DOM changed; URL and title stayed the same."
+            : "No URL, title, control or DOM change detected.",
         `Now at: ${snapshot.page.url}`,
         `Title: ${snapshot.page.title}`,
         verifiedState ? `Page state: ${verifiedState.slice(0, 800)}` : "",
@@ -656,6 +772,9 @@ async function runBrowserTool(
         typeof args.selector === "string" ? args.selector : undefined,
         Boolean(args.submit),
       );
+      if (ok && args.submit) {
+        await waitForNavigation("", 6_000, beforePage?.url ?? "");
+      }
       return ok
         ? {
             ok: true,
@@ -699,6 +818,21 @@ async function runBrowserTool(
         : fail("Could not scroll the page.");
     }
 
+    case "open_in_chrome": {
+      const raw = String(args.url ?? "").trim();
+      if (!raw) return fail("A URL is required to open Chrome for sign-in.");
+      const opened = await openInChrome(resolveBrowserAddress(raw, task));
+      return opened
+        ? {
+            ok: true,
+            summary: "Opened in Chrome for sign-in",
+            content:
+              "Opened the page in the user's real Chrome profile. Ask the user to finish signing in there, then use the Chrome engine to read the authenticated page.",
+            resource,
+          }
+        : fail("Could not open Chrome. The desktop app is required.");
+    }
+
     case "navigate": {
       const raw = String(args.url ?? "");
       if (!raw) return fail("A URL is required.");
@@ -726,7 +860,7 @@ async function runBrowserTool(
 
     default:
       return fail(
-        `Unknown browser action ${action || "(none)"}. Use snapshot, extract, click, click_at, type, evaluate, press, scroll, navigate, back, forward or reload.`,
+        `Unknown browser action ${action || "(none)"}. Use snapshot, extract, click, click_at, type, evaluate, press, scroll, navigate, open_in_chrome, back, forward or reload.`,
       );
   }
 }
@@ -871,12 +1005,12 @@ export const TOOL_MANUAL = [
   "Tools:",
   '- read {"path","offset?","limit?"} — a text file with line numbers. Read before editing.',
   '- glob {"pattern"} — find paths, e.g. {"pattern":"src/**/*.tsx"}.',
-  '- grep {"pattern","path?","limit?"} — regex search with path:line results.',
+  '- grep {"pattern","path?","limit?"} — regex search with path:line results.\n  - semantic_search {"query","limit?"} — find the files that implement a concept when you do not know the identifier, e.g. {"query":"authentication handler"}.',
   '- write {"path","content"} — create or replace a whole file.',
   '- edit {"path","oldString","newString","replaceAll?"} — exact replacement; oldString must be unique.',
   '- skill {"name"} — load the full instructions of an enabled skill when the task matches it.',
   '- terminal {"command","timeoutMs?"} — run a command in the open workspace and return its real stdout and stderr. Use this for tests, builds, git and shell commands. Never claim a command ran without a terminal result.',
-  '- browser {"action",...} — actions: snapshot, extract, click {"target"|"ref"}, click_at {"x","y"}, type {"text","selector?","submit?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, navigate {"url"}, back, forward, reload.',
+  '- browser {"action",...} — actions: snapshot, extract, click {"target"|"ref"}, click_at {"x","y"}, type {"text","selector?","submit?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, navigate {"url"}, open_in_chrome {"url"}, back, forward, reload.',
   "",
   BROWSER_GUIDE,
   '- integrations {"action",...} — apps, tools {"toolkit"}, inbox {"limit","query"}, search_email {"query","limit"}, run {"slug","arguments"}.',

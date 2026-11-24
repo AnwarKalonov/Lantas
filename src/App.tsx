@@ -9,7 +9,12 @@ import { getElContext } from "./lib/el";
 import { consumeGoogleHash, getGoogleToken } from "./lib/google";
 import { inTauri } from "./lib/native";
 import { agentClick, agentEnter, agentScroll, agentType } from "./lib/browserAgent";
-import { buildHistory, buildSystemPrompt, parseImage } from "./lib/chat";
+import {
+  buildHistory,
+  buildRunningSummary,
+  buildSystemPrompt,
+  parseImage,
+} from "./lib/chat";
 import { isConfigured } from "./lib/providers";
 import type { ChatTurn } from "./lib/providers";
 import {
@@ -28,7 +33,17 @@ import {
 } from "./lib/browserActivity";
 import { useStore } from "./lib/store";
 import { acquireScreen, captureFrame, currentScreen, releaseScreen } from "./lib/screen";
-import { openWorkspaceFolder, writeWorkspaceFile } from "./lib/workspace";
+import {
+  addWorkspaceFolder,
+  clearExtraWorkspaceFolders,
+  openWorkspaceFolder,
+  readWorkspacePath,
+  readWorkspaceWithExtras,
+  watchWorkspaceTree,
+  writeWorkspacePath,
+} from "./lib/workspace";
+import { gitStatus } from "./lib/git";
+import { recordAudit } from "./lib/audit";
 import type { ChromeEvent } from "./lib/chrome";
 import type {
   AgentId,
@@ -44,6 +59,7 @@ import type {
 import { cx, titleFrom, uid } from "./lib/util";
 import { BrowserView } from "./components/BrowserView";
 import { BrowserActivityDock } from "./components/BrowserActivityDock";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { IdeView } from "./components/IdeView";
 import { CommandPalette } from "./components/CommandPalette";
 import { ContextPanel } from "./components/ContextPanel";
@@ -135,6 +151,8 @@ export function App() {
     label: string;
   } | null>(null);
   const approvalResolve = useRef<((allowed: boolean) => void) | null>(null);
+  const [limitAsk, setLimitAsk] = useState(false);
+  const limitResolve = useRef<((more: boolean) => void) | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const runs = useRef<Record<string, AbortController>>({});
   const screenRef = useRef<HTMLVideoElement | null>(null);
@@ -165,6 +183,64 @@ export function App() {
   useEffect(() => {
     document.documentElement.classList.toggle("reduce-motion", state.settings.reduceMotion);
   }, [state.settings.reduceMotion]);
+
+  // Reopen the project from the last session. Only the path is persisted, so
+  // the tree is always read fresh from disk.
+  // The watcher callback is long-lived; read the latest files through a ref so
+  // it can tell an external edit from the agent's own write.
+  const workspaceRef = useRef(state.workspace);
+  workspaceRef.current = state.workspace;
+  const restoredRoot = useRef("");
+  useEffect(() => {
+    if (!inTauri() || !state.workspaceRoot || state.workspace.length > 0) return;
+    if (restoredRoot.current === state.workspaceRoot) return;
+    restoredRoot.current = state.workspaceRoot;
+    void readWorkspaceWithExtras(state.workspaceRoot)
+      .then((next) => {
+        if (next) setWorkspace(next.name, next.files, next.root);
+        else notify(`Could not reopen ${state.workspaceRoot}`, "error");
+      })
+      .catch((error) =>
+        notify(
+          `Could not reopen ${state.workspaceRoot}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          "error",
+        ),
+      );
+  }, [notify, setWorkspace, state.workspace.length, state.workspaceRoot]);
+
+  // External edits (VS Code, git checkout) would otherwise leave the agent
+  // reading a stale copy of the file.
+  useEffect(() => {
+    if (!inTauri() || !state.workspaceRoot) return;
+    let alive = true;
+    let unwatch: (() => void) | null = null;
+    void watchWorkspaceTree(state.workspaceRoot, (path, text) => {
+      const current = workspaceRef.current.find((file) => file.path === path);
+      if (current?.text === text) return;
+      patchWorkspaceFile(path, text);
+      notify(`File changed on disk: ${path}`);
+    })
+      .then((stop) => {
+        if (alive) unwatch = stop;
+        else stop();
+      })
+      .catch((error) => {
+        if (alive) {
+          notify(
+            `Could not watch the workspace: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            "error",
+          );
+        }
+      });
+    return () => {
+      alive = false;
+      unwatch?.();
+    };
+  }, [notify, patchWorkspaceFile, state.workspace.length, state.workspaceRoot]);
 
   useEffect(() => {
     if (screenRef.current && screenStream) {
@@ -331,12 +407,32 @@ export function App() {
     try {
       const next = await openWorkspaceFolder();
       if (!next) return;
+      clearExtraWorkspaceFolders();
       setWorkspace(next.name, next.files, next.root);
       notify(`${next.files.filter((file) => !file.dir).length} files from ${next.name}`);
     } catch (error) {
       notify(error instanceof Error ? error.message : "Could not open that folder", "error");
     }
   }, [notify, setWorkspace]);
+
+  const addFolder = useCallback(async () => {
+    if (!state.workspaceRoot) {
+      await openFolder();
+      return;
+    }
+    try {
+      const next = await addWorkspaceFolder(state.workspace);
+      if (!next) return;
+      setWorkspace(
+        `${state.workspaceName || "Workspace"} + ${next.name}`,
+        [...state.workspace, ...next.files],
+        state.workspaceRoot,
+      );
+      notify(`Added ${next.name} (${next.files.filter((file) => !file.dir).length} files)`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Could not add that folder", "error");
+    }
+  }, [notify, openFolder, setWorkspace, state.workspace, state.workspaceName, state.workspaceRoot]);
 
   /** Resolves a pending tool approval, allowing the loop to continue. */
   const settleApproval = useCallback((allowed: boolean) => {
@@ -345,10 +441,32 @@ export function App() {
     setApproval(null);
   }, []);
 
+  const requestMoreSteps = useCallback(
+    () =>
+      new Promise<boolean>((resolve) => {
+        limitResolve.current = resolve;
+        setLimitAsk(true);
+      }),
+    [],
+  );
+
+  const settleLimit = useCallback((more: boolean) => {
+    limitResolve.current?.(more);
+    limitResolve.current = null;
+    setLimitAsk(false);
+  }, []);
+
   const requestApproval = useCallback(
     (call: ToolCall, resource: string) =>
       new Promise<boolean>((resolve) => {
-        approvalResolve.current = resolve;
+        approvalResolve.current = (allowed) => {
+          recordAudit({
+            tool: call.name,
+            resource,
+            decision: allowed ? "allowed" : "denied",
+          });
+          resolve(allowed);
+        };
         setApproval({ call, resource, label: describeAction(call.name, resource) });
       }),
     [],
@@ -898,20 +1016,75 @@ export function App() {
           };
           const history = snapshot ? [...buildHistory(snapshot), userTurn] : [userTurn];
 
+          let gitContext = "";
+          if (inTauri() && state.workspaceRoot) {
+            try {
+              const status = await gitStatus(state.workspaceRoot);
+              if (status.repo) {
+                const changes = status.files
+                  .slice(0, 20)
+                  .map((file) => `${file.staged ? "staged" : "unstaged"} ${file.status} ${file.path}`);
+                const commits = status.commits
+                  .slice(0, 5)
+                  .map((commit) => `${commit.hash.slice(0, 7)} ${commit.subject}`);
+                gitContext = [
+                  `branch: ${status.branch}${status.upstream ? ` -> ${status.upstream}` : ""}`,
+                  status.ahead || status.behind
+                    ? `ahead ${status.ahead}, behind ${status.behind}`
+                    : "",
+                  changes.length ? `changed files:\n${changes.join("\n")}` : "working tree clean",
+                  commits.length ? `recent commits:\n${commits.join("\n")}` : "",
+                ]
+                  .filter(Boolean)
+                  .join("\n");
+              }
+            } catch (error) {
+              gitContext = `git status unavailable: ${
+                error instanceof Error ? error.message : String(error)
+              }`;
+            }
+          }
+
+          const runningSummary = snapshot ? buildRunningSummary(snapshot) : "";
           const system = snapshot
-            ? buildSystemPrompt(snapshot, state.skills)
+            ? buildSystemPrompt(
+                snapshot,
+                state.skills,
+                state.workspace,
+                gitContext,
+                runningSummary,
+              )
             : buildSystemPrompt(
                 { cwd: "~/dev/lantas", branch: "main", agent } as Session,
                 state.skills,
+                state.workspace,
+                gitContext,
               );
 
           const toolFiles: WorkspaceFile[] = [...state.workspace];
+          const shellPart = { current: null as string | null };
           const toolCtx: ToolContext = {
             files: toolFiles,
             root: state.workspaceRoot,
             agent,
             skills: state.skills,
             task: text,
+            readFile: async (path) =>
+              state.mode === "code"
+                ? null
+                : readWorkspacePath(state.workspaceRoot, path),
+            onShellLine: (line) => {
+              const partId = shellPart.current;
+              if (!partId) return;
+              patch((message) => ({
+                ...message,
+                parts: message.parts.map((part) =>
+                  part.id === partId && part.kind === "shell"
+                    ? { ...part, output: [...part.output, line].slice(-240) }
+                    : part,
+                ),
+              }));
+            },
             saveFile: async (path, content) => {
               const index = toolFiles.findIndex((file) => file.path === path);
               const entry: WorkspaceFile = {
@@ -933,8 +1106,14 @@ export function App() {
               }
               patchWorkspaceFile(path, content);
               try {
-                return await writeWorkspaceFile(state.workspaceRoot, path, content);
-              } catch {
+                return await writeWorkspacePath(state.workspaceRoot, path, content);
+              } catch (error) {
+                notify(
+                  `Could not write ${path}: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                  "error",
+                );
                 return false;
               }
             },
@@ -942,7 +1121,7 @@ export function App() {
 
           const toolKind = (name: string): "read" | "grep" | "edit" | "terminal" | "web" | "plan" => {
             if (name === "read") return "read";
-            if (name === "grep" || name === "glob") return "grep";
+            if (name === "grep" || name === "glob" || name === "semantic_search") return "grep";
             if (name === "edit" || name === "write") return "edit";
             if (name === "terminal") return "terminal";
             if (name === "browser" || name === "integrations") return "web";
@@ -994,6 +1173,18 @@ export function App() {
                   updateBrowserActivity({ action, status: label, url });
                 }
               }
+              const extra: Part[] = [];
+              if (call.name === "terminal") {
+                const partId = `${id}:shell`;
+                shellPart.current = partId;
+                extra.push({
+                  id: partId,
+                  kind: "shell",
+                  command: String(call.args.command ?? ""),
+                  output: [],
+                  state: "run",
+                });
+              }
               patch((message) => ({
                 ...message,
                 parts: [
@@ -1005,10 +1196,12 @@ export function App() {
                     label,
                     state: "run",
                   },
+                  ...extra,
                 ],
               }));
             },
             onToolDone: (id, outcome, stateOfTool) => {
+              if (shellPart.current === `${id}:shell`) shellPart.current = null;
               if (browserToolIds.has(id)) {
                 const page = getElContext();
                 updateBrowserActivity({
@@ -1021,39 +1214,45 @@ export function App() {
               patch((message) => ({
                 ...message,
                 parts: message.parts.flatMap((part): Part[] => {
+                  if (part.kind === "shell" && part.id === `${id}:shell` && outcome.shell) {
+                    return [
+                      {
+                        ...part,
+                        output: outcome.shell.output,
+                        state: outcome.shell.state,
+                      },
+                    ];
+                  }
                   if (part.id !== id || part.kind !== "tool") return [part];
                   const next: Part = {
                     ...part,
                     detail: outcome.summary,
                     state: stateOfTool,
                   };
-                  if (!outcome.diff && !outcome.shell) return [next];
-                  return [
-                    next,
-                    ...(outcome.diff
-                      ? [
-                          {
-                            id: uid("part"),
-                            kind: "diff" as const,
-                            path: outcome.diff.path,
-                            added: outcome.diff.added,
-                            removed: outcome.diff.removed,
-                            lines: outcome.diff.lines,
-                          },
-                        ]
-                      : []),
-                    ...(outcome.shell
-                      ? [
-                          {
-                            id: uid("part"),
-                            kind: "shell" as const,
-                            command: outcome.shell.command,
-                            output: outcome.shell.output,
-                            state: outcome.shell.state,
-                          },
-                        ]
-                      : []),
-                  ];
+                  const additions: Part[] = [];
+                  if (outcome.diff) {
+                    additions.push({
+                      id: uid("part"),
+                      kind: "diff",
+                      path: outcome.diff.path,
+                      added: outcome.diff.added,
+                      removed: outcome.diff.removed,
+                      lines: outcome.diff.lines,
+                    });
+                  }
+                  if (
+                    outcome.shell &&
+                    !message.parts.some((item) => item.id === `${id}:shell`)
+                  ) {
+                    additions.push({
+                      id: `${id}:shell`,
+                      kind: "shell",
+                      command: outcome.shell.command,
+                      output: outcome.shell.output,
+                      state: outcome.shell.state,
+                    });
+                  }
+                  return [next, ...additions];
                 }),
               }));
             },
@@ -1066,6 +1265,7 @@ export function App() {
               inputTokens = usage.input ?? inputTokens;
               outputTokens = usage.output ?? outputTokens;
             },
+            onLimit: requestMoreSteps,
           }).finally(() => {
             if (browserToolRan) finishBrowserActivity("Browser task finished");
           });
@@ -1160,6 +1360,8 @@ export function App() {
       state.workspace,
       state.workspaceRoot,
       state.mode,
+      notify,
+      requestMoreSteps,
       patchWorkspaceFile,
       stageChange,
       requestApproval,
@@ -1175,6 +1377,18 @@ export function App() {
     if (!activeSession) return;
     runs.current[activeSession.id]?.abort();
   }, [activeSession]);
+
+  const approvePlan = useCallback(
+    (sessionId: string) => {
+      updateSession(sessionId, (session) => ({ ...session, agent: "build" }));
+      window.setTimeout(() => {
+        void handleSendRef.current(
+          "The plan above is approved. Execute it now, verify the result, and report what changed.",
+        );
+      }, 60);
+    },
+    [updateSession],
+  );
 
   const changeMode = useCallback(
     (mode: Mode) => {
@@ -1253,7 +1467,12 @@ export function App() {
   }, [setMode]);
 
   const overlayOpen =
-    paletteOpen || settingsOpen || helpOpen || Boolean(pendingAction) || Boolean(approval);
+    paletteOpen ||
+    settingsOpen ||
+    helpOpen ||
+    limitAsk ||
+    Boolean(pendingAction) ||
+    Boolean(approval);
 
   return (
     <div className="app">
@@ -1268,9 +1487,11 @@ export function App() {
 
       {state.mode === "code" ? (
         <div className="code-shell">
+          <ErrorBoundary label="Code">
           <IdeView
             onExit={() => changeMode("chat")}
             onOpenFolder={() => void openFolder()}
+            onAddFolder={() => void addFolder()}
             onOpenSettings={() => openSettings("general")}
             onOpenSkills={() => {
               setMode("chat");
@@ -1280,9 +1501,11 @@ export function App() {
             session={activeSession}
             defaultModel={state.settings.defaultModel}
             streaming={streaming}
+            onStop={handleStop}
             openRequest={fileRequest}
             cliRequest={cliRequest}
           />
+          </ErrorBoundary>
         </div>
       ) : (
         <div className="workspace">
@@ -1309,22 +1532,24 @@ export function App() {
                 {state.view === "integrations" && <IntegrationsView />}
                 {state.view === "chats" &&
                   (activeSession && activeSession.messages.length > 0 ? (
-                    <SessionView
-                      key={activeSession.id}
-                      session={activeSession}
-                      streaming={streaming}
-                      onSend={handleSend}
-                      onStop={handleStop}
-                      onOpenFile={openFile}
-                      onAgentChange={(agent: AgentId) =>
-                        updateSession(activeSession.id, (session) => ({ ...session, agent }))
-                      }
-                      onModelChange={(provider, model) =>
-                        changeModel(activeSession.id, provider, model)
-                      }
-                      onOpenProviders={() => openSettings("providers")}
-                      onScreenToggle={handleScreenToggle}
-                    />
+                    <ErrorBoundary key={activeSession.id} label="Chat">
+                      <SessionView
+                        session={activeSession}
+                        streaming={streaming}
+                        onSend={handleSend}
+                        onStop={handleStop}
+                        onOpenFile={openFile}
+                        onAgentChange={(agent: AgentId) =>
+                          updateSession(activeSession.id, (session) => ({ ...session, agent }))
+                        }
+                        onModelChange={(provider, model) =>
+                          changeModel(activeSession.id, provider, model)
+                        }
+                        onOpenProviders={() => openSettings("providers")}
+                        onScreenToggle={handleScreenToggle}
+                        onApprovePlan={() => approvePlan(activeSession.id)}
+                      />
+                    </ErrorBoundary>
                   ) : (
                     <Home
                       onSend={handleSend}
@@ -1475,6 +1700,33 @@ export function App() {
               </button>
               <button type="button" className="button-primary" onClick={() => settleApproval(true)}>
                 Allow once
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {limitAsk && (
+        <div className="overlay" onMouseDown={() => settleLimit(false)}>
+          <div
+            className="confirm-card"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Continue the run"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <p className="confirm-kicker">The agent used its budget</p>
+            <h2>Continue with six more tool rounds?</h2>
+            <p className="confirm-copy">
+              The work so far is saved. Continuing lets the agent finish the verification or
+              stop where it is.
+            </p>
+            <div className="confirm-actions">
+              <button type="button" className="button-quiet" onClick={() => settleLimit(false)}>
+                Stop here
+              </button>
+              <button type="button" className="button-primary" onClick={() => settleLimit(true)}>
+                Continue
               </button>
             </div>
           </div>

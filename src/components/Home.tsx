@@ -3,7 +3,7 @@ import type { Attachment } from "../lib/types";
 import { SUGGESTIONS } from "../lib/data";
 import { isConfigured } from "../lib/providers";
 import { Composer } from "./Composer";
-import { MarkGlyph, Wordmark } from "./Brand";
+import { Lockup } from "./Brand";
 import { Icon, type IconName } from "./Icons";
 
 const SUGGESTION_ICONS: Record<string, IconName> = {
@@ -29,12 +29,7 @@ export function Home({ onSend, onOpenSettings, onScreenToggle }: HomeProps) {
     <div className="home">
       <div className="home-inner">
         <div className="hero">
-          <div className="brand-hero">
-            <span className="brand-hero-mark">
-              <MarkGlyph size={58} />
-            </span>
-            <Wordmark cell={4.2} className="brand-hero-word" />
-          </div>
+          <Lockup className="hero-lockup" />
           <p className="hero-line">Work across your repo, your screen and your machine</p>
         </div>
 

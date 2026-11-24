@@ -11,9 +11,10 @@ import {
 import { useStore } from "../lib/store";
 import { APP_VERSION, checkForUpdate, checkNativeUpdate } from "../lib/updates";
 import { openExternal, openInVsCode } from "../lib/native";
+import { clearAuditLog, getAuditLog, subscribeAudit } from "../lib/audit";
 import type { AgentId, ProviderId, ProviderMeta, ThemeMode } from "../lib/types";
 import { cx, uid } from "../lib/util";
-import { MarkGlyph, Wordmark } from "./Brand";
+import { MarkGlyph } from "./Brand";
 import { Icon, type IconName } from "./Icons";
 import { McpManager } from "./McpManager";
 
@@ -239,13 +240,17 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ open, initialTab = "general", onClose }: SettingsModalProps) {
-  const { state, setSettings, updateSkill, setView, setCommands, notify } = useStore();
+  const { state, setSettings, updateSkill, setView, setCommands, recoverSession, notify } =
+    useStore();
   const [tab, setTab] = useState<SettingsTab>(initialTab);
+  const [audit, setAudit] = useState(getAuditLog);
   const [draft, setDraft] = useState({ name: "", description: "", template: "" });
   const [modelQuery, setModelQuery] = useState("");
   const [freeOnly, setFreeOnly] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const settings = state.settings;
+
+  useEffect(() => subscribeAudit(() => setAudit(getAuditLog())), []);
 
   const openWorkspaceInCode = async () => {
     if (!state.workspaceRoot) {
@@ -343,8 +348,6 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
       >
         <aside className="settings-nav">
           <div className="settings-brand">
-            <MarkGlyph size={17} />
-            <Wordmark cell={1.7} />
             <span>Settings</span>
           </div>
           {TABS.map((item) => (
@@ -421,6 +424,24 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
                   >
                     <Icon name="external" size={13} />
                     Open in VS Code
+                  </button>
+                </div>
+              </div>
+
+              <div className="settings-field">
+                <span className="field-label">Session backup</span>
+                <div className="settings-inline">
+                  <span className="settings-muted settings-note">
+                    The desktop app saves to a disk file after every turn. Restore it if
+                    browser storage was cleared or corrupted.
+                  </span>
+                  <button
+                    type="button"
+                    className="button-quiet"
+                    onClick={() => void recoverSession()}
+                  >
+                    <Icon name="refresh" size={13} />
+                    Restore from disk
                   </button>
                 </div>
               </div>
@@ -685,6 +706,48 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
                   Screen and Control are permissioned by macOS. The app requests Screen
                   Recording and Accessibility the first time either is used in the desktop build.
                 </span>
+              </div>
+
+              <div className="settings-field">
+                <div className="settings-inline">
+                  <span className="field-label">Recent decisions</span>
+                  {audit.length > 0 && (
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => {
+                        clearAuditLog();
+                        setAudit([]);
+                      }}
+                    >
+                      Clear log
+                    </button>
+                  )}
+                </div>
+                {audit.length === 0 ? (
+                  <span className="field-help">
+                    No approvals or denials yet. Tool calls that need permission appear here.
+                  </span>
+                ) : (
+                  <div className="audit-list">
+                    {audit.slice(0, 40).map((entry) => (
+                      <div className="audit-row" key={entry.id}>
+                        <span className="audit-tool">{entry.tool}</span>
+                        <span className="audit-resource" title={entry.resource}>
+                          {entry.resource}
+                        </span>
+                        <span
+                          className={cx(
+                            "audit-decision",
+                            entry.decision === "allowed" ? "is-allowed" : "is-denied",
+                          )}
+                        >
+                          {entry.decision}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
           )}

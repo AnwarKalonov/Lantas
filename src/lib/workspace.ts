@@ -11,6 +11,30 @@ import type { WorkspaceFile } from "./types";
 /** The picked folder, kept so the IDE can write a file back after an edit. */
 let rootHandle: any = null;
 let rootPath = "";
+/** prefix -> absolute root for folders added next to the primary workspace. */
+const EXTRA_ROOTS_KEY = "lantas.extra-roots.v1";
+const extraRoots = new Map<string, string>();
+let extraRootsLoaded = false;
+
+function loadExtraRoots() {
+  if (extraRootsLoaded) return;
+  extraRootsLoaded = true;
+  try {
+    const raw = localStorage.getItem(EXTRA_ROOTS_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Array<[string, string]>) : [];
+    for (const [prefix, root] of parsed) if (prefix && root) extraRoots.set(prefix, root);
+  } catch {
+    /* a malformed entry just means no extra folders this launch */
+  }
+}
+
+function saveExtraRoots() {
+  try {
+    localStorage.setItem(EXTRA_ROOTS_KEY, JSON.stringify(Array.from(extraRoots.entries())));
+  } catch {
+    /* the workspace still works for this session */
+  }
+}
 
 const MAX_FILES = 600;
 const TEXT_LIMIT = 400_000;
@@ -186,6 +210,172 @@ async function openWithTauri() {
     root: dir,
     files,
   };
+}
+
+/**
+ * Add a second folder to the open workspace. Its files are prefixed with the
+ * folder name (frontend/src/App.tsx), and the absolute root is remembered so
+ * edits still go to the right folder on disk.
+ */
+export async function addWorkspaceFolder(
+  existing: WorkspaceFile[] = [],
+): Promise<OpenedWorkspace | null> {
+  if (!isTauri()) {
+    throw new Error("Adding a second folder needs the desktop app. Drop files here instead.");
+  }
+  loadExtraRoots();
+  const dialog = await import("@tauri-apps/plugin-dialog");
+  const dir = await dialog.open({
+    directory: true,
+    multiple: false,
+    title: "Add a folder to this workspace",
+  });
+  if (!dir || typeof dir !== "string") return null;
+  const loaded = await readWorkspaceAt(dir);
+  if (!loaded) return null;
+
+  const base = loaded.name.replace(/[^\w.-]+/g, "-") || "folder";
+  const used = new Set(existing.map((file) => file.path.split("/")[0]));
+  let prefix = base;
+  let suffix = 2;
+  while (used.has(prefix)) prefix = `${base}-${suffix++}`;
+  extraRoots.set(prefix, dir);
+  saveExtraRoots();
+
+  return {
+    name: loaded.name,
+    root: dir,
+    files: loaded.files.map((file) => ({
+      ...file,
+      id: `${prefix}/${file.path}`,
+      path: `${prefix}/${file.path}`,
+      root: dir,
+      relative: file.path,
+    })),
+  };
+}
+
+/** Resolve a visible workspace path to the folder and relative path on disk. */
+export function resolveWorkspaceTarget(
+  primaryRoot: string,
+  path: string,
+): { root: string; relative: string } {
+  loadExtraRoots();
+  const [prefix, ...rest] = path.split("/");
+  const extra = extraRoots.get(prefix);
+  if (extra && rest.length) return { root: extra, relative: rest.join("/") };
+  return { root: primaryRoot, relative: path };
+}
+
+/** Read a file back from disk for write verification. */
+export async function readWorkspacePath(
+  primaryRoot: string,
+  path: string,
+): Promise<string | null> {
+  if (!isTauri()) return null;
+  const target = resolveWorkspaceTarget(primaryRoot, path);
+  if (!target.root) return null;
+  try {
+    const fs = await import("@tauri-apps/plugin-fs");
+    return await fs.readTextFile(`${target.root}/${target.relative}`);
+  } catch {
+    return null;
+  }
+}
+
+/** Write a file, respecting a folder that was added to the workspace. */
+export async function writeWorkspacePath(
+  primaryRoot: string,
+  path: string,
+  text: string,
+): Promise<boolean> {
+  const target = resolveWorkspaceTarget(primaryRoot, path);
+  return writeWorkspaceFile(target.root, target.relative, text);
+}
+
+/**
+ * Watch the open folder for edits made outside Lantas. The plugin reports
+ * absolute paths; only text files inside the workspace are read and returned.
+ */
+export async function watchWorkspace(
+  root: string,
+  onChange: (path: string, text: string) => void,
+): Promise<() => void> {
+  if (!root || !isTauri()) return () => {};
+  const fs = await import("@tauri-apps/plugin-fs");
+  const unwatch = await fs.watch(
+    root,
+    (event) => {
+      for (const changed of event.paths) {
+        const normalized = changed.replace(/\\/g, "/");
+        const prefix = `${root.replace(/\\/g, "/").replace(/\/$/, "")}/`;
+        if (!normalized.startsWith(prefix)) continue;
+        const relative = normalized.slice(prefix.length);
+        if (!relative || relative.split("/").some((part) => SKIP.has(part))) continue;
+        if (!isTextFile(relative.split("/").pop() ?? relative)) continue;
+        void fs
+          .readTextFile(changed)
+          .then((text) => onChange(relative, text))
+          .catch(() => undefined);
+      }
+    },
+    { recursive: true, delayMs: 450 },
+  );
+  return unwatch;
+}
+
+/** Extra folders the user added, as prefix -> absolute root. */
+export function clearExtraWorkspaceFolders(): void {
+  loadExtraRoots();
+  extraRoots.clear();
+  saveExtraRoots();
+}
+
+export function extraWorkspaceFolders(): Array<{ prefix: string; root: string }> {
+  loadExtraRoots();
+  return Array.from(extraRoots.entries()).map(([prefix, root]) => ({ prefix, root }));
+}
+
+/** Re-read the primary folder plus every added folder. */
+export async function readWorkspaceWithExtras(
+  root: string,
+): Promise<OpenedWorkspace | null> {
+  const primary = await readWorkspaceAt(root);
+  if (!primary) return null;
+  const files = [...primary.files];
+  for (const extra of extraWorkspaceFolders()) {
+    const loaded = await readWorkspaceAt(extra.root);
+    if (!loaded) continue;
+    for (const file of loaded.files) {
+      files.push({
+        ...file,
+        id: `${extra.prefix}/${file.path}`,
+        path: `${extra.prefix}/${file.path}`,
+        root: extra.root,
+        relative: file.path,
+      });
+    }
+  }
+  files.sort((a, b) => a.path.localeCompare(b.path));
+  return { ...primary, files };
+}
+
+/** Watch every open folder, prefixing paths from added folders. */
+export async function watchWorkspaceTree(
+  primaryRoot: string,
+  onChange: (path: string, text: string) => void,
+): Promise<() => void> {
+  if (!primaryRoot) return () => {};
+  const stops: Array<() => void> = [];
+  const primary = await watchWorkspace(primaryRoot, onChange);
+  stops.push(primary);
+  for (const extra of extraWorkspaceFolders()) {
+    const stop = await watchWorkspace(extra.root, (path, text) =>
+      onChange(`${extra.prefix}/${path}`, text),
+    );
+    stops.push(stop);
+  }
+  return () => stops.forEach((stop) => stop());
 }
 
 /** Re-reads an already-picked desktop folder without opening another dialog. */

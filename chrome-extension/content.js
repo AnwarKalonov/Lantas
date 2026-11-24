@@ -97,8 +97,50 @@
     return tag;
   }
 
+  // Modern apps hide controls behind open shadow roots and same-origin
+  // iframes. Walk both, with a hard scan cap so a huge page cannot stall.
+  function deepRoots() {
+    const roots = [document];
+    let scanned = 0;
+    for (let index = 0; index < roots.length && scanned < 5000; index += 1) {
+      const root = roots[index];
+      let elements = [];
+      try {
+        elements = Array.from(root.querySelectorAll("*"));
+      } catch {
+        continue;
+      }
+      for (const el of elements) {
+        scanned += 1;
+        if (scanned >= 5000) break;
+        if (el.shadowRoot && !roots.includes(el.shadowRoot)) roots.push(el.shadowRoot);
+        if (el.tagName === "IFRAME") {
+          try {
+            const doc = el.contentDocument;
+            if (doc && !roots.includes(doc)) roots.push(doc);
+          } catch {
+            /* cross-origin iframe: Chrome will not expose it */
+          }
+        }
+      }
+    }
+    return roots;
+  }
+
+  function deepQuery(selector) {
+    const found = [];
+    for (const root of deepRoots()) {
+      try {
+        for (const el of root.querySelectorAll(selector)) found.push(el);
+      } catch {
+        /* a detached root can disappear while scanning */
+      }
+    }
+    return found;
+  }
+
   function interactive() {
-    const nodes = document.querySelectorAll(
+    const nodes = deepQuery(
       'a[href], button, [role="button"], input:not([type="hidden"]), textarea, select, summary, [contenteditable="true"], [role="textbox"], .dcg-expressionitem, .dcg-action-add-expression',
     );
     const list = [];
@@ -131,9 +173,27 @@
         return "";
       }
     })();
+    const formState = (() => {
+      const forms = deepQuery("form").slice(0, 4);
+      if (!forms.length) return "";
+      return forms
+        .map((form, index) => {
+          const fields = Array.from(form.elements || [])
+            .filter((el) => ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))
+            .map((el) => {
+              const name = el.getAttribute("name") || el.getAttribute("placeholder") || el.type;
+              return `${name}${el.required ? "*" : ""}`;
+            })
+            .slice(0, 12)
+            .join(", ");
+          return `Form ${index + 1}: ${fields || "no named fields"}`;
+        })
+        .join(" | ");
+    })();
     const text = [
       bodyText,
       graphExpressions ? `Graph expressions: ${graphExpressions}` : "",
+      formState ? `Forms: ${formState}` : "",
     ]
       .filter(Boolean)
       .join("\n\n")

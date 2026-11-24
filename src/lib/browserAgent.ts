@@ -81,6 +81,9 @@ export const BROWSER_GUIDE = [
   "- Canvas and math editors often ignore a value assignment. Click into the editor first, then type or press keys. If the page exposes a documented API, `evaluate` may call it, but read the expression back to verify it.",
   "- `click_at` and `evaluate` exist for canvas apps and site APIs. Use them only for the user's task, not to read private storage or change unrelated settings.",
   "- If a page does not open, try the canonical address once, then a search. Do not repeat an identical failing call.",
+  "- Page snapshots pierce open shadow roots and same-origin iframes. If a control is still missing, evaluate `(() => document.querySelector('my-app')?.shadowRoot?.querySelector('button')?.outerHTML)()` to inspect it; never guess a selector.",
+  "- Login walls: use browser {\"action\":\"open_in_chrome\",\"url\":...} so the user signs in in their own Chrome profile, then switch to the Chrome engine and read the authenticated page.",
+  "- Form snapshots include a `Forms:` line with field names. Use the numbered refs for the fields and the submit button instead of blind Enter presses.",
 ].join("\n");
 
 let engineOverride: BrowserEngine | null = null;
@@ -135,6 +138,32 @@ const READ_SCRIPT = `
     const style = getComputedStyle(el);
     return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity) > 0.04;
   };
+  const deepRoots = () => {
+    const roots = [document];
+    let scanned = 0;
+    for (let index = 0; index < roots.length && scanned < 5000; index += 1) {
+      let elements = [];
+      try { elements = Array.from(roots[index].querySelectorAll("*")); } catch (_) { continue; }
+      for (const node of elements) {
+        scanned += 1;
+        if (scanned >= 5000) break;
+        if (node.shadowRoot && !roots.includes(node.shadowRoot)) roots.push(node.shadowRoot);
+        if (node.tagName === "IFRAME") {
+          try {
+            if (node.contentDocument && !roots.includes(node.contentDocument)) roots.push(node.contentDocument);
+          } catch (_) {}
+        }
+      }
+    }
+    return roots;
+  };
+  const deepQuery = (selector) => {
+    const found = [];
+    for (const root of deepRoots()) {
+      try { for (const node of root.querySelectorAll(selector)) found.push(node); } catch (_) {}
+    }
+    return found;
+  };
   const kindFor = (el) => {
     const tag = el.tagName.toLowerCase();
     if (el.isContentEditable) return "text";
@@ -182,15 +211,19 @@ const READ_SCRIPT = `
     return parts.join(" > ");
   };
 
-  const candidates = Array.from(document.querySelectorAll(
+  const candidates = deepQuery(
     'a[href],button,[role="button"],input:not([type="hidden"]),textarea,select,summary,' +
     '[contenteditable="true"],[contenteditable=""],[role="textbox"],[role="listitem"],' +
     '.dcg-expressionitem,.dcg-action-add-expression'
-  )).filter(visible);
+  ).filter(visible);
 
-  document.querySelectorAll("[data-lantas-ref]").forEach((node) =>
-    node.removeAttribute("data-lantas-ref")
-  );
+  for (const root of deepRoots()) {
+    try {
+      root.querySelectorAll("[data-lantas-ref]").forEach((node) =>
+        node.removeAttribute("data-lantas-ref")
+      );
+    } catch (_) {}
+  }
 
   const elements = [];
   for (const el of candidates) {
@@ -216,11 +249,19 @@ const READ_SCRIPT = `
     .replace(/[ \\t\\u00a0]+/g, " ")
     .replace(/\\n{3,}/g, "\\n\\n")
     .trim();
-  const aria = Array.from(document.querySelectorAll("[aria-label]"))
+  const aria = deepQuery("[aria-label]")
     .map((el) => cleanText(el.getAttribute("aria-label"), 100))
     .filter((value, index, all) => value && all.indexOf(value) === index)
     .slice(0, 160)
     .join(" | ");
+  const forms = deepQuery("form").slice(0, 4).map((form, index) => {
+    const fields = Array.from(form.elements || [])
+      .filter((el) => ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))
+      .map((el) => (el.getAttribute("name") || el.getAttribute("placeholder") || el.type || "field") + (el.required ? "*" : ""))
+      .slice(0, 12)
+      .join(", ");
+    return "Form " + (index + 1) + ": " + (fields || "no named fields");
+  }).join(" | ");
   const graphExpressions = (() => {
     try {
       if (!window.Calc || typeof window.Calc.getExpressions !== "function") return "";
@@ -234,6 +275,7 @@ const READ_SCRIPT = `
   const text = [
     bodyText,
     aria ? "Accessible controls: " + aria : "",
+    forms ? "Forms: " + forms : "",
     graphExpressions ? "Graph expressions: " + graphExpressions : "",
   ]
     .filter(Boolean)
@@ -391,7 +433,26 @@ export async function agentClickRef(index: number): Promise<boolean> {
     }
   }
   const result = await runInPage<{ ok: boolean }>(`
-    const el = document.querySelector('[data-lantas-ref="${Math.max(0, Math.floor(index))}"]');
+    const deepFind = (selector) => {
+      const roots = [document];
+      for (let i = 0; i < roots.length && i < 300; i += 1) {
+        let hit = null;
+        try { hit = roots[i].querySelector(selector); } catch (_) {}
+        if (hit) return hit;
+        let nodes = [];
+        try { nodes = Array.from(roots[i].querySelectorAll("*")); } catch (_) {}
+        for (const node of nodes) {
+          if (node.shadowRoot && !roots.includes(node.shadowRoot)) roots.push(node.shadowRoot);
+          if (node.tagName === "IFRAME") {
+            try {
+              if (node.contentDocument && !roots.includes(node.contentDocument)) roots.push(node.contentDocument);
+            } catch (_) {}
+          }
+        }
+      }
+      return null;
+    };
+    const el = deepFind('[data-lantas-ref="${Math.max(0, Math.floor(index))}"]');
     if (!el) return { ok: false };
     el.scrollIntoView({ block: "center", inline: "center" });
     if (typeof el.focus === "function") el.focus();
@@ -467,7 +528,26 @@ export async function agentType(
       const style = getComputedStyle(el);
       return style.display !== "none" && style.visibility !== "hidden";
     };
-    let el = wanted ? document.querySelector(wanted) : document.activeElement;
+    const deepFind = (selector) => {
+      const roots = [document];
+      for (let i = 0; i < roots.length && i < 300; i += 1) {
+        let hit = null;
+        try { hit = roots[i].querySelector(selector); } catch (_) {}
+        if (hit) return hit;
+        let nodes = [];
+        try { nodes = Array.from(roots[i].querySelectorAll("*")); } catch (_) {}
+        for (const node of nodes) {
+          if (node.shadowRoot && !roots.includes(node.shadowRoot)) roots.push(node.shadowRoot);
+          if (node.tagName === "IFRAME") {
+            try {
+              if (node.contentDocument && !roots.includes(node.contentDocument)) roots.push(node.contentDocument);
+            } catch (_) {}
+          }
+        }
+      }
+      return null;
+    };
+    let el = wanted ? deepFind(wanted) : document.activeElement;
     if (!el || el === document.body) {
       el = Array.from(document.querySelectorAll(
         'input:not([type="hidden"]), textarea, [contenteditable="true"], [contenteditable=""]'
@@ -639,14 +719,42 @@ async function navigateNative(raw: string, task = ""): Promise<boolean> {
   return Boolean(landed?.page?.url && /^https?:/i.test(landed.page.url));
 }
 
+/**
+ * Poll the active page until it lands somewhere new. Chrome's navigate, form
+ * submits and SPA route changes all finish at different times, so callers get
+ * a real answer instead of a fire-and-forget acknowledgement.
+ */
+export async function waitForNavigation(
+  target = "",
+  timeoutMs = 10_000,
+  from = "",
+): Promise<boolean> {
+  const previous = from || getElContext()?.url || "";
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await sleep(250);
+    const page = await agentPage();
+    if (!page?.url) continue;
+    if (target && samePage(page.url, target)) return true;
+    if (page.url !== previous) return true;
+  }
+  return false;
+}
+
 export async function agentNavigate(url: string, task = ""): Promise<boolean> {
   if (activeEngine() === "chrome") {
+    const target = resolveBrowserAddress(url, task);
+    const before = getElContext()?.url ?? "";
     try {
-      await chromeCommand("navigate", { url: resolveBrowserAddress(url, task) });
-      return true;
+      await chromeCommand("navigate", { url: target });
     } catch {
       return false;
     }
+    if (before && samePage(before, target)) {
+      await sleep(500);
+      return true;
+    }
+    return waitForNavigation(target, 10_000, before);
   }
   return navigateNative(url, task);
 }
@@ -735,6 +843,43 @@ export async function agentEvaluate(
     }
   `);
   return result ?? { ok: false, error: "The page did not answer." };
+}
+
+/**
+ * Install one page-level MutationObserver and reset its counter. Native and
+ * Chrome evaluate different shapes, so each gets a single executable IIFE.
+ */
+export async function resetDomObservation(): Promise<void> {
+  const body =
+    'window.__lantasMutations = 0;' +
+    'if (!window.__lantasObserver) {' +
+    ' window.__lantasObserver = new MutationObserver(function (list) {' +
+    '  window.__lantasMutations = (window.__lantasMutations || 0) + list.length;' +
+    ' });' +
+    ' window.__lantasObserver.observe(document.documentElement, {' +
+    '  childList: true, subtree: true, characterData: true, attributes: true' +
+    ' });' +
+    '}';
+  await agentEvaluate(
+    activeEngine() === "chrome"
+      ? `(() => { ${body} return window.__lantasMutations; })()`
+      : `${body} return window.__lantasMutations;`,
+  );
+}
+
+/** Wait briefly for a DOM update; resolves as soon as one is observed. */
+export async function waitForDomChange(timeoutMs = 2_500): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await sleep(150);
+    const result = await agentEvaluate(
+      activeEngine() === "chrome"
+        ? "(() => window.__lantasMutations || 0)()"
+        : "return window.__lantasMutations || 0;",
+    );
+    if (result.ok && Number(result.value) > 0) return true;
+  }
+  return false;
 }
 
 export async function agentPage(): Promise<ElPage | null> {

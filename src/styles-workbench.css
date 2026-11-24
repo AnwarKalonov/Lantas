@@ -2051,3 +2051,342 @@
     padding: 0 12px;
   }
 }
+
+/* ── Code is part of Lantas, not a VS Code window ─────────────────────────
+   The workbench keeps its editor, rail and assistant, but its chrome follows
+   the same warm ink as Chat and Browser. The separate menu bar and blue
+   status bar were removed so the mode sits directly under the app titlebar. */
+
+.titlebar.is-code {
+  border-bottom-color: var(--line);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.titlebar.is-code .crumb-current {
+  color: var(--text-2);
+}
+
+.titlebar.is-code .titlebar-mark {
+  color: var(--text-3);
+}
+
+.titlebar.is-code .mode-tabs {
+  border-color: var(--line);
+  background: var(--sel);
+}
+
+.titlebar.is-code .mode-tab {
+  color: var(--text-3);
+}
+
+.titlebar.is-code .mode-tab:hover {
+  color: var(--text-2);
+}
+
+.titlebar.is-code .mode-tab.is-active {
+  background: var(--raised);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.titlebar.is-code .icon-button {
+  color: var(--text-3);
+}
+
+.titlebar.is-code .icon-button:hover {
+  background: var(--sel);
+  color: var(--text);
+}
+
+.ide,
+[data-theme="dark"] .ide,
+:root .ide {
+  --text: #f1efe9;
+  --text-2: #b3b1a9;
+  --text-3: #83817a;
+  --text-4: #5b5953;
+  --ide-bg: var(--bg);
+  --ide-chrome: var(--surface);
+  --ide-panel: var(--surface);
+  --ide-editor: var(--bg);
+  --ide-hover: var(--raised);
+  --ide-selected: var(--sel);
+  --ide-line: var(--line);
+  --ide-line-strong: var(--line-strong);
+  --ide-blue: #83a9c7;
+  --ide-yellow: #cbb27a;
+  --ide-pink: #c6a2b6;
+  --ide-orange: #c99a72;
+  --ide-green: #8fbf9a;
+  --ide-cyan: #89bdb8;
+  --ide-purple: #a9a2c9;
+  --ide-muted: #83817a;
+  --accent: #e4e1d6;
+  --accent-ink: #14140f;
+  --accent-soft: rgba(228, 225, 214, 0.14);
+  --sel: rgba(240, 238, 230, 0.065);
+  --line: rgba(240, 238, 230, 0.07);
+  --line-strong: rgba(240, 238, 230, 0.13);
+  --raised: #161615;
+  --raised-2: #1c1c1a;
+  --code-bg: rgba(240, 238, 230, 0.07);
+  --code-fg: #d8d5cb;
+  --mono-ink: #c3c0b5;
+  --term-bg: #0e0e0d;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+
+[data-theme="light"] .ide {
+  --text: #1b1a16;
+  --text-2: #55534b;
+  --text-3: #7d7a70;
+  --text-4: #a19e94;
+  --ide-bg: var(--bg);
+  --ide-chrome: #efece3;
+  --ide-panel: #f3f1e9;
+  --ide-editor: #fbfaf6;
+  --ide-hover: #e7e4da;
+  --ide-selected: #e2ded2;
+  --ide-line: rgba(30, 29, 25, 0.09);
+  --ide-line-strong: rgba(30, 29, 25, 0.16);
+  --ide-blue: #356173;
+  --ide-yellow: #8a6a33;
+  --ide-pink: #8a5470;
+  --ide-orange: #915a35;
+  --ide-green: #2f6d43;
+  --ide-cyan: #2f6b66;
+  --ide-purple: #5c5478;
+  --ide-muted: #7d7a70;
+  --accent: #22211c;
+  --accent-ink: #f8f7f2;
+  --accent-soft: rgba(34, 33, 28, 0.12);
+  --sel: rgba(30, 29, 25, 0.05);
+  --line: rgba(30, 29, 25, 0.085);
+  --line-strong: rgba(30, 29, 25, 0.16);
+  --raised: #ffffff;
+  --raised-2: #f1efe8;
+  --code-bg: rgba(30, 29, 25, 0.06);
+  --code-fg: #2b2924;
+  --mono-ink: #4a483f;
+  --term-bg: #fbfaf6;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.ide-rail {
+  flex-basis: 44px;
+  gap: 2px;
+  padding: 6px 0;
+  background: var(--ide-chrome);
+}
+
+.ide-rail-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  color: var(--text-4);
+}
+
+.ide-rail-button:hover {
+  background: var(--ide-hover);
+  color: var(--text-2);
+}
+
+.ide-rail-button.is-active {
+  background: var(--ide-selected);
+  color: var(--text);
+  box-shadow: inset 2px 0 0 var(--text-3);
+}
+
+[data-theme="light"] .ide-rail-button.is-active {
+  color: var(--text);
+  box-shadow: inset 2px 0 0 var(--text-3);
+}
+
+.ide-side {
+  flex-basis: 250px;
+  background: var(--ide-panel);
+}
+
+.ide-side-head {
+  height: 36px;
+  padding: 0 8px 0 14px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.ide-tabs {
+  flex-basis: 36px;
+  height: 36px;
+  background: var(--ide-chrome);
+}
+
+.ide-tab.is-active {
+  box-shadow: inset 0 1px 0 var(--text-3);
+}
+
+.ide-tab-actions {
+  position: sticky;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  align-self: stretch;
+  padding: 0 8px 0 6px;
+  border-left: 1px solid var(--line);
+  background: var(--ide-chrome);
+}
+
+.ide-tab-action {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  border-radius: 5px;
+  color: var(--text-4);
+}
+
+.ide-tab-action:hover {
+  background: var(--ide-hover);
+  color: var(--text);
+}
+
+.ide-tab-action.is-on {
+  background: var(--sel);
+  color: var(--text);
+}
+
+.ide-tab-action:disabled {
+  opacity: 0.35;
+}
+
+.ide-status {
+  background: var(--ide-chrome);
+  color: var(--text-4);
+  border-top: 1px solid var(--line);
+}
+
+.ide-status-item.accent,
+.ide-status-item.dim {
+  color: var(--text-4);
+  opacity: 0.8;
+}
+
+.ide-status .ide-dirty {
+  background: var(--warn);
+}
+
+.ide-assistant {
+  flex-basis: 340px;
+  background: var(--ide-panel);
+}
+
+.ide-assistant-head {
+  flex-basis: 40px;
+  padding: 0 8px 0 12px;
+}
+
+.ide-assistant-id {
+  gap: 6px;
+  color: var(--text-4);
+}
+
+.ide-assistant-id svg {
+  color: var(--text-4);
+}
+
+.ide-assistant-title {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.ide-assistant .user-card {
+  background: var(--ide-bg);
+}
+
+.ide-assistant .assistant-compact-mark {
+  background: var(--ide-bg);
+  color: var(--text-3);
+}
+
+.ide-assistant-empty h3 {
+  color: var(--text-2);
+}
+
+.ide-send-button {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.ide-send-button:hover {
+  background: var(--text);
+}
+
+.ide-review-bar {
+  border-bottom-color: var(--line);
+  background: var(--raised);
+  color: var(--text-2);
+}
+
+.ide-review-decline,
+.ide-review-keep {
+  border-color: var(--line-strong);
+  color: var(--text-2);
+}
+
+.ide-review-decline:hover {
+  background: var(--sel);
+  color: var(--text);
+}
+
+.ide-review-keep {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.ide-review-keep:hover {
+  background: var(--text);
+}
+
+.ide-welcome-kicker {
+  color: var(--text-4);
+}
+
+.ide-assistant-id {
+  flex-direction: row;
+  align-items: center;
+}
+
+.hero-line {
+  max-width: none;
+}
+
+.settings-inline > button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.settings-inline > .settings-muted {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.settings-note {
+  max-width: 400px;
+  overflow: visible;
+  line-height: 1.55;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.settings-muted.settings-note {
+  max-width: 400px;
+  overflow: visible;
+  line-height: 1.55;
+  text-overflow: clip;
+  white-space: normal;
+}

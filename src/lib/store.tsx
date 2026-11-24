@@ -26,7 +26,7 @@ import type {
 } from "./types";
 import { DEFAULT_SETTINGS, PROVIDERS, SKILL_SEEDS, seedState } from "./data";
 import { uid } from "./util";
-import { writeWorkspaceFile } from "./workspace";
+import { writeWorkspacePath } from "./workspace";
 
 const STORAGE_KEY = "lantas.app.v2";
 /** Threads that shipped as sample content in earlier builds. */
@@ -75,6 +75,10 @@ interface Store {
   discardStaged: () => void;
   keepChange: (path: string) => Promise<boolean>;
   discardChange: (path: string) => void;
+  /** Replace the current state with the last good copy written to disk. */
+  recoverSession: () => Promise<boolean>;
+  /** Force an immediate disk save, used after each assistant turn. */
+  checkpoint: () => Promise<boolean>;
   undo: (sessionId: string) => void;
   redo: (sessionId: string) => void;
   toggleSidebar: () => void;
@@ -127,36 +131,40 @@ function mergeBuiltins(stored: Skill[] | undefined, fallback: Skill[]): Skill[] 
   return [...builtins, ...custom];
 }
 
+function stateFromStored(parsed: Partial<AppState> | null, fallback: AppState): AppState | null {
+  if (!parsed || !Array.isArray(parsed.sessions)) return null;
+  const sessions = (parsed.sessions as Session[])
+    .map(normalizeSession)
+    .filter((session) => !DEMO_THREADS.has(session.id));
+  const activeId =
+    typeof parsed.activeId === "string" && sessions.some((session) => session.id === parsed.activeId)
+      ? parsed.activeId
+      : (sessions[0]?.id ?? null);
+  return {
+    sessions,
+    activeId,
+    view: (parsed.view as ViewId) ?? "chats",
+    mode: (parsed.mode as Mode) ?? "chat",
+    browserUrl: typeof parsed.browserUrl === "string" ? parsed.browserUrl : "https://example.com",
+    workspace: [],
+    workspaceName: parsed.workspaceName ?? "",
+    workspaceRoot: parsed.workspaceRoot ?? "",
+    settings: normalizeSettings(parsed.settings),
+    skills: mergeBuiltins(parsed.skills, fallback.skills),
+    mcpServers: parsed.mcpServers ?? fallback.mcpServers,
+    commands: parsed.commands ?? [],
+    sidebarOpen: parsed.sidebarOpen ?? true,
+    panelOpen: parsed.panelOpen ?? true,
+  };
+}
+
 function loadState(): AppState {
   const fallback = seedState();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as Partial<AppState>;
-      if (!Array.isArray(parsed.sessions)) return fallback;
-      const sessions = (parsed.sessions as Session[]).filter(
-        (session) => !DEMO_THREADS.has(session.id),
-      );
-      const activeId =
-        typeof parsed.activeId === "string" && sessions.some((s) => s.id === parsed.activeId)
-          ? parsed.activeId
-          : (sessions[0]?.id ?? null);
-      return {
-        sessions,
-        activeId,
-        view: (parsed.view as ViewId) ?? "chats",
-        mode: (parsed.mode as Mode) ?? "chat",
-        browserUrl: typeof parsed.browserUrl === "string" ? parsed.browserUrl : "https://example.com",
-        workspace: [],
-        workspaceName: parsed.workspaceName ?? "",
-        workspaceRoot: parsed.workspaceRoot ?? "",
-        settings: normalizeSettings(parsed.settings),
-        skills: mergeBuiltins(parsed.skills, fallback.skills),
-        mcpServers: parsed.mcpServers ?? fallback.mcpServers,
-        commands: parsed.commands ?? [],
-        sidebarOpen: parsed.sidebarOpen ?? true,
-        panelOpen: parsed.panelOpen ?? true,
-      };
+      const stored = stateFromStored(JSON.parse(raw) as Partial<AppState>, fallback);
+      if (stored) return stored;
     }
 
     const legacy = localStorage.getItem(LEGACY_KEY);
@@ -181,43 +189,150 @@ function loadState(): AppState {
   return fallback;
 }
 
+/* ── durable disk state ────────────────────────────────────────────────── */
+
+const DISK_FILE = "sessions.json";
+let cachedDiskDir = "";
+let diskChain: Promise<void> = Promise.resolve();
+const isDesktop = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+/**
+ * `~/Library/Application Support/Lantas` on macOS, and the equivalent app-data
+ * directory on Windows and Linux. appDataDir points at the bundle identifier,
+ * so its parent plus the product name is the stable product-level folder.
+ */
+async function diskDir(): Promise<string> {
+  if (cachedDiskDir) return cachedDiskDir;
+  const path = await import("@tauri-apps/api/path");
+  const parent = await path.dirname(await path.appDataDir());
+  const dir = await path.join(parent, "Lantas");
+  const fs = await import("@tauri-apps/plugin-fs");
+  await fs.mkdir(dir, { recursive: true }).catch((error) => {
+    // mkdir is not idempotent on every platform; an existing directory is fine.
+    if (!/exist/i.test(error instanceof Error ? error.message : String(error))) throw error;
+  });
+  cachedDiskDir = dir;
+  return dir;
+}
+
+async function diskPath(): Promise<string> {
+  const path = await import("@tauri-apps/api/path");
+  return path.join(await diskDir(), DISK_FILE);
+}
+
+async function readDiskState(): Promise<Partial<AppState> | null> {
+  if (!isDesktop()) return null;
+  const fs = await import("@tauri-apps/plugin-fs");
+  const file = await diskPath();
+  const text = await fs.readTextFile(file);
+  return JSON.parse(text) as Partial<AppState>;
+}
+
+/** Serialize writes so an older snapshot can never land after a newer one. */
+async function writeDiskState(snapshot: ReturnType<typeof stateForDisk>): Promise<void> {
+  if (!isDesktop()) return;
+  const payload = JSON.stringify(snapshot);
+  diskChain = diskChain.catch(() => undefined).then(async () => {
+    const file = await diskPath();
+    const fs = await import("@tauri-apps/plugin-fs");
+    await fs.writeTextFile(file, payload);
+  });
+  await diskChain;
+}
+
+function stateForDisk(state: AppState) {
+  return {
+    savedAt: Date.now(),
+    sessions: state.sessions,
+    activeId: state.activeId,
+    view: state.view,
+    mode: state.mode,
+    browserUrl: state.browserUrl,
+    workspaceName: state.workspaceName,
+    workspaceRoot: state.workspaceRoot,
+    settings: state.settings,
+    skills: state.skills,
+    mcpServers: state.mcpServers,
+    commands: state.commands,
+    sidebarOpen: state.sidebarOpen,
+    panelOpen: state.panelOpen,
+  };
+}
+
 export function LantasProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(loadState);
   const [staged, setStaged] = useState<StagedChange[]>([]);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [hydrated, setHydrated] = useState(() => !isDesktop());
   const toastTimer = useRef<number | undefined>(undefined);
   const stateRef = useRef(state);
   stateRef.current = state;
   const stagedRef = useRef(staged);
   stagedRef.current = staged;
+  const diskWarned = useRef(false);
+  const wasStreaming = useRef(false);
+
+  // Desktop boots from the last disk write. localStorage is the fallback for
+  // the browser build and for a first launch where no file exists yet.
+  useEffect(() => {
+    if (!isDesktop()) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const parsed = await readDiskState();
+        const disk = stateFromStored(parsed, seedState());
+        if (!cancelled && disk) {
+          setState((prev) =>
+            disk.sessions.length === 0 && prev.sessions.length > 0 ? prev : disk,
+          );
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        // A missing file is normal on first launch; a permission or parse
+        // failure is worth showing because the next save may also fail.
+        if (!/no such file|not found|os error 2/i.test(message)) {
+          setToast({ id: uid("toast"), text: `Disk backup unavailable: ${message}`, tone: "error" });
+        }
+      } finally {
+        if (!cancelled) setHydrated(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
     const timer = window.setTimeout(() => {
+      const snapshot = stateForDisk(state);
       try {
-        localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify({
-            sessions: state.sessions,
-            activeId: state.activeId,
-            view: state.view,
-            mode: state.mode,
-            browserUrl: state.browserUrl,
-            workspaceName: state.workspaceName,
-            workspaceRoot: state.workspaceRoot,
-            settings: state.settings,
-            skills: state.skills,
-            mcpServers: state.mcpServers,
-            commands: state.commands,
-            sidebarOpen: state.sidebarOpen,
-            panelOpen: state.panelOpen,
-          }),
-        );
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
       } catch {
-        /* storage full or unavailable — the app keeps working in memory */
+        if (!diskWarned.current) {
+          diskWarned.current = true;
+          setToast({
+            id: uid("toast"),
+            text: "Browser storage is full; sessions may not survive a reload.",
+            tone: "error",
+          });
+        }
       }
+
+      void writeDiskState(snapshot).catch((error) => {
+        if (diskWarned.current) return;
+        diskWarned.current = true;
+        setToast({
+          id: uid("toast"),
+          text: `Could not save to disk: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          tone: "error",
+        });
+      });
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [state]);
+  }, [state, hydrated]);
 
   const notify = useCallback((text: string, tone: "default" | "error" = "default") => {
     window.clearTimeout(toastTimer.current);
@@ -225,7 +340,54 @@ export function LantasProvider({ children }: { children: ReactNode }) {
     toastTimer.current = window.setTimeout(() => setToast(null), 3200);
   }, []);
 
+  const checkpoint = useCallback<Store["checkpoint"]>(async () => {
+    try {
+      await writeDiskState(stateForDisk(stateRef.current));
+      return true;
+    } catch (error) {
+      notify(
+        `Could not checkpoint the session: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        "error",
+      );
+      return false;
+    }
+  }, [notify]);
+
+  // A streaming assistant message is the turn boundary. Save as soon as it
+  // flips to complete instead of waiting for the next debounced change.
+  const streamingNow = state.sessions.some(
+    (session) => session.messages[session.messages.length - 1]?.streaming === true,
+  );
+  useEffect(() => {
+    if (wasStreaming.current && !streamingNow && isDesktop()) void checkpoint();
+    wasStreaming.current = streamingNow;
+  }, [checkpoint, streamingNow]);
+
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+
+  const recoverSession = useCallback<Store["recoverSession"]>(async () => {
+    try {
+      const parsed = await readDiskState();
+      const disk = stateFromStored(parsed, seedState());
+      if (!disk) {
+        notify("No usable disk backup was found.", "error");
+        return false;
+      }
+      setState(disk);
+      notify("Restored sessions from the last disk save.");
+      return true;
+    } catch (error) {
+      notify(
+        `Could not read the disk backup: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        "error",
+      );
+      return false;
+    }
+  }, [notify]);
 
   const createSession = useCallback<Store["createSession"]>((agent, provider, model) => {
     const id = uid("ses");
@@ -444,20 +606,33 @@ export function LantasProvider({ children }: { children: ReactNode }) {
     const changes = stagedRef.current;
     if (!changes.length) return 0;
     const root = stateRef.current.workspaceRoot;
+    if (!root) {
+      setStaged([]);
+      return changes.length;
+    }
     let written = 0;
+    let failed = 0;
     for (const change of changes) {
       try {
         // Sequential on purpose: one failed write should not hide the others.
         // eslint-disable-next-line no-await-in-loop
-        const ok = await writeWorkspaceFile(root, change.path, change.after);
+        const ok = await writeWorkspacePath(root, change.path, change.after);
         if (ok) written += 1;
-      } catch {
-        /* the workspace copy stays, and the user can save from the editor */
+        else failed += 1;
+      } catch (error) {
+        failed += 1;
+        console.error(`Could not write ${change.path}`, error);
       }
+    }
+    if (failed > 0) {
+      notify(
+        `${failed} file${failed === 1 ? "" : "s"} stayed in the workspace but could not be written to disk.`,
+        "error",
+      );
     }
     setStaged([]);
     return written;
-  }, []);
+  }, [notify]);
 
   const discardStaged = useCallback(() => {
     const changes = stagedRef.current;
@@ -482,7 +657,7 @@ export function LantasProvider({ children }: { children: ReactNode }) {
     if (!change) return false;
     let ok = false;
     try {
-      ok = await writeWorkspaceFile(
+      ok = await writeWorkspacePath(
         stateRef.current.workspaceRoot,
         change.path,
         change.after,
@@ -589,6 +764,8 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       discardStaged,
       keepChange,
       discardChange,
+      recoverSession,
+      checkpoint,
       undo,
       redo,
       toggleSidebar,
@@ -627,6 +804,8 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       discardStaged,
       keepChange,
       discardChange,
+      recoverSession,
+      checkpoint,
       undo,
       redo,
       toggleSidebar,

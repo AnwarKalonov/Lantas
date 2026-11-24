@@ -85,6 +85,8 @@
     "updater:default",
     "process:allow-restart",
     "fs:allow-write-text-file",
+    "fs:allow-mkdir",
+    "fs:allow-watch",
     {
       "identifier": "fs:default",
       "allow": [

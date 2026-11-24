@@ -27,41 +27,41 @@ monaco.editor.defineTheme("lantas-dark", {
   base: "vs-dark",
   inherit: true,
   rules: [
-    { token: "comment", foreground: "6a9955", fontStyle: "italic" },
-    { token: "keyword", foreground: "569cd6" },
-    { token: "string", foreground: "ce9178" },
-    { token: "number", foreground: "b5cea8" },
-    { token: "type", foreground: "4ec9b0" },
-    { token: "function", foreground: "dcdcaa" },
-    { token: "variable", foreground: "9cdcfe" },
-    { token: "tag", foreground: "569cd6" },
-    { token: "attribute.name", foreground: "9cdcfe" },
-    { token: "delimiter", foreground: "d4d4d4" },
+    { token: "comment", foreground: "7f8f7a", fontStyle: "italic" },
+    { token: "keyword", foreground: "c6a2b6" },
+    { token: "string", foreground: "c99a72" },
+    { token: "number", foreground: "cbb27a" },
+    { token: "type", foreground: "89bdb8" },
+    { token: "function", foreground: "e4e1d6" },
+    { token: "variable", foreground: "b3b1a9" },
+    { token: "tag", foreground: "c6a2b6" },
+    { token: "attribute.name", foreground: "cbb27a" },
+    { token: "delimiter", foreground: "83817a" },
   ],
   colors: {
-    "editor.background": "#1e1e1e",
-    "editor.foreground": "#d4d4d4",
-    "editorLineNumber.foreground": "#858585",
-    "editorLineNumber.activeForeground": "#c6c6c6",
-    "editorCursor.foreground": "#aeafad",
-    "editor.selectionBackground": "#264f78",
-    "editor.inactiveSelectionBackground": "#3a3d41",
-    "editor.lineHighlightBackground": "#2a2d2e",
-    "editorLineNumber.background": "#1e1e1e",
-    "editorGutter.background": "#1e1e1e",
-    "editorIndentGuide.background1": "#404040",
-    "editorIndentGuide.activeBackground1": "#707070",
-    "editorWidget.background": "#252526",
-    "editorWidget.border": "#454545",
-    "input.background": "#3c3c3c",
-    "input.border": "#3c3c3c",
-    "list.hoverBackground": "#2a2d2e",
-    "list.activeSelectionBackground": "#094771",
-    "scrollbarSlider.background": "#79797966",
-    "scrollbarSlider.hoverBackground": "#646464b3",
-    "minimap.background": "#1e1e1e",
-    "editorBracketMatch.background": "#0064001a",
-    "editorBracketMatch.border": "#888888",
+    "editor.background": "#0b0b0a",
+    "editor.foreground": "#d8d5cb",
+    "editorLineNumber.foreground": "#5b5953",
+    "editorLineNumber.activeForeground": "#b3b1a9",
+    "editorCursor.foreground": "#e4e1d6",
+    "editor.selectionBackground": "#2a2a26",
+    "editor.inactiveSelectionBackground": "#1f1f1c",
+    "editor.lineHighlightBackground": "#131312",
+    "editorLineNumber.background": "#0b0b0a",
+    "editorGutter.background": "#0b0b0a",
+    "editorIndentGuide.background1": "#242420",
+    "editorIndentGuide.activeBackground1": "#3b3a34",
+    "editorWidget.background": "#161615",
+    "editorWidget.border": "#2a2a26",
+    "input.background": "#1c1c1a",
+    "input.border": "#2a2a26",
+    "list.hoverBackground": "#1c1c1a",
+    "list.activeSelectionBackground": "#242420",
+    "scrollbarSlider.background": "#79797944",
+    "scrollbarSlider.hoverBackground": "#79797977",
+    "minimap.background": "#0b0b0a",
+    "editorBracketMatch.background": "#89bdb81a",
+    "editorBracketMatch.border": "#83817a",
   },
 });
 
@@ -69,33 +69,66 @@ monaco.editor.defineTheme("lantas-light", {
   base: "vs",
   inherit: true,
   rules: [
-    { token: "comment", foreground: "008000", fontStyle: "italic" },
-    { token: "keyword", foreground: "0000ff" },
-    { token: "string", foreground: "a31515" },
-    { token: "number", foreground: "098658" },
-    { token: "type", foreground: "267f99" },
-    { token: "function", foreground: "795e26" },
-    { token: "variable", foreground: "001080" },
+    { token: "comment", foreground: "6b7c66", fontStyle: "italic" },
+    { token: "keyword", foreground: "8a5470" },
+    { token: "string", foreground: "915a35" },
+    { token: "number", foreground: "8a6a33" },
+    { token: "type", foreground: "2f6b66" },
+    { token: "function", foreground: "2b2924" },
+    { token: "variable", foreground: "35332b" },
+    { token: "tag", foreground: "8a5470" },
+    { token: "attribute.name", foreground: "8a6a33" },
   ],
   colors: {
-    "editor.background": "#ffffff",
-    "editor.foreground": "#333333",
-    "editorLineNumber.foreground": "#237893",
-    "editorLineNumber.activeForeground": "#0b216f",
-    "editorCursor.foreground": "#333333",
-    "editor.selectionBackground": "#add6ff",
-    "editor.inactiveSelectionBackground": "#e5ebf1",
-    "editor.lineHighlightBackground": "#f3f3f3",
-    "editorGutter.background": "#ffffff",
-    "editorWidget.background": "#f3f3f3",
-    "editorWidget.border": "#c8c8c8",
+    "editor.background": "#fbfaf6",
+    "editor.foreground": "#2b2924",
+    "editorLineNumber.foreground": "#a19e94",
+    "editorLineNumber.activeForeground": "#55534b",
+    "editorCursor.foreground": "#22211c",
+    "editor.selectionBackground": "#dcd8cb",
+    "editor.inactiveSelectionBackground": "#eeece4",
+    "editor.lineHighlightBackground": "#f1efe8",
+    "editorGutter.background": "#fbfaf6",
+    "editorWidget.background": "#ffffff",
+    "editorWidget.border": "#cfccc1",
     "input.background": "#ffffff",
-    "input.border": "#cecece",
-    "list.hoverBackground": "#e8e8e8",
-    "list.activeSelectionBackground": "#0060c0",
-    "minimap.background": "#ffffff",
+    "input.border": "#cfccc1",
+    "list.hoverBackground": "#f1efe8",
+    "list.activeSelectionBackground": "#e2ded2",
+    "minimap.background": "#fbfaf6",
   },
 });
+
+// Files are opened as individual models, not as a TypeScript project, so the
+// worker cannot resolve cross-file imports or React's ambient JSX types. Keep
+// syntax and local type checking, but do not paint every import red.
+const compilerOptions = {
+  target: monaco.languages.typescript.ScriptTarget.ES2020,
+  module: monaco.languages.typescript.ModuleKind.ESNext,
+  moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+  jsx: monaco.languages.typescript.JsxEmit.ReactJSX,
+  allowJs: true,
+  allowNonTsExtensions: true,
+  esModuleInterop: true,
+  skipLibCheck: true,
+};
+const diagnosticsOptions = {
+  noSemanticValidation: false,
+  noSyntaxValidation: false,
+  diagnosticCodesToIgnore: [
+    2307, // Cannot find module
+    2792, // Cannot find module (node resolution)
+    7016, // Could not find a declaration file
+    2688, // Cannot find type definition file
+    7026, // JSX element implicitly has type any
+    17004, // Cannot use JSX unless the --jsx flag is provided
+  ],
+};
+
+monaco.languages.typescript.typescriptDefaults.setCompilerOptions(compilerOptions);
+monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
+monaco.languages.typescript.javascriptDefaults.setCompilerOptions(compilerOptions);
+monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
 
 interface MonacoEditorProps {
   path: string;

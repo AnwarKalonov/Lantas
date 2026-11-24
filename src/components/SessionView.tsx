@@ -14,6 +14,7 @@ interface SessionViewProps {
   onModelChange: (provider: ProviderId, model: string) => void;
   onOpenProviders: () => void;
   onScreenToggle: () => void;
+  onApprovePlan: () => void;
   onOpenFile?: (path: string, line?: number) => void;
 }
 
@@ -26,6 +27,7 @@ export function SessionView({
   onModelChange,
   onOpenProviders,
   onScreenToggle,
+  onApprovePlan,
   onOpenFile,
 }: SessionViewProps) {
   const { renameSession, deleteSession, notify } = useStore();
@@ -129,6 +131,17 @@ export function SessionView({
       </header>
 
       <Transcript session={session} scrollRef={scrollRef} onOpenFile={onOpenFile} />
+
+      {session.agent === "plan" &&
+        !streaming &&
+        session.messages.at(-1)?.role === "assistant" && (
+          <div className="plan-approve" role="status">
+            <span>Plan ready. Nothing has been changed.</span>
+            <button type="button" className="button-primary small" onClick={onApprovePlan}>
+              Approve and build
+            </button>
+          </div>
+        )}
 
       <div className="composer-dock">
         <Composer

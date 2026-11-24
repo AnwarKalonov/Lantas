@@ -51,6 +51,10 @@ export interface WorkspaceFile {
   binary?: boolean;
   /** An empty folder in the explorer. Files are inferred from their paths. */
   dir?: boolean;
+  /** Absolute root for a file from an added (multi-root) folder. */
+  root?: string;
+  /** Path relative to `root`; `path` carries the visible folder prefix. */
+  relative?: string;
 }
 
 export type ToolKind = "read" | "grep" | "edit" | "terminal" | "plan" | "web";

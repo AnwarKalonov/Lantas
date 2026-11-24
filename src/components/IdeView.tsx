@@ -16,9 +16,10 @@ import {
   createWorkspaceFolder,
   deleteWorkspacePath,
   readLocalFiles,
-  readWorkspaceAt,
+  readWorkspaceWithExtras,
+  resolveWorkspaceTarget,
   renameWorkspacePath,
-  writeWorkspaceFile,
+  writeWorkspacePath,
 } from "../lib/workspace";
 import { openInVsCode } from "../lib/native";
 import type { ProviderId, Session, WorkspaceFile } from "../lib/types";
@@ -26,23 +27,25 @@ import { cx } from "../lib/util";
 import { GitPanel } from "./GitPanel";
 import { ExtensionsPanel } from "./ExtensionsPanel";
 import { ModelPicker } from "./ModelPicker";
-import { MarkGlyph } from "./Brand";
 import { Icon } from "./Icons";
 import { MonacoEditor } from "./MonacoEditor";
 import { TerminalPanel } from "./TerminalPanel";
 import { Transcript } from "./Transcript";
+import { StagedDiffReview } from "./DiffViewer";
 
 type Activity = "explorer" | "search" | "git" | "extensions" | "skills";
 
 interface IdeViewProps {
   onExit: () => void;
   onOpenFolder: () => void;
+  onAddFolder: () => void;
   onOpenSettings: () => void;
   onOpenSkills: () => void;
   onAsk: (text: string) => void;
   session: Session | null;
   defaultModel: string;
   streaming: boolean;
+  onStop: () => void;
   openRequest?: { path: string; line?: number; nonce: number } | null;
   cliRequest?: number;
 }
@@ -135,12 +138,14 @@ function TreeRows({
 export function IdeView({
   onExit,
   onOpenFolder,
+  onAddFolder,
   onOpenSettings,
   onOpenSkills,
   onAsk,
   session,
   defaultModel,
   streaming,
+  onStop,
   openRequest,
   cliRequest,
 }: IdeViewProps) {
@@ -154,6 +159,8 @@ export function IdeView({
     staged,
     keepStaged,
     discardStaged,
+    keepChange,
+    discardChange,
     notify,
   } = useStore();
   const [activity, setActivity] = useState<Activity>("explorer");
@@ -170,8 +177,9 @@ export function IdeView({
   const [entryPrompt, setEntryPrompt] = useState<"file" | "folder" | "rename" | null>(null);
   const [entryName, setEntryName] = useState("");
   const [entryBusy, setEntryBusy] = useState(false);
-  const [fileMenu, setFileMenu] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState<string | null>(null);
   const [cliTick, setCliTick] = useState(0);
   const [openingCode, setOpeningCode] = useState(false);
   const quickRef = useRef<HTMLInputElement | null>(null);
@@ -225,7 +233,7 @@ export function IdeView({
 
   const refreshFromDisk = useCallback(async () => {
     if (!state.workspaceRoot) return;
-    const next = await readWorkspaceAt(state.workspaceRoot);
+    const next = await readWorkspaceWithExtras(state.workspaceRoot);
     if (next) setWorkspace(next.name, next.files, next.root);
   }, [setWorkspace, state.workspaceRoot]);
 
@@ -266,7 +274,6 @@ export function IdeView({
       return;
     }
     if (kind === "rename" && !active) return;
-    setFileMenu(false);
     setEntryName(kind === "rename" ? active ?? "" : "");
     setEntryPrompt(kind);
   };
@@ -277,14 +284,15 @@ export function IdeView({
     if (!relative) return;
     setEntryBusy(true);
     try {
+      const target = resolveWorkspaceTarget(state.workspaceRoot, relative);
       if (entryPrompt === "file") {
-        await createWorkspaceFile(state.workspaceRoot, relative, "");
+        await createWorkspaceFile(target.root, target.relative, "");
         patchWorkspaceFile(relative, "");
         open(relative);
         notify(`Created ${relative}`);
       } else if (entryPrompt === "folder") {
-        await createWorkspaceFolder(state.workspaceRoot, relative);
-        const next = await readWorkspaceAt(state.workspaceRoot);
+        await createWorkspaceFolder(target.root, target.relative);
+        const next = await readWorkspaceWithExtras(state.workspaceRoot);
         if (next) setWorkspace(next.name, next.files, next.root);
         else if (!files.some((file) => file.path === relative)) {
           const folder: WorkspaceFile = {
@@ -302,8 +310,10 @@ export function IdeView({
         notify(`Created ${relative}/`);
       } else if (active) {
         const previous = active;
-        await renameWorkspacePath(state.workspaceRoot, previous, relative);
-        const next = await readWorkspaceAt(state.workspaceRoot);
+        const from = resolveWorkspaceTarget(state.workspaceRoot, previous);
+        if (from.root !== target.root) throw new Error("A file cannot move between two folders.");
+        await renameWorkspacePath(from.root, from.relative, target.relative);
+        const next = await readWorkspaceWithExtras(state.workspaceRoot);
         if (next) {
           setWorkspace(next.name, next.files, next.root);
         } else {
@@ -346,7 +356,8 @@ export function IdeView({
     if (!active) return;
     if (!window.confirm(`Delete ${active}? This cannot be undone.`)) return;
     try {
-      await deleteWorkspacePath(state.workspaceRoot, active);
+      const target = resolveWorkspaceTarget(state.workspaceRoot, active);
+      await deleteWorkspacePath(target.root, target.relative);
       setWorkspace(
         state.workspaceName || "Workspace",
         files.filter((file) => file.path !== active && !file.path.startsWith(`${active}/`)),
@@ -371,7 +382,7 @@ export function IdeView({
       setSaving(true);
       let disk = false;
       try {
-        disk = await writeWorkspaceFile(state.workspaceRoot, path, text);
+        disk = await writeWorkspacePath(state.workspaceRoot, path, text);
       } catch {
         disk = false;
       }
@@ -506,6 +517,18 @@ export function IdeView({
     );
   };
 
+  const keepOne = async (path: string) => {
+    setReviewBusy(path);
+    const ok = await keepChange(path);
+    setReviewBusy(null);
+    notify(ok ? `Kept ${path}` : `Could not write ${path} to disk`, ok ? "default" : "error");
+  };
+
+  const discardOne = (path: string) => {
+    discardChange(path);
+    notify(`Declined ${path}`);
+  };
+
   return (
     <div
       className={cx("ide", dropping && "is-dropping")}
@@ -530,183 +553,6 @@ export function IdeView({
         notify(`${dropped.length} file${dropped.length === 1 ? "" : "s"} opened`);
       }}
     >
-      <header className="ide-menubar" data-tauri-drag-region>
-        <div className="ide-menubar-left">
-          <button type="button" className="ide-brand" onClick={onExit} title="Back to Lantas">
-            <MarkGlyph size={17} />
-            <span className="ide-brand-name">Lantas</span>
-            <span className="ide-brand-tag">studio</span>
-          </button>
-
-          <div className="ide-menus">
-            <div className="ide-menu-wrap">
-              <button
-                type="button"
-                className={cx("ide-menu-trigger", fileMenu && "is-open")}
-                onClick={() => setFileMenu((open) => !open)}
-              >
-                File
-              </button>
-              {fileMenu && (
-                <>
-                  <button
-                    type="button"
-                    className="ide-menu-scrim"
-                    aria-label="Close menu"
-                    onClick={() => setFileMenu(false)}
-                  />
-                  <div className="ide-menu" role="menu">
-                    <button type="button" role="menuitem" onClick={() => startEntry("file")}>
-                      <Icon name="filePlus" size={13} /> New File
-                    </button>
-                    <button type="button" role="menuitem" onClick={() => startEntry("folder")}>
-                      <Icon name="folderPlus" size={13} /> New Folder
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={!active}
-                      onClick={() => {
-                        setFileMenu(false);
-                        saveActive();
-                      }}
-                    >
-                      <Icon name="check" size={13} /> Save <kbd>⌘S</kbd>
-                    </button>
-                    <span className="ide-menu-rule" />
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={!active}
-                      onClick={() => startEntry("rename")}
-                    >
-                      <Icon name="pencil" size={13} /> Rename
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={!active}
-                      onClick={() => {
-                        setFileMenu(false);
-                        void deleteActive();
-                      }}
-                    >
-                      <Icon name="trash" size={13} /> Delete
-                    </button>
-                    <span className="ide-menu-rule" />
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setFileMenu(false);
-                        onOpenFolder();
-                      }}
-                    >
-                      <Icon name="folder" size={13} /> Open Folder…
-                    </button>
-                    <span className="ide-menu-rule" />
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={!state.workspaceRoot || openingCode}
-                      onClick={() => {
-                        setFileMenu(false);
-                        void openInCode();
-                      }}
-                    >
-                      <Icon name="external" size={13} /> Open in VS Code
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-            <button type="button" className="ide-menu-trigger" onClick={() => setQuick("")}>
-              Go
-            </button>
-            <button
-              type="button"
-              className="ide-menu-trigger"
-              onClick={() => setTerminalOpen((open) => !open)}
-            >
-              Terminal
-            </button>
-            <button type="button" className="ide-menu-trigger" onClick={onOpenSettings}>
-              Settings
-            </button>
-          </div>
-        </div>
-
-        <div className="ide-menubar-center">
-          <button
-            type="button"
-            className="ide-project"
-            onClick={onOpenFolder}
-            title="Open another folder"
-          >
-            <Icon name="folder" size={12} />
-            <span>{state.workspaceName || "No folder open"}</span>
-          </button>
-          <span className="ide-branch">
-            <Icon name="branch" size={11} />
-            {session?.branch ?? "main"}
-          </span>
-          <button type="button" className="ide-search-trigger" onClick={() => setQuick("")}>
-            <Icon name="search" size={12} />
-            <span>Search files</span>
-            <kbd>⌘P</kbd>
-          </button>
-        </div>
-
-        <div className="ide-menubar-right">
-          <button
-            type="button"
-            className="ide-icon-button"
-            onClick={saveActive}
-            disabled={!active || saving}
-            title="Save (⌘S)"
-            aria-label="Save"
-          >
-            <Icon name="check" size={15} />
-          </button>
-          <button
-            type="button"
-            className={cx("ide-icon-button", assistantOpen && "is-on")}
-            onClick={() => setAssistantOpen((value) => !value)}
-            title="Lantas assistant (⌘J)"
-            aria-label="Assistant"
-          >
-            <Icon name="sparkle" size={15} />
-          </button>
-          <button
-            type="button"
-            className="ide-open-code"
-            onClick={() => void openInCode()}
-            disabled={!state.workspaceRoot || openingCode}
-            title="Open the same folder in VS Code"
-          >
-            <Icon name="external" size={12} />
-            {openingCode ? "Opening…" : "VS Code"}
-          </button>
-          <button
-            type="button"
-            className="ide-cli-button"
-            onClick={() => {
-              setTerminalOpen(true);
-              setCliTick((value) => value + 1);
-            }}
-            title="Open the Lantas CLI in the bottom panel"
-          >
-            <span className="ide-cli-dot" />
-            CLI
-          </button>
-
-          <button type="button" className="ide-exit" onClick={onExit}>
-            Chat
-            <Icon name="chevronRight" size={12} />
-          </button>
-        </div>
-      </header>
-
       <div className="ide-body">
         <nav className="ide-rail" aria-label="IDE sections">
           {RAIL.map((item) => (
@@ -782,6 +628,15 @@ export function IdeView({
                       aria-label="Refresh folder"
                     >
                       <Icon name="refresh" size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      className="ide-icon-button small"
+                      onClick={onAddFolder}
+                      title="Add folder"
+                      aria-label="Add folder"
+                    >
+                      <Icon name="folderPlus" size={13} />
                     </button>
                     <button
                       type="button"
@@ -934,6 +789,36 @@ export function IdeView({
                 Save {dirty.size}
               </button>
             )}
+            <div className="ide-tab-actions">
+              <button
+                type="button"
+                className={cx("ide-tab-action", assistantOpen && "is-on")}
+                onClick={() => setAssistantOpen((value) => !value)}
+                title="Assistant (⌘J)"
+                aria-label="Assistant"
+              >
+                <Icon name="sparkle" size={14} />
+              </button>
+              <button
+                type="button"
+                className={cx("ide-tab-action", terminalOpen && "is-on")}
+                onClick={() => setTerminalOpen((open) => !open)}
+                title="Terminal"
+                aria-label="Terminal"
+              >
+                <Icon name="terminal" size={14} />
+              </button>
+              <button
+                type="button"
+                className="ide-tab-action"
+                onClick={() => void openInCode()}
+                disabled={!state.workspaceRoot || openingCode}
+                title="Open this folder in VS Code"
+                aria-label="Open in VS Code"
+              >
+                <Icon name="external" size={14} />
+              </button>
+            </div>
           </div>
 
           {staged.length > 0 && (
@@ -953,12 +838,19 @@ export function IdeView({
               <button
                 type="button"
                 className="ide-review-decline"
+                onClick={() => setReviewOpen(true)}
+              >
+                Review
+              </button>
+              <button
+                type="button"
+                className="ide-review-decline"
                 onClick={() => {
                   discardStaged();
                   notify("Declined the assistant's changes");
                 }}
               >
-                Decline
+                Decline all
               </button>
               <button type="button" className="ide-review-keep" onClick={() => void keepAll()}>
                 Keep changes
@@ -1004,7 +896,7 @@ export function IdeView({
           ) : (
             <div className="ide-welcome">
               <div className="ide-welcome-card">
-                <p className="ide-welcome-kicker">Lantas Studio</p>
+                <p className="ide-welcome-kicker">Code workspace</p>
                 <h1>Open a folder to start</h1>
                 <p>
                   The editor is VS Code's Monaco, running locally. Files are read from the folder you
@@ -1039,6 +931,16 @@ export function IdeView({
             </div>
           )}
 
+          {reviewOpen && staged.length > 0 && (
+            <StagedDiffReview
+              changes={staged}
+              busyPath={reviewBusy}
+              onKeep={(path) => void keepOne(path)}
+              onDiscard={discardOne}
+              onClose={() => setReviewOpen(false)}
+            />
+          )}
+
           {terminalOpen && (
             <TerminalPanel
               cwd={state.workspaceRoot}
@@ -1052,9 +954,8 @@ export function IdeView({
           <aside className="ide-assistant">
             <div className="ide-assistant-head">
               <div className="ide-assistant-id">
-                <MarkGlyph size={14} />
-                <span className="ide-assistant-title">Lantas</span>
-                <span className="ide-assistant-tag">agent</span>
+                <Icon name="sparkle" size={12} />
+                <span className="ide-assistant-title">Assistant</span>
               </div>
               <div className="ide-assistant-head-actions">
                 <ModelPicker
@@ -1093,10 +994,7 @@ export function IdeView({
               onOpenFile={(path, line) => open(path, line)}
               empty={
                 <div className="ide-assistant-empty">
-                  <span className="ide-assistant-empty-mark">
-                    <MarkGlyph size={26} />
-                  </span>
-                  <h3>Build with Lantas</h3>
+                  <h3>Work in this folder</h3>
                   <p>
                     It reads this folder, edits real files, runs commands and links every file it
                     touches. Click a path to open it here.
@@ -1184,11 +1082,12 @@ export function IdeView({
                 <button
                   type="button"
                   className="ide-send-button"
-                  onClick={sendAsk}
-                  disabled={!askDraft.trim() || streaming}
-                  aria-label="Send"
+                  onClick={streaming ? onStop : sendAsk}
+                  disabled={!streaming && !askDraft.trim()}
+                  aria-label={streaming ? "Stop" : "Send"}
+                  title={streaming ? "Stop the assistant" : "Send"}
                 >
-                  <Icon name={streaming ? "loader" : "arrowUp"} size={13} className={streaming ? "spin" : undefined} />
+                  <Icon name={streaming ? "stop" : "arrowUp"} size={13} />
                 </button>
               </div>
             </div>
@@ -1231,7 +1130,6 @@ export function IdeView({
             </>
           )}
           <span className="ide-status-item dim">UTF-8</span>
-          <span className="ide-status-item accent">Lantas Studio</span>
         </div>
       </footer>
 

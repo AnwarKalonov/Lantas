@@ -1,3 +1,4 @@
+import { recordAudit } from "./audit";
 import { decide, type PermissionEffect, type PermissionRule } from "./permissions";
 import { streamChat, type ChatTurn, type StreamUsage } from "./providers";
 import {
@@ -44,6 +45,8 @@ export interface ToolLoopOptions {
   ) => void;
   onNote?: (text: string) => void;
   onUsage?: (usage: StreamUsage) => void;
+  /** Ask whether to add more rounds when the tool budget runs out. */
+  onLimit?: () => Promise<boolean>;
   maxSteps?: number;
   /** When set, only these tools may run. Used by the browser-only side panel. */
   only?: string[];
@@ -168,6 +171,7 @@ class ToolStream {
  */
 export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopResult> {
   const maxSteps = Math.max(1, options.maxSteps ?? 6);
+  let budget = maxSteps;
   const turns: ChatTurn[] = [...options.messages];
   // Signature -> the step it ran in and what it returned. Reading the same
   // file again after an edit is legitimate; repeating an identical call inside
@@ -175,7 +179,7 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
   const seen = new Map<string, { outcome: ToolOutcome; step: number }>();
   let toolCalls = 0;
 
-  for (let step = 0; step < maxSteps; step += 1) {
+  for (let step = 0; step < budget; step += 1) {
     if (options.signal.aborted) throw new DOMException("aborted", "AbortError");
 
     let raw = "";
@@ -228,6 +232,7 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
       }
 
       if (decision.effect === "deny") {
+        recordAudit({ tool: call.name, resource, decision: "denied" });
         const outcome: ToolOutcome = {
           ok: false,
           summary: `${call.name} is blocked by a permission rule`,
@@ -242,6 +247,7 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
 
       if (decision.effect === "ask") {
         const allowed = await options.approve(call, resource, decision.effect);
+        recordAudit({ tool: call.name, resource, decision: allowed ? "allowed" : "denied" });
         if (!allowed) {
           const outcome: ToolOutcome = {
             ok: false,
@@ -254,6 +260,13 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
           results.push(encodeResult(call, outcome));
           continue;
         }
+      }
+
+      if (
+        decision.effect === "allow" &&
+        !["read", "glob", "grep", "semantic_search", "skill", "todo"].includes(call.name)
+      ) {
+        recordAudit({ tool: call.name, resource, decision: "allowed" });
       }
 
       // Repeat guard: identical arguments almost always mean the model is
@@ -310,13 +323,17 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
         "Continue the task. If it is finished, answer the user directly with no tool call.",
       ].join("\n\n"),
     });
+
+    if (step === budget - 1 && options.onLimit && (await options.onLimit())) {
+      budget += 6;
+    }
   }
 
   options.onNote?.(
-    `Stopped after ${maxSteps} tool rounds. The work above is real; ask for a narrower next step if something is still missing.`,
+    `Stopped after ${budget} tool rounds. The work above is real; ask for a narrower next step if something is still missing.`,
   );
 
-  return { steps: maxSteps, toolCalls, stopped: "limit" };
+  return { steps: budget, toolCalls, stopped: "limit" };
 }
 
 function encodeResult(call: ToolCall, outcome: ToolOutcome): string {

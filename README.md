@@ -1,160 +1,125 @@
 # Lantas
 
-A desktop coding agent with screen awareness and computer control. Sessions,
-providers, skills and MCP integrations, in one window.
+**Chat, code, and your browser in one window.** Lantas is a free macOS agent for the work that does not fit in one tab: ask a question, edit a real project, and let the assistant read the page you are looking at.
 
-## Run the app
+No account, no subscription, no telemetry. Bring a model key, or run a model locally.
+
+![Lantas Home](docs/screenshots/home.png)
+
+## The three surfaces
+
+### Chat
+
+A thread per topic with the model you chose. Attach files or images, share a screen frame, and keep working through long runs with turn checkpoints, context summaries and plan approval. `⌘K` reaches every session and command.
+
+### Code
+
+A real workspace, not a code block in a chat. Open a folder and Lantas gets Monaco, an explorer, tabs, quick open, project-wide search and an assistant dock beside the files. It reads before it edits, stages writes as diffs, then checks the file on disk after saving. A terminal panel and your own git are built in.
+
+![Lantas Code](docs/screenshots/code.png)
+
+### Browser
+
+A browser with its own engine, plus a Chrome bridge for the tabs you already have open. Lantas reads the DOM — roles, labels, values, what is visible and enabled — instead of guessing from a screenshot. It can click by label, type, scroll, navigate, wait for a result and re-read the page to verify what happened.
+
+![Lantas Browser](docs/screenshots/browser.png)
+
+### Settings
+
+Providers, models, agents, permissions, skills, commands, MCP integrations, appearance and keybinds live in one place. Permission rules are visible and editable, and every tool call is checked against them before it runs.
+
+![Lantas Settings](docs/screenshots/settings.png)
+
+## What is in the app
+
+- **Build, Plan and Chat agents.** Build can write and run; Plan and Chat are read-only. Plan approval and max-step continuation keep long tasks predictable.
+- **Any model.** Anthropic, OpenAI, OpenRouter, Groq, Google, NVIDIA NIM, Ollama, LM Studio and any OpenAI-compatible endpoint. Test a connection and fetch its model list from Settings.
+- **Ten tools.** `read`, `glob`, `grep`, `semantic_search`, `write`, `edit`, `terminal`, `browser`, `skill` and connected-app tools. Writes are verified against the file on disk, not just reported.
+- **Diffs you approve.** Assistant edits in Code mode are staged. Review a side-by-side diff and Keep or Discard each file, or all of them, from the review bar.
+- **A real terminal.** Run commands in the workspace, see live stdout/stderr in the terminal panel, and get the same output in the transcript.
+- **Multi-root workspaces.** Add more than one folder to a session; the file tree, search and git context follow all of them.
+- **Project context.** Git status, branches, changed files, a file map, semantic search and an optional project summary feed the prompt instead of the whole repository.
+- **Browser verification.** Snapshot, DOM extraction, shadow DOM, forms, waits and a Chrome handoff. A browser task is not done until the page says so.
+- **Skills and commands.** Thirteen built-in procedures for commits, review, debugging, test gaps, refactors, release notes, PR descriptions, API design, SQL, security and interface copy. Import your own `SKILL.md` folders or zips; repeat work is a slash command.
+- **MCP and integrations.** HTTP and stdio MCP servers, plus Composio toolkits for Gmail, Slack, Notion, Linear, GitHub, Drive and more. Read-only Gmail through your own OAuth client is also available.
+- **Session durability.** On desktop, sessions are checkpointed to `~/Library/Application Support/Lantas/sessions.json` after each turn. If browser storage is cleared, **Settings → General → Restore from disk** brings them back. The browser build falls back to local storage.
+- **Updates.** The installed macOS app checks the newest public release, verifies the bundle signature against the key compiled into the app, and offers **Restart to update** in the title bar.
+
+## Install
+
+Download the latest macOS build from the [public releases page](https://github.com/AnwarKalonov/Lantas-download/releases/latest). Unzip it and drag **Lantas.app** to Applications.
+
+Lantas 1.0.5 requires macOS 11 or newer. The app is not notarized, so the first launch needs **System Settings → Privacy & Security → Open Anyway**.
+
+### Run from source
 
 ```bash
 npm install
-npm start          # reuse a running server, or start one and open a window
+npm start
 ```
 
-`npm start` is safe to run repeatedly: if Lantas is already serving on port 3000
-it opens a window for it, otherwise it starts Vite and waits until it answers.
-
-- **macOS** — opens a chromeless Chrome/Edge/Brave window (`--app` mode).
-- **Headless / cloud workspace** — prints the URL; use the Browser panel.
-- Pick another port with `PORT=1700 npm start`.
-
-### As a real macOS app
-
-Only this part needs Rust and Xcode, and it must run on macOS:
+`npm start` reuses a running dev server on port 3000, or starts Vite and opens a chromeless app window. In a headless environment it prints the URL for the Browser panel.
 
 ```bash
-xcode-select --install
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-. "$HOME/.cargo/env"
-npm run tauri dev      # native window
-npm run tauri build    # .app + .dmg
+PORT=1700 npm start   # another port
+npm run build         # typecheck + production build
+npm run tauri dev     # native window (macOS, Rust and Xcode required)
+npm run tauri build   # signed .app and .dmg
 ```
 
-If `tauri` reports `failed to run 'cargo metadata'`, Rust is missing from
-`PATH` — open a new terminal. On Linux, `tauri dev` also needs
-`libwebkit2gtk-4.1` and `libgtk-3` development packages.
+Building the native shell needs Rust, Xcode command-line tools and, on Linux, `libwebkit2gtk-4.1` and `libgtk-3`. See [`PUBLISH.md`](PUBLISH.md) for the signing and release flow.
 
-## Terminal app
+### Terminal app
 
-The same agent runs without a window. It is one dependency-free Node file plus
-the ANSI logo, so it starts instantly and works over SSH.
+The same agent also runs without a window:
 
 ```bash
-node cli/lantas.mjs          # or: npm run cli
-bash scripts/install-cli.sh  # put `lantas` on PATH under ~/.local/bin
-lantas setup                 # choose a provider, model and key
+node cli/lantas.mjs          # or npm run cli
+bash scripts/install-cli.sh  # installs `lantas` under ~/.local/bin
+lantas setup
 lantas "find the failing test and fix it"
 ```
 
-A session has the same plan/build split as the app. `--plan` is read-only;
-build mode shows a real diff and asks before every write or command. The tools
-are `read`, `glob`, `grep`, `write`, `edit` and `bash`, with one command at a
-time and a whole-folder file map in the prompt. Keys live in
-`~/.lantas/config.json` with mode `0600`, or in the provider's usual environment
-variable. `/model`, `/provider`, `/plan`, `/build`, `/auto` and `/clear` work
-inside a session. Use `--yes` only when you mean it.
+Use `--plan` for read-only work. The CLI keeps its config in `~/.lantas/config.json` with mode `0600`, or reads the provider's usual environment variable.
 
-## Updates
+## Connect a model
 
-The installed app updates itself. On launch it reads `latest.json` from the newest
-public release, and when that version is newer it downloads `Lantas.app.tar.gz`,
-verifies the signature against the public key compiled in from
-`src-tauri/tauri.conf.json`, installs it, and offers **Restart to update** in the
-title bar. A browser tab has no shell to install into, so there it links to the
-release instead.
+1. Open **Settings → Providers**.
+2. Pick a provider, paste a key, and press **Test connection**.
+3. Press **Fetch models** to fill the model list.
+4. Choose a default model in **Settings → Models**, or per session from the composer.
 
-Signing the bundles needs the updater key once:
+With no provider connected, Lantas does not fake a reply: the composer points you at Settings. Local models work through Ollama or LM Studio; for Ollama in a browser tab, start it with `OLLAMA_ORIGINS=* ollama serve`. Keys live in the app's local storage, unencrypted. Use a scoped key you can rotate.
 
-```bash
-npm run tauri signer generate -- -w ~/.tauri/lantas.key
-```
+## Permissions and privacy
 
-Paste the printed **public** key into `plugins.updater.pubkey`, keep the
-private key out of the repository (it becomes the `TAURI_SIGNING_PRIVATE_KEY`
-secret), and install one build by hand — the app that is already on the Mac
-predates the updater. `PUBLISH.md` has the full release flow.
+Tool calls are checked against ordered rules (`allow`, `ask`, `deny`; last match wins). **Settings → Agents** controls whether Build asks before every write and command or runs automatically. Reads are local and cheap. Destructive actions and arbitrary connected-app calls always ask. Plan and Chat cannot write.
 
-## Providers
+No usage telemetry is sent anywhere. Provider requests go directly to the provider. In the desktop build they use Tauri's HTTP client, so provider keys are not exposed to webview CORS; add a custom endpoint's host to `src-tauri/capabilities/default.json`.
 
-Settings → Providers. Supported: Anthropic, OpenAI, OpenRouter, Groq, Google,
-NVIDIA NIM, Ollama, LM Studio and any OpenAI-compatible base URL.
+The source repository is private. The public repository at [AnwarKalonov/Lantas-download](https://github.com/AnwarKalonov/Lantas-download) contains the website and signed release assets only — no application source.
 
-- Bring your own key, or use a local server (`Ollama`, `LM Studio`).
-- **Test connection** checks the endpoint and sends one tiny turn.
-- **Fetch models** fills the model list from the provider (`/models`,
-  `/api/tags`), so Ollama models appear automatically.
-- With no provider connected, replies come from a local demo runtime and are
-  labelled as such.
-
-Keys live in this app's local storage, unencrypted. Use a scoped key you can
-rotate. In the desktop build, provider requests go through Tauri's HTTP client
-(`src-tauri/capabilities/default.json`) so keys are not exposed to webview CORS;
-in a browser tab, providers that allow CORS work directly. To use a custom
-endpoint in the desktop build, add its host to the `http:default` scope.
-
-For Ollama in a browser tab, allow the origin:
-
-```bash
-OLLAMA_ORIGINS=* ollama serve
-```
-
-## Agent tools
-
-The assistant is not a single prompt. Each live turn runs a tool loop modelled
-on opencode's tool and permission contract:
-
-- `read`, `glob`, `grep` — inspect the open workspace before answering.
-- `write`, `edit` — change files. `edit` requires a unique exact match and shows
-  a real diff in the transcript.
-- `skill` — load an enabled skill's full procedure on demand.
-- `browser` — snapshot, extract, click by label or element reference, type,
-  press keys, scroll, navigate, back, forward, reload, in Lantas Browser or
-  Chrome through the extension.
-- `integrations` — list connected Composio apps and their tools, read mail with
-  cursor pagination, search mail, or run a specific tool.
-
-Every call is checked against permission rules before it runs (`allow`, `ask`,
-`deny`, last matching rule wins). Settings → Permissions switches between
-automatic and ask-first; destructive tools and arbitrary connected-app calls
-always ask. Plan and Chat agents are read-only.
-
-## Skills
-
-Skills are operational procedures, not personalities: each names what to read,
-the order to work in, and what to verify. Built-ins cover commits, review,
-debugging, test gaps, refactors, release notes, PR descriptions, API design, SQL,
-security and interface copy. Enabled skills are added to the system prompt;
-disabled ones stay reachable through the `skill` tool. The Plugins tab installs
-curated packs from `src/lib/plugins.ts` — skills only, never code.
-
-**Integrations** in Settings are MCP servers. HTTP servers get a real
-`initialize` handshake from **Test**; stdio servers store their command and
-start with the desktop runtime.
-
-## IDE
-
-Code mode opens a separate IDE surface: VS Code's Monaco editor, an explorer, tabs,
-quick open (⌘P), workspace search, an unsaved-changes panel and an assistant dock.
-Open a folder to read and write real files; dropped files work read-only. Saves
-write back through Tauri's fs plugin on desktop and the File System Access API in
-a browser tab.
-
-Assistant edits in code mode are staged instead of written immediately: review the
-diff, then **Keep** or **Decline** each file (or all of them) from the review bar.
-Source control is the user's own git through the Rust commands — status, diffs,
-stage, commit, pull, push and origin setup — and it never stores a token. The
-extensions panel imports VS Code settings, themes, snippets and the extension
-inventory; VS Code extension code itself still needs VS Code's extension host.
-
-## Layout
+## Project layout
 
 ```
-src/            React app: sessions, providers, settings, skills, MCP, IDE
-src/lib/        store, provider clients, system prompt, agent loop, tools
-src-tauri/      Tauri 2 shell: macOS window, HTTP bridge, bundle config, icons
-scripts/        icon generation, no-Rust launcher
+src/            React app: Chat, Code, Browser, settings, sessions
+src/lib/        store, providers, agent loop, tools, browser, git, search
+src/components/ UI, Monaco, diff viewer, browser chrome, title bar
+src-tauri/      Tauri 2 shell: macOS window, terminal, HTTP bridge, updater
+cli/            dependency-free terminal agent
+Website/site/   source for the public website
+public-repo/    the files published to Lantas-download
+docs/           screenshots used here
+scripts/        launch, build and release helpers
 ```
 
-The demo runtime in `src/lib/agent.ts` streams scripted tool calls, diffs and
-shell output for a workspace with no provider configured. With a provider, the
-real loop lives in `src/lib/agentRuntime.ts` and calls the registry in
-`src/lib/tools.ts`; provider clients stay in `src/lib/providers.ts`.
+## Development notes
+
+- `npm run build` runs `tsc --noEmit` before Vite, so a type error fails the build.
+- Browser automation requires either the built-in browser or the Chrome extension. If Chrome is not connected, the browser tool reports that instead of pretending to click.
+- The app runs as a web page too. Desktop-only features (disk persistence, native terminal, screen capture, updater) degrade gracefully with a visible error rather than a silent failure.
+- The website and release copy are generated from `public-repo/`; do not publish the app source to that repository.
+
+## License
+
+Lantas is free to download and use. The source is not public.

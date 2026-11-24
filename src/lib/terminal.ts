@@ -74,6 +74,7 @@ export async function runTerminalCommand(
   cwd: string,
   command: string,
   timeoutMs = 120_000,
+  onLine?: (line: string) => void,
 ): Promise<TerminalRunResult> {
   if (!inTauri()) throw new Error("The terminal runs in the desktop app.");
   const id = `exec_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
@@ -85,7 +86,9 @@ export async function runTerminalCommand(
 
   const offOutput = await onTerminalOutput((event) => {
     if (event.id !== id) return;
-    output.push(`${event.stream === "stderr" ? "[stderr] " : ""}${stripAnsi(event.line)}`);
+    const line = `${event.stream === "stderr" ? "[stderr] " : ""}${stripAnsi(event.line)}`;
+    output.push(line);
+    onLine?.(line);
   });
   const offExit = await onTerminalExit((event) => {
     if (event.id === id) finish(event.code);

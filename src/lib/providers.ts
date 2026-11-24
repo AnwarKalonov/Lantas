@@ -495,12 +495,46 @@ async function httpError(response: Response): Promise<Error> {
   return new Error(`${response.status} ${response.statusText}.${hint} ${detail}`.trim());
 }
 
-export function streamChat(options: StreamOptions): Promise<void> {
+function retryable(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /\b(429|500|502|503|504)\b/.test(message) ||
+    /failed to fetch|network|timed?\s*out|connection reset|econnreset/i.test(message);
+}
+
+/**
+ * Retry only before the first token has been emitted. Replaying a stream after
+ * text is visible would duplicate output and corrupt the transcript.
+ */
+export async function streamChat(options: StreamOptions): Promise<void> {
   const meta = getProvider(options.provider);
-  if (meta.kind === "anthropic") return streamAnthropic(options);
-  if (meta.kind === "google") return streamGoogle(options);
-  if (meta.kind === "ollama") return streamOllama(options);
-  return streamOpenAI(options);
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    let started = false;
+    const wrapped: StreamOptions = {
+      ...options,
+      onDelta: (chunk) => {
+        started = true;
+        options.onDelta(chunk);
+      },
+    };
+
+    try {
+      if (meta.kind === "anthropic") await streamAnthropic(wrapped);
+      else if (meta.kind === "google") await streamGoogle(wrapped);
+      else if (meta.kind === "ollama") await streamOllama(wrapped);
+      else await streamOpenAI(wrapped);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (started || options.signal.aborted || attempt === 3 || !retryable(error)) {
+        throw error;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 500 * 2 ** (attempt - 1)));
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 /* ------------------------------------------------------------------ *

@@ -56,6 +56,7 @@ export function defaultRules(mode: "auto" | "ask", buildAgent: boolean): Permiss
     { tool: "read", pattern: "*", effect: "allow" },
     { tool: "glob", pattern: "*", effect: "allow" },
     { tool: "grep", pattern: "*", effect: "allow" },
+    { tool: "semantic_search", pattern: "*", effect: "allow" },
     { tool: "skill", pattern: "*", effect: "allow" },
     { tool: "todo", pattern: "*", effect: "allow" },
     { tool: "integrations", pattern: "apps", effect: "allow" },

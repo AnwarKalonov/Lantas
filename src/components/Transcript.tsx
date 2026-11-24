@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import type { DiffLine, Message, Part, Session } from "../lib/types";
+import type { Message, Part, Session } from "../lib/types";
 import { AGENTS } from "../lib/data";
 import { clock, cx, formatDuration, formatTokens } from "../lib/util";
 import { MarkGlyph } from "./Brand";
+import { DiffViewer } from "./DiffViewer";
 import { Icon, type IconName } from "./Icons";
 
 const TOOL_ICONS: Record<string, IconName> = {
@@ -275,34 +276,13 @@ function DiffBlock({
   onOpenFile?: (path: string, line?: number) => void;
 }) {
   return (
-    <div className="diff-block">
-      <div className="diff-head">
-        <Icon name="diff" size={13} />
-        <button
-          type="button"
-          className="diff-path"
-          onClick={() => onOpenFile?.(part.path)}
-          disabled={!onOpenFile}
-        >
-          {part.path}
-        </button>
-        <span className="diff-stats">
-          <span className="diff-add">+{part.added}</span>
-          <span className="diff-del">−{part.removed}</span>
-        </span>
-      </div>
-      <div className="diff-body">
-        {part.lines.map((line: DiffLine, index) => (
-          <div key={index} className={cx("diff-line", `is-${line.type}`)}>
-            <span className="diff-no">{line.no}</span>
-            <span className="diff-sign">
-              {line.type === "add" ? "+" : line.type === "del" ? "−" : " "}
-            </span>
-            <span className="diff-code">{line.text || " "}</span>
-          </div>
-        ))}
-      </div>
-    </div>
+    <DiffViewer
+      path={part.path}
+      lines={part.lines}
+      added={part.added}
+      removed={part.removed}
+      onOpenFile={onOpenFile}
+    />
   );
 }
 

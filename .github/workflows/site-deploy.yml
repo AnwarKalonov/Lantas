@@ -1,0 +1,43 @@
+name: Publish the site
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the release token is present
+        env:
+          LANTAS_RELEASE_TOKEN: ${{ secrets.LANTAS_RELEASE_TOKEN }}
+        run: |
+          if [ -z "${LANTAS_RELEASE_TOKEN:-}" ]; then
+            echo "::error::LANTAS_RELEASE_TOKEN is not set. Add the classic PAT with contents:write on Lantas-download."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          repository: AnwarKalonov/Lantas-download
+          token: ${{ secrets.LANTAS_RELEASE_TOKEN }}
+          path: public-site
+
+      - name: Copy the site into the public repository
+        run: |
+          set -euo pipefail
+          rsync -a --delete --exclude .git public-repo/ public-site/
+          cd public-site
+          git config user.name "Lantas"
+          git config user.email "lantas@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The public site is already current."
+            exit 0
+          fi
+          git commit -m "Publish the Lantas 1.0.6 site"
+          git push origin HEAD:main

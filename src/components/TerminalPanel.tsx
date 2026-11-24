@@ -42,6 +42,7 @@ export function TerminalPanel({
   const [shellStarting, setShellStarting] = useState(false);
   const [cliId, setCliId] = useState<string | null>(null);
   const [cliStarted, setCliStarted] = useState(false);
+  const cliWarnedRef = useRef(false);
   const cliIdRef = useRef<string | null>(null);
   const shellIdRef = useRef<string | null>(null);
   const idsRef = useRef<Set<string>>(new Set());
@@ -135,7 +136,10 @@ export function TerminalPanel({
 
   const startCli = useCallback(async () => {
     if (!native) {
-      append("err", "The Lantas CLI needs the desktop app.");
+      if (!cliWarnedRef.current) {
+        append("err", "The Lantas CLI needs the desktop app.");
+        cliWarnedRef.current = true;
+      }
       return;
     }
     if (cliIdRef.current) return;

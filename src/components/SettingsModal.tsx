@@ -10,7 +10,7 @@ import {
 } from "../lib/providers";
 import { useStore } from "../lib/store";
 import { APP_VERSION, checkForUpdate, checkNativeUpdate } from "../lib/updates";
-import { openExternal, openInVsCode } from "../lib/native";
+import { inTauri, openExternal, openInVsCode } from "../lib/native";
 import { clearAuditLog, getAuditLog, subscribeAudit } from "../lib/audit";
 import type { AgentId, ProviderId, ProviderMeta, ThemeMode } from "../lib/types";
 import { cx, uid } from "../lib/util";
@@ -334,9 +334,12 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
     (entry) => isFavorite(entry.provider, entry.model) && matches(entry.provider, entry.model),
   );
 
-  const connected = PROVIDERS.filter((meta) =>
+  const configured = PROVIDERS.filter((meta) =>
     isConfigured(meta.id, settings.providers[meta.id]),
   );
+  // Local servers need no key, so they count as configured before they are
+  // running. A non-local endpoint is the one that makes hosted calls.
+  const remote = configured.filter((meta) => !meta.local);
 
   return (
     <div className="overlay" onMouseDown={onClose}>
@@ -477,16 +480,16 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
                 The default for new sessions. Each session can override it from the composer.
               </p>
 
-              {connected.length === 0 && (
+              {configured.length === 0 && (
                 <div className="empty-state">
-                  <p>No provider connected yet.</p>
+                  <p>No provider configured yet.</p>
                   <button type="button" className="button-primary" onClick={() => setTab("providers")}>
-                    Connect a provider
+                    Configure a provider
                   </button>
                 </div>
               )}
 
-              {connected.length > 0 && (
+              {configured.length > 0 && (
                 <div className="model-toolbar">
                   <label className="code-filter model-search">
                     <Icon name="search" size={13} />
@@ -560,7 +563,7 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
                 </div>
               )}
 
-              {connected.map((meta) => {
+              {configured.map((meta) => {
                 const config = settings.providers[meta.id];
                 const models = Array.from(new Set([...config.models, ...meta.models]))
                   .filter((model) => matches(meta.id, model))
@@ -1065,16 +1068,22 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
                 </div>
                 <div className="kv">
                   <span className="kv-key">Runtime</span>
-                  <span className="kv-val mono">tauri 2 · webview</span>
+                  <span className="kv-val mono">
+                    {inTauri() ? "tauri 2 · webview" : "browser preview"}
+                  </span>
                 </div>
                 <div className="kv">
                   <span className="kv-key">Providers</span>
-                  <span className="kv-val mono">{connected.length} connected</span>
+                  <span className="kv-val mono">{configured.length} configured</span>
                 </div>
                 <div className="kv">
                   <span className="kv-key">Agent runtime</span>
                   <span className="kv-val mono">
-                    {connected.length === 0 ? "waiting for a provider" : "live model calls"}
+                    {remote.length > 0
+                      ? "live model calls"
+                      : configured.length > 0
+                        ? "local servers only"
+                        : "waiting for a provider"}
                   </span>
                 </div>
               </div>

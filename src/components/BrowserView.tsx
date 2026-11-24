@@ -1091,9 +1091,9 @@ export function BrowserView({
                 </span>
                 <h2>{hostOf(active.url)}</h2>
                 <p>
-                  Sites like Notion and Google refuse to load inside a web frame. Use Lantas
-                  Browser's own engine, or the Chrome engine where Lantas drives the tab you
-                  already have open.
+                  {native
+                    ? "Sites like Notion and Google refuse to load inside a web frame. Use Lantas Browser's own engine, or the Chrome engine where Lantas drives the tab you already have open."
+                    : "This browser preview cannot display external pages. Use the desktop app's native engine, or connect the Chrome extension and switch engines."}
                 </p>
                 <div className="el-actions">
                   <button

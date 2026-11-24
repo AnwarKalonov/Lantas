@@ -140,6 +140,9 @@ function stateFromStored(parsed: Partial<AppState> | null, fallback: AppState): 
     typeof parsed.activeId === "string" && sessions.some((session) => session.id === parsed.activeId)
       ? parsed.activeId
       : (sessions[0]?.id ?? null);
+  // A dropped-file workspace lives only in memory. Keeping its name after a
+  // reload would label an empty workspace as if the folder were still open.
+  const workspaceRoot = typeof parsed.workspaceRoot === "string" ? parsed.workspaceRoot : "";
   return {
     sessions,
     activeId,
@@ -147,8 +150,8 @@ function stateFromStored(parsed: Partial<AppState> | null, fallback: AppState): 
     mode: (parsed.mode as Mode) ?? "chat",
     browserUrl: typeof parsed.browserUrl === "string" ? parsed.browserUrl : "https://example.com",
     workspace: [],
-    workspaceName: parsed.workspaceName ?? "",
-    workspaceRoot: parsed.workspaceRoot ?? "",
+    workspaceName: workspaceRoot ? parsed.workspaceName ?? "" : "",
+    workspaceRoot,
     settings: normalizeSettings(parsed.settings),
     skills: mergeBuiltins(parsed.skills, fallback.skills),
     mcpServers: parsed.mcpServers ?? fallback.mcpServers,

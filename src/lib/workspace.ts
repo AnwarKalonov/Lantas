@@ -470,6 +470,16 @@ export async function writeWorkspaceFile(
   if (root && isTauri()) {
     const fs = await import("@tauri-apps/plugin-fs");
     const target = path.split("/").filter(Boolean);
+    // A model can create a file in folders the folder did not have yet. The fs
+    // plugin writes one file and does not build the chain above it, so make the
+    // parent folders first; without this a new nested file silently failed.
+    if (target.length > 1) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("workspace_create_dir", {
+        root,
+        path: target.slice(0, -1).join("/"),
+      });
+    }
     await fs.writeTextFile(`${root}/${target.join("/")}`, text);
     return true;
   }
@@ -478,7 +488,7 @@ export async function writeWorkspaceFile(
   const parts = path.split("/").filter(Boolean);
   const fileName = parts.pop();
   if (!fileName) return false;
-  for (const part of parts) dir = await dir.getDirectoryHandle(part);
+  for (const part of parts) dir = await dir.getDirectoryHandle(part, { create: true });
   const file = await dir.getFileHandle(fileName, { create: true });
   const writable = await file.createWritable();
   await writable.write(text);

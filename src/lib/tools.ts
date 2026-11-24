@@ -173,6 +173,46 @@ function normalizePath(raw: unknown): string {
   return parts.join("/");
 }
 
+/**
+ * A model that copies a block with different indentation would otherwise get a
+ * hard failure on every retry. Compare trimmed lines and accept the match only
+ * when it is unique. The file's own spacing is replaced by the new text, so the
+ * result is exactly what the model asked for.
+ */
+function relaxedMatch(text: string, wanted: string): { start: number; end: number } | null {
+  const wantedLines = wanted
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim());
+  while (wantedLines.length && !wantedLines[0]) wantedLines.shift();
+  while (wantedLines.length && !wantedLines[wantedLines.length - 1]) wantedLines.pop();
+  if (!wantedLines.length) return null;
+
+  const textLines = text.replace(/\r\n/g, "\n").split("\n");
+  const offsets: number[] = [];
+  let offset = 0;
+  for (const line of textLines) {
+    offsets.push(offset);
+    offset += line.length + 1;
+  }
+
+  const hits: number[] = [];
+  for (let start = 0; start + wantedLines.length <= textLines.length; start += 1) {
+    let same = true;
+    for (let index = 0; index < wantedLines.length; index += 1) {
+      if (textLines[start + index].trim() !== wantedLines[index]) {
+        same = false;
+        break;
+      }
+    }
+    if (same) hits.push(start);
+  }
+  if (hits.length !== 1) return null;
+  const first = hits[0];
+  const last = first + wantedLines.length - 1;
+  return { start: offsets[first], end: offsets[last] + textLines[last].length };
+}
+
 function findFile(files: WorkspaceFile[], path: string): WorkspaceFile | undefined {
   const exact = files.find((file) => file.path === path);
   if (exact) return exact;
@@ -452,11 +492,31 @@ export async function runTool(
         if (!oldString) throw new Error("oldString is required for edit.");
         const occurrences = file.text.split(oldString).length - 1;
         if (occurrences === 0) {
+          const relaxed = call.args.replaceAll === false ? null : relaxedMatch(file.text, oldString);
+          if (!relaxed) {
+            return {
+              ok: false,
+              summary: `oldString not found in ${file.path}`,
+              content:
+                "That exact text is not in the file. Read the current file and copy the text verbatim, including indentation.",
+              resource: file.path,
+            };
+          }
+          const before = file.text;
+          const next = before.slice(0, relaxed.start) + newString + before.slice(relaxed.end);
+          const diff = diffLines(before, next);
+          const saved = await context.saveFile(file.path, next);
+          const verification = await verifyWrite(context, file.path, next);
           return {
-            ok: false,
-            summary: `oldString not found in ${file.path}`,
+            ok: !verification,
+            summary: verification
+              ? `Write verification failed for ${file.path}`
+              : `Edited ${file.path} (+${diff.added} −${diff.removed})`,
             content:
-              "That exact text is not in the file. Read the current file and copy the text verbatim, including indentation.",
+              verification ??
+              `Edited ${file.path}. The block matched line by line with different indentation, so the indented copy was replaced.`,
+            diff: { path: file.path, added: diff.added, removed: diff.removed, lines: diff.lines },
+            changed: { path: file.path, text: next },
             resource: file.path,
           };
         }

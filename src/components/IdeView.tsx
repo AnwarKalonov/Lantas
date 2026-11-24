@@ -507,8 +507,22 @@ export function IdeView({
     setSettings({ defaultProvider: provider, defaultModel: model });
   };
 
+  // A kept or declined staged file replaces the editor's saved copy. Drop the
+  // stale draft so the open tab shows the accepted text instead of an old,
+  // falsely "unsaved" buffer that could overwrite the result.
+  const clearDrafts = (paths: string[]) => {
+    setDrafts((current) => {
+      if (!paths.some((path) => path in current)) return current;
+      const next = { ...current };
+      for (const path of paths) delete next[path];
+      return next;
+    });
+  };
+
   const keepAll = async () => {
+    const paths = staged.map((change) => change.path);
     const written = await keepStaged();
+    clearDrafts(paths);
     notify(
       written === staged.length
         ? `Kept ${written} file${written === 1 ? "" : "s"}`
@@ -520,13 +534,21 @@ export function IdeView({
   const keepOne = async (path: string) => {
     setReviewBusy(path);
     const ok = await keepChange(path);
+    clearDrafts([path]);
     setReviewBusy(null);
     notify(ok ? `Kept ${path}` : `Could not write ${path} to disk`, ok ? "default" : "error");
   };
 
   const discardOne = (path: string) => {
     discardChange(path);
+    clearDrafts([path]);
     notify(`Declined ${path}`);
+  };
+
+  const discardAll = () => {
+    clearDrafts(staged.map((change) => change.path));
+    discardStaged();
+    notify("Declined the assistant's changes");
   };
 
   return (
@@ -845,10 +867,7 @@ export function IdeView({
               <button
                 type="button"
                 className="ide-review-decline"
-                onClick={() => {
-                  discardStaged();
-                  notify("Declined the assistant's changes");
-                }}
+                onClick={discardAll}
               >
                 Decline all
               </button>

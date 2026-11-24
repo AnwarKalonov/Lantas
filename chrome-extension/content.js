@@ -372,6 +372,38 @@
       };
     }
 
+    if (action === "hover") {
+      const el = findTarget(message);
+      if (!el) return { ok: false, error: "That control was not found on the page." };
+      el.scrollIntoView({ block: "center", inline: "center" });
+      const rect = el.getBoundingClientRect();
+      const base = {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      };
+      for (const type of ["pointerover", "pointerenter", "mouseover", "mousemove"]) {
+        el.dispatchEvent(new (type.indexOf("pointer") === 0 ? PointerEvent : MouseEvent)(type, base));
+      }
+      await sleep(200);
+      return { ok: true, detail: labelFor(el) || el.tagName.toLowerCase() };
+    }
+
+    if (action === "check") {
+      const el = findTarget(message);
+      if (!el) return { ok: false, error: "That control was not found on the page." };
+      const wanted = message.checked !== false;
+      const current = el.getAttribute("aria-checked") === "true" || Boolean(el.checked);
+      if (current !== wanted) el.click();
+      await sleep(200);
+      const after = el.getAttribute("aria-checked") === "true" || Boolean(el.checked);
+      return after === wanted
+        ? { ok: true, detail: wanted ? "Checked" : "Unchecked", page: readPage(), elements: readElements() }
+        : { ok: false, error: "The control did not change state." };
+    }
+
     if (action === "scroll") {
       const dy = Number(message.dy) || 600;
       window.scrollBy({ top: dy, behavior: "smooth" });

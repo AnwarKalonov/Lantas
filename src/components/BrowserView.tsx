@@ -74,7 +74,8 @@ export function BrowserView({
   miniVisible?: boolean;
   onOpenFile?: (path: string, line?: number) => void;
 }) {
-  const { state, setBrowserUrl, setSettings, updateSession, notify, togglePanel } = useStore();
+  const { state, setBrowserUrl, setSettings, updateSession, createSession, notify, togglePanel } =
+    useStore();
   const [data, setData] = useState<ElData>(() => loadEl());
   const lastBrowserUrl = useRef(state.browserUrl);
   const [draft, setDraft] = useState("");
@@ -1125,6 +1126,18 @@ export function BrowserView({
                   <small>{page?.title || (atHome ? "Lantas Browser" : hostOf(active.url) || "This tab")}</small>
                 </div>
               </div>
+              <button
+                type="button"
+                className="el-round"
+                onClick={() => {
+                  createSession();
+                  notify("Started a new browser chat");
+                }}
+                aria-label="New browser chat"
+                title="New browser chat"
+              >
+                <Icon name="plus" size={12} />
+              </button>
               <button
                 type="button"
                 className="el-round"

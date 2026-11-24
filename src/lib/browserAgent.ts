@@ -32,35 +32,91 @@ import {
 const looksLikeSelector = (value: string) =>
   /^[#.]/.test(value) || /^\w+\[/.test(value) || /^[a-z][\w-]*\s*>/.test(value);
 
-/** Short names a model is likely to pass on its own, with their real front door. */
-const SITE_URLS: Record<string, string> = {
-  desmos: "https://www.desmos.com/calculator",
-  "desmos calculator": "https://www.desmos.com/calculator",
-  "desmos graphing calculator": "https://www.desmos.com/calculator",
-};
+function hostnameOf(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "";
+  }
+}
+
+function isRealHostname(host: string): boolean {
+  return (
+    host === "localhost" ||
+    /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host) ||
+    /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i.test(host)
+  );
+}
 
 /**
- * `desmos` means the calculator; `desmos website` is a literal search, because
- * the user asked for the search rather than for the app. Everything else uses
- * the same address rules as the browser's own address bar.
+ * Turns whatever a model writes into a real address. Models routinely send
+ * `https://\ncalculator`, `calculator` after opening a site, or a domain with a
+ * comma typed for a dot. Resolve those against the current page or the task's
+ * named host instead of sending the user to a Google search for a route.
  */
-export function resolveBrowserAddress(raw: string, task = ""): string {
-  const value = raw.trim();
-  const compact = value.replace(/\s+/g, "");
-  const known = SITE_URLS[value.toLowerCase()];
-  if (known) return known;
+export function resolveBrowserAddress(
+  raw: string,
+  task = "",
+  currentUrl = getElContext()?.url ?? "",
+): string {
+  let value = String(raw ?? "")
+    .trim()
+    .replace(/^[`"']+|[`"']+$/g, "")
+    .replace(/^(?:open|go\s+to|navigate\s+to|visit|launch)\s+/i, "")
+    .trim();
 
-  // A model can answer "open Desmos" and then send only the page fragment
-  // "calculator" (or a broken `https://\ncalculator`). Resolve that against the
-  // current task and page instead of turning it into a Google search.
-  const context = `${task} ${getElContext()?.url ?? ""}`;
-  if (
-    /\bdesmos\b/i.test(context) &&
-    /^(?:https?:\/\/)?(?:www\.)?(?:desmos\.com\/)?(?:graphing[\s-]?)?(?:calculator|graph)\/?$/i.test(
-      compact,
-    )
-  ) {
-    return SITE_URLS.desmos;
+  // A nested call object reached the URL argument. Use its address, not the
+  // JSON text (which would otherwise be searched for on Google).
+  if (value.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(value) as Record<string, unknown>;
+      const nested = parsed.url ?? parsed.address ?? parsed.href ?? parsed.target;
+      if (typeof nested === "string") value = nested.trim();
+    } catch {
+      /* not JSON; keep the raw value */
+    }
+  }
+
+  // A comma typed between domain labels is a common speech-to-text mistake.
+  let compact = value
+    .replace(/[\r\n\t]+/g, "")
+    .replace(/\\[nrt]/g, "")
+    .replace(/\s+/g, "")
+    .replace(/^([a-z0-9-]+),([a-z0-9-]+)/i, "$1.$2")
+    .replace(/[),.;:]+$/, "");
+
+  const taskHost = task.match(/\b((?:[a-z0-9-]+\.)+[a-z]{2,})\b/i)?.[1] ?? "";
+  const currentHost = hostnameOf(currentUrl);
+  const base =
+    currentHost && isRealHostname(currentHost)
+      ? new URL(currentUrl).origin
+      : taskHost
+        ? `https://${taskHost}`
+        : "";
+
+  if (/^https?:\/\//i.test(compact)) {
+    try {
+      const parsed = new URL(compact);
+      if (isRealHostname(parsed.hostname)) return parsed.href;
+      // `https://calculator` parsed the route as a hostname. Treat it as a
+      // path on the page or site the user named.
+      const fragment = [parsed.hostname, parsed.pathname, parsed.search, parsed.hash]
+        .join("")
+        .replace(/^\/+/, "");
+      if (base && fragment) return new URL(fragment, `${base}/`).href;
+    } catch {
+      /* fall back to a search */
+    }
+  }
+
+  if (/^[\w-]+(?:\.[\w-]+)+(?:\/\S*)?$/.test(compact)) {
+    return `https://${compact}`;
+  }
+
+  // A bare route (`calculator`, `/settings`) belongs to the open site. Do not
+  // do this for prose with spaces, which belongs in a search.
+  if (base && !/\s/.test(value) && /^\/?[\w][\w./?=#&%-]*$/i.test(compact)) {
+    return new URL(compact.replace(/^\/+/, ""), `${base}/`).href;
   }
 
   return normalizeUrl(value);
@@ -74,16 +130,17 @@ export function resolveBrowserAddress(raw: string, task = ""): string {
  */
 export const BROWSER_GUIDE = [
   "Browser playbook (follow this instead of guessing):",
-  "- A named app or product (Desmos, GitHub, Gmail) means its real site. Desmos is https://www.desmos.com/calculator. A phrase like `the Desmos website` or `search for …` is literal: navigate to the search page and use its results.",
-  "- Put the full canonical URL in the navigate call. A fragment such as `calculator` is not a destination; if the user named Desmos, send https://www.desmos.com/calculator directly.",
-  "- After navigate, snapshot. Controls come from the live page; use a ref or an exact label, never coordinates you invented.",
-  "- To graph on Desmos: navigate to the calculator, snapshot, click the `Expression 1` row, type the equation exactly as math (`y=2x+4`), then snapshot again. The result includes a `Graph expressions:` line. Success means the equation is there, not merely that the tool returned.",
+  "- Work in one step at a time: navigate, then snapshot the live page, then click/type using the controls you actually see. A named product means its real site; a phrase like `search for …` means the search page.",
+  "- A bare route such as `calculator` is not a full address. It is resolved against the site already open, but prefer the full canonical URL when you know it.",
+  "- After every action, read the returned URL, title and controls. Use a ref or an exact label from that result; never invent coordinates or selectors.",
+  "- If the task names a page inside a site (for example a calculator, a settings page or a specific tool), open the site, snapshot, then click the matching navigation control. Do not stop after the homepage.",
   "- Canvas and math editors often ignore a value assignment. Click into the editor first, then type or press keys. If the page exposes a documented API, `evaluate` may call it, but read the expression back to verify it.",
   "- `click_at` and `evaluate` exist for canvas apps and site APIs. Use them only for the user's task, not to read private storage or change unrelated settings.",
   "- If a page does not open, try the canonical address once, then a search. Do not repeat an identical failing call.",
   "- Page snapshots pierce open shadow roots and same-origin iframes. If a control is still missing, evaluate `(() => document.querySelector('my-app')?.shadowRoot?.querySelector('button')?.outerHTML)()` to inspect it; never guess a selector.",
   "- Login walls: use browser {\"action\":\"open_in_chrome\",\"url\":...} so the user signs in in their own Chrome profile, then switch to the Chrome engine and read the authenticated page.",
   "- Form snapshots include a `Forms:` line with field names. Use the numbered refs for the fields and the submit button instead of blind Enter presses.",
+  "- If a tool result says it did not work, inspect the page and try one different, supported action. Never claim success from a call you have not seen succeed.",
 ].join("\n");
 
 let engineOverride: BrowserEngine | null = null;
@@ -816,6 +873,123 @@ export async function agentClickAt(x: number, y: number): Promise<boolean> {
   if (result?.ok) {
     await sleep(400);
     return true;
+  }
+  return false;
+}
+
+/** Hover a visible control so menus and tooltips open. */
+export async function agentHover(target: string): Promise<boolean> {
+  if (activeEngine() === "chrome") {
+    try {
+      await chromeCommand("act", {
+        action: "hover",
+        text: looksLikeSelector(target) ? undefined : target,
+        selector: looksLikeSelector(target) ? target : undefined,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const result = await runInPage<{ ok: boolean }>(`
+    const want = ${JSON.stringify(target)};
+    const clean = (value) => String(value || "").replace(/\\s+/g, " ").trim().toLowerCase();
+    const visible = (el) => {
+      const rect = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      return rect.width > 2 && rect.height > 2 && style.display !== "none" && style.visibility !== "hidden";
+    };
+    let el = null;
+    try { el = document.querySelector(want); } catch (_) {}
+    if (!el) {
+      const options = Array.from(document.querySelectorAll(
+        'a[href],button,[role="button"],input,textarea,select,summary,[role="listitem"]'
+      )).filter(visible);
+      el = options.find((node) => clean(node.getAttribute("aria-label") || node.innerText || node.textContent).includes(clean(want))) || null;
+    }
+    if (!el) return { ok: false };
+    el.scrollIntoView({ block: "center", inline: "center" });
+    const rect = el.getBoundingClientRect();
+    const base = { bubbles: true, cancelable: true, composed: true, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+    for (const type of ["pointerover", "pointerenter", "mouseover", "mousemove"]) {
+      el.dispatchEvent(new (type.indexOf("pointer") === 0 ? PointerEvent : MouseEvent)(type, base));
+    }
+    return { ok: true };
+  `);
+  if (result?.ok) await sleep(250);
+  return Boolean(result?.ok);
+}
+
+/** Pick an option in a real select element by visible label or value. */
+export async function agentSelect(target: string, value: string): Promise<boolean> {
+  if (activeEngine() === "chrome") {
+    try {
+      await chromeCommand("act", { action: "select", text: looksLikeSelector(target) ? undefined : target, selector: looksLikeSelector(target) ? target : undefined, value });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const result = await runInPage<{ ok: boolean }>(`
+    const want = ${JSON.stringify(target)};
+    const value = ${JSON.stringify(value)};
+    const clean = (v) => String(v || "").replace(/\\s+/g, " ").trim().toLowerCase();
+    let el = null;
+    try { el = document.querySelector(want); } catch (_) {}
+    if (!el || el.tagName !== "SELECT") {
+      el = Array.from(document.querySelectorAll("select")).find((node) => {
+        const label = node.getAttribute("aria-label") || node.getAttribute("name") || node.id;
+        return clean(label).includes(clean(want));
+      }) || el;
+    }
+    if (!el || el.tagName !== "SELECT") return { ok: false };
+    const option = Array.from(el.options).find((item) => clean(item.textContent) === clean(value) || clean(item.value) === clean(value));
+    if (!option) return { ok: false };
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
+    if (setter) setter.call(el, option.value); else el.value = option.value;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    return { ok: true };
+  `);
+  if (result?.ok) await sleep(250);
+  return Boolean(result?.ok);
+}
+
+/** Set a checkbox or radio control and verify its state. */
+export async function agentCheck(target: string, checked = true): Promise<boolean> {
+  const result = await runInPage<{ ok: boolean }>(`
+    const want = ${JSON.stringify(target)};
+    const checked = ${checked ? "true" : "false"};
+    const clean = (v) => String(v || "").replace(/\\s+/g, " ").trim().toLowerCase();
+    let el = null;
+    try { el = document.querySelector(want); } catch (_) {}
+    if (!el) {
+      el = Array.from(document.querySelectorAll('input[type="checkbox"],input[type="radio"],[role="checkbox"],[role="switch"]'))
+        .find((node) => clean(node.getAttribute("aria-label") || node.getAttribute("name") || node.id || node.parentElement?.innerText).includes(clean(want))) || null;
+    }
+    if (!el) return { ok: false };
+    const isChecked = el.getAttribute("aria-checked") === "true" || Boolean(el.checked);
+    if (isChecked !== checked) el.click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const after = el.getAttribute("aria-checked") === "true" || Boolean(el.checked);
+    return { ok: after === checked };
+  `);
+  if (result?.ok) await sleep(250);
+  return Boolean(result?.ok);
+}
+
+/** Wait for text to appear or disappear, without guessing a selector. */
+export async function agentWaitForText(
+  text: string,
+  timeoutMs = 8_000,
+  gone = false,
+): Promise<boolean> {
+  const deadline = Date.now() + Math.min(30_000, Math.max(500, timeoutMs));
+  while (Date.now() < deadline) {
+    const page = await agentPage();
+    const present = Boolean(page?.text && page.text.includes(text));
+    if (gone ? !present : present) return true;
+    await sleep(300);
   }
   return false;
 }

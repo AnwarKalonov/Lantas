@@ -1,6 +1,8 @@
 import type { ChatTurn } from "./providers";
 import type { AgentId, Session, Skill, WorkspaceFile } from "./types";
 import { TOOL_MANUAL } from "./tools";
+import { BROWSER_GUIDE } from "./browserAgent";
+import type { ElPage } from "./el";
 
 const AGENT_ROLE: Record<AgentId, string> = {
   build:
@@ -52,6 +54,54 @@ export function buildSystemPrompt(
     "Be concise and specific. Use sentence case. No emoji. Prefer short paragraphs, and use inline code for identifiers.",
     TOOL_MANUAL,
   ].join("\n\n") + treeBlock + gitBlock + summaryBlock + skillBlock + dormantBlock;
+}
+
+/**
+ * Browser mode gets its own manual and one tool. A coding prompt full of file
+ * tools makes small models answer with prose or malformed calls instead of
+ * stepping through the page.
+ */
+export function buildBrowserSystemPrompt(session: Session, page: ElPage | null): string {
+  const where = page?.url
+    ? `The open tab is ${page.title || "a page"} at ${page.url}.`
+    : "No page has been read yet.";
+
+  return [
+    "You are Lantas in Browser mode. You drive the browser tab the user is looking at.",
+    where,
+    "",
+    "You have exactly one tool:",
+    '<tool_call>{"name":"browser","arguments":{"action":"navigate","url":"https://example.com"}}</tool_call>',
+    "",
+    "Actions:",
+    '  snapshot {} — read the current page and its numbered controls',
+    '  find {"query":"text"} — locate text on the page',
+    '  wait {"text":"Saved","timeoutMs":8000} — wait for text; add "gone":true for text to leave',
+    '  navigate {"url":"https://example.com"} — open an address',
+    '  click {"ref":3} or {"target":"Graphing Calculator"} — click a live control',
+    '  click_at {"x":400,"y":300} — click a canvas coordinate',
+    '  hover {"target":"File"} — open a menu or tooltip',
+    '  type {"text":"y=2x+4","selector":"...","submit":false} — type into a field',
+    '  fill {"target":"...","text":"..."} — alias for type',
+    '  select {"target":"...","value":"..."} — choose a select option',
+    '  check {"target":"...","checked":true} — set a checkbox or switch',
+    '  press {"key":"Enter"} — press a key',
+    '  scroll {"dy":600} — scroll the page',
+    '  evaluate {"code":"document.title"} — run page JavaScript for a site API or verification',
+    '  back {}, forward {}, reload {}',
+    "",
+    BROWSER_GUIDE,
+    "",
+    "How to work:",
+    "1. If the user names a destination, navigate once with the full address. If they also name a page inside the site, continue until you are on that page; do not stop at the homepage.",
+    "2. After every navigation or click, read the returned URL, title and controls. The result already includes a fresh snapshot; only call snapshot when you need it again.",
+    "3. Prefer the numbered ref or exact visible label. One action, then read the result before the next action.",
+    "4. Verify the outcome on the page before saying it worked. If the result is not what the user asked for, try one different supported action.",
+    "5. You cannot edit files, run commands or use integrations in this mode. Answer only about the browser and the page.",
+    "6. Write a short, human answer. Never mention the tool protocol or show raw JSON.",
+    "",
+    `Workspace context: ${session.cwd}. This does not give you file tools here.`,
+  ].join("\n");
 }
 
 /** `data:image/jpeg;base64,…` -> provider-ready parts. */

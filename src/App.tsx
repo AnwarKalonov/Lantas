@@ -10,6 +10,7 @@ import { consumeGoogleHash, getGoogleToken } from "./lib/google";
 import { inTauri } from "./lib/native";
 import { agentClick, agentEnter, agentScroll, agentType } from "./lib/browserAgent";
 import {
+  buildBrowserSystemPrompt,
   buildHistory,
   buildRunningSummary,
   buildSystemPrompt,
@@ -1046,20 +1047,26 @@ export function App() {
           }
 
           const runningSummary = snapshot ? buildRunningSummary(snapshot) : "";
-          const system = snapshot
-            ? buildSystemPrompt(
-                snapshot,
-                state.skills,
-                state.workspace,
-                gitContext,
-                runningSummary,
+          const browserMode = state.mode === "browser";
+          const system = browserMode
+            ? buildBrowserSystemPrompt(
+                snapshot ?? ({ cwd: "~/dev/lantas", branch: "main", agent } as Session),
+                page,
               )
-            : buildSystemPrompt(
-                { cwd: "~/dev/lantas", branch: "main", agent } as Session,
-                state.skills,
-                state.workspace,
-                gitContext,
-              );
+            : snapshot
+              ? buildSystemPrompt(
+                  snapshot,
+                  state.skills,
+                  state.workspace,
+                  gitContext,
+                  runningSummary,
+                )
+              : buildSystemPrompt(
+                  { cwd: "~/dev/lantas", branch: "main", agent } as Session,
+                  state.skills,
+                  state.workspace,
+                  gitContext,
+                );
 
           const toolFiles: WorkspaceFile[] = [...state.workspace];
           const shellPart = { current: null as string | null };
@@ -1157,6 +1164,8 @@ export function App() {
             messages: history,
             ctx: toolCtx,
             rules: defaultRules(state.settings.permissionMode, agent === "build"),
+            only: browserMode ? ["browser"] : undefined,
+            maxSteps: browserMode ? 10 : 6,
             signal: controller.signal,
             approve: (call, resource) => requestApproval(call, resource),
             onText: appendText,
@@ -1185,20 +1194,32 @@ export function App() {
                   state: "run",
                 });
               }
-              patch((message) => ({
-                ...message,
-                parts: [
-                  ...message.parts,
-                  {
-                    id,
-                    kind: "tool",
-                    tool: toolKind(call.name),
-                    label,
-                    state: "run",
-                  },
-                  ...extra,
-                ],
-              }));
+              patch((message) => {
+                // A model that forgets the <tool_call> tags streams the raw JSON
+                // before the parser recovers it. Do not leave that JSON in the
+                // transcript once the tool card exists.
+                const parts = message.parts.flatMap((part): Part[] => {
+                  if (part.kind !== "text") return [part];
+                  const text = part.text
+                    .replace(/\s*\{\s*"(?:action|type|name)"[\s\S]*$/i, "")
+                    .trimEnd();
+                  return text ? [{ ...part, text }] : [];
+                });
+                return {
+                  ...message,
+                  parts: [
+                    ...parts,
+                    {
+                      id,
+                      kind: "tool",
+                      tool: toolKind(call.name),
+                      label,
+                      state: "run",
+                    },
+                    ...extra,
+                  ],
+                };
+              });
             },
             onToolDone: (id, outcome, stateOfTool) => {
               if (shellPart.current === `${id}:shell`) shellPart.current = null;

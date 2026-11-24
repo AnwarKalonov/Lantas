@@ -60,10 +60,33 @@ export interface ToolLoopResult {
 
 /* ------------------------------------------------------------ call parsing */
 
-export function parseToolCalls(raw: string): { calls: ToolCall[]; text: string } {
+export function parseToolCalls(
+  raw: string,
+  options: { defaultTool?: string } = {},
+): { calls: ToolCall[]; text: string } {
   const pattern = /<(tool_call|tool|function_call)>\s*([\s\S]*?)\s*<\/\1>/gi;
   const calls: ToolCall[] = [];
   let match: RegExpExecArray | null;
+
+  const accept = (entry: unknown) => {
+    if (!entry || typeof entry !== "object") return;
+    const record = entry as Record<string, unknown>;
+    const fn = record.function as Record<string, unknown> | undefined;
+    let name = String(record.name ?? record.tool ?? fn?.name ?? "");
+    let args =
+      record.arguments ?? record.args ?? record.parameters ?? fn?.arguments ?? {};
+    // Small models often drop the wrapper and send only the action object.
+    // In a browser-only panel that shape is unambiguous.
+    if (!name && options.defaultTool && (record.action || record.type)) {
+      name = options.defaultTool;
+      args = record;
+    }
+    if (!name) return;
+    calls.push({
+      name,
+      args: typeof args === "string" ? safeJson(args) : (args as Record<string, unknown>),
+    });
+  };
 
   while ((match = pattern.exec(raw))) {
     const body = match[2]
@@ -74,22 +97,38 @@ export function parseToolCalls(raw: string): { calls: ToolCall[]; text: string }
     try {
       const parsed = JSON.parse(body);
       const entries = Array.isArray(parsed) ? parsed : [parsed];
-      for (const entry of entries) {
-        const name = String(entry?.name ?? entry?.tool ?? entry?.function?.name ?? "");
-        const args =
-          entry?.arguments ??
-          entry?.args ??
-          entry?.parameters ??
-          entry?.function?.arguments ??
-          {};
-        if (!name) continue;
-        calls.push({
-          name,
-          args: typeof args === "string" ? safeJson(args) : (args as Record<string, unknown>),
-        });
-      }
+      for (const entry of entries) accept(entry);
     } catch {
       /* A malformed call is reported back to the model as text below. */
+    }
+  }
+
+  // Some providers strip the tags or the model forgets them. Recover a bare
+  // JSON call only in a tool-restricted panel, where there is no ambiguity
+  // between prose and a tool call.
+  if (!calls.length && options.defaultTool) {
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1] ?? raw;
+    const start = fenced.indexOf("{");
+    const end = fenced.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      try {
+        const parsed = JSON.parse(fenced.slice(start, end + 1));
+        accept(parsed);
+      } catch {
+        const action = fenced.match(/"(?:action|type)"\s*:\s*"([a-z_]+)"/i)?.[1];
+        if (action) {
+          const args: Record<string, unknown> = { action };
+          for (const key of ["url", "text", "target", "selector", "ref", "query", "key", "value"]) {
+            const found =
+              fenced.match(new RegExp(`"${key}"\\s*:\\s*"([\\s\\S]*?)"`, "i"))?.[1] ??
+              fenced.match(new RegExp(`"${key}"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)`, "i"))?.[1];
+            if (found !== undefined) {
+              args[key] = /^-?\d+(?:\.\d+)?$/.test(found) ? Number(found) : found.replace(/\s+/g, " ").trim();
+            }
+          }
+          calls.push({ name: options.defaultTool, args });
+        }
+      }
     }
   }
 
@@ -201,7 +240,9 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
 
     if (options.signal.aborted) throw new DOMException("aborted", "AbortError");
 
-    const parsed = parseToolCalls(raw);
+    const parsed = parseToolCalls(raw, {
+      defaultTool: options.only?.length === 1 ? options.only[0] : undefined,
+    });
     if (parsed.calls.length === 0) {
       let visible = "";
       // The text was already streamed; nothing more to emit.

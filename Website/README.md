@@ -19,7 +19,7 @@ public-repo/         generated copy uploaded to Lantas-download
 
 `index.html`, `docs.html` and `download.html` link to release downloads at
 `github.com/AnwarKalonov/Lantas-download`. The version shown on the site is
-**1.0.5**; update the copy and the release links together when a new build ships.
+**1.0.6**; update the copy and the release links together when a new build ships.
 
 ## Preview
 

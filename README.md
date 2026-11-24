@@ -51,7 +51,7 @@ Providers, models, agents, permissions, skills, commands, MCP integrations, appe
 
 Download the latest macOS build from the [public releases page](https://github.com/AnwarKalonov/Lantas-download/releases/latest). Unzip it and drag **Lantas.app** to Applications.
 
-Lantas 1.0.5 requires macOS 11 or newer. The app is not notarized, so the first launch needs **System Settings → Privacy & Security → Open Anyway**.
+Lantas 1.0.6 requires macOS 11 or newer. The app is not notarized, so the first launch needs **System Settings → Privacy & Security → Open Anyway**.
 
 ### Run from source
 

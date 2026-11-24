@@ -7,14 +7,18 @@ import {
   agentClickAt,
   agentClickRef,
   agentEnter,
+  agentCheck,
   agentEvaluate,
   agentHistory,
+  agentHover,
   agentNavigate,
   agentPress,
   agentReload,
   agentScroll,
+  agentSelect,
   agentSnapshot,
   agentType,
+  agentWaitForText,
   describeSnapshot,
   resetDomObservation,
   resolveBrowserAddress,
@@ -608,16 +612,25 @@ async function runBrowserTool(
     resource,
   });
 
-  const readOnly = action === "snapshot" || action === "extract";
+  const readOnly = ["snapshot", "extract", "find"].includes(action);
   if (!readOnly && !(drive ?? aiDriving())) {
     return fail(
       "The user has control of the browser. Ask them to switch to Act mode before changing the page.",
     );
   }
 
-  const compare = ["click", "click_at", "type", "navigate", "back", "forward"].includes(
-    action,
-  );
+  const compare = [
+    "click",
+    "click_at",
+    "hover",
+    "type",
+    "fill",
+    "select",
+    "check",
+    "navigate",
+    "back",
+    "forward",
+  ].includes(action);
   const beforeSnapshot = compare
     ? await agentSnapshot().catch(() => null)
     : null;
@@ -708,6 +721,60 @@ async function runBrowserTool(
       };
     }
 
+    case "find": {
+      const query = String(args.query ?? args.text ?? "").trim();
+      if (!query) return fail("A query is required to find text.");
+      const snapshot = await agentSnapshot();
+      if (!snapshot.page) return fail("No page is open in the browser.");
+      const needle = query.toLowerCase();
+      const lines = snapshot.page.text
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter((line) => line.toLowerCase().includes(needle))
+        .slice(0, 12);
+      return {
+        ok: true,
+        summary: lines.length
+          ? `${lines.length} match${lines.length === 1 ? "" : "es"} for “${query}”`
+          : `No match for “${query}”`,
+        content: lines.length
+          ? `Matches for “${query}” on ${snapshot.page.url}:\n${lines.join("\n")}`
+          : `“${query}” does not appear in the readable text of ${snapshot.page.url}. Use snapshot to see the controls, or extract for the full text.`,
+        resource,
+      };
+    }
+
+    case "wait": {
+      const text = String(args.text ?? "").trim();
+      const gone = Boolean(args.gone) || args.state === "hidden" || args.state === "detached";
+      const timeoutMs = Math.min(30_000, Math.max(250, Number(args.timeoutMs ?? args.timeout ?? 8000) || 8000));
+      if (!text) {
+        const delay = Math.min(30_000, Math.max(0, Number(args.ms ?? args.delayMs ?? 500) || 0));
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return {
+          ok: true,
+          summary: `Waited ${delay}ms`,
+          content: await afterAction(`Waited ${delay}ms.`),
+          resource,
+        };
+      }
+      const met = await agentWaitForText(text, timeoutMs, gone);
+      return met
+        ? {
+            ok: true,
+            summary: gone ? `“${text}” is gone` : `Found “${text}”`,
+            content: await afterAction(
+              gone ? `“${text}” left the page.` : `“${text}” appeared on the page.`,
+            ),
+            resource,
+          }
+        : fail(
+            gone
+              ? `“${text}” was still on the page after ${timeoutMs}ms.`
+              : `“${text}” did not appear within ${timeoutMs}ms.`,
+          );
+    }
+
     case "click": {
       if (typeof args.ref === "number" || typeof args.ref === "string") {
         const ok = await agentClickRef(Number(args.ref));
@@ -750,6 +817,50 @@ async function runBrowserTool(
         : fail("Nothing was at those coordinates. Take a fresh snapshot and aim at a control.");
     }
 
+    case "hover": {
+      const target = String(args.target ?? args.selector ?? "");
+      if (!target) return fail("A target or selector is required to hover.");
+      const ok = await agentHover(target);
+      return ok
+        ? {
+            ok: true,
+            summary: `Hovered “${target}”`,
+            content: await afterAction(`Hovered ${target}.`),
+            resource,
+          }
+        : fail(`Could not find “${target}” to hover. Take a fresh snapshot.`);
+    }
+
+    case "select": {
+      const target = String(args.target ?? args.selector ?? "");
+      const value = String(args.value ?? args.text ?? "");
+      if (!target || !value) return fail("A select target and value are required.");
+      const ok = await agentSelect(target, value);
+      return ok
+        ? {
+            ok: true,
+            summary: `Selected “${value}”`,
+            content: await afterAction(`Selected ${value} in ${target}.`),
+            resource,
+          }
+        : fail(`Could not select “${value}” in “${target}”. Take a fresh snapshot.`);
+    }
+
+    case "check": {
+      const target = String(args.target ?? args.selector ?? "");
+      if (!target) return fail("A target or selector is required.");
+      const checked = args.checked !== false;
+      const ok = await agentCheck(target, checked);
+      return ok
+        ? {
+            ok: true,
+            summary: checked ? `Checked “${target}”` : `Unchecked “${target}”`,
+            content: await afterAction(`${checked ? "Checked" : "Unchecked"} ${target}.`),
+            resource,
+          }
+        : fail(`Could not change “${target}”. It may need a click by ref instead.`);
+    }
+
     case "evaluate": {
       const code = String(args.code ?? "").trim();
       if (!code) return fail("evaluate needs code to run in the page.");
@@ -764,8 +875,9 @@ async function runBrowserTool(
       };
     }
 
-    case "type": {
-      const text = String(args.text ?? "");
+    case "type":
+    case "fill": {
+      const text = String(args.text ?? args.value ?? "");
       if (!text && !args.clear) return fail("Text is required.");
       const ok = await agentType(
         text,
@@ -860,7 +972,7 @@ async function runBrowserTool(
 
     default:
       return fail(
-        `Unknown browser action ${action || "(none)"}. Use snapshot, extract, click, click_at, type, evaluate, press, scroll, navigate, open_in_chrome, back, forward or reload.`,
+        `Unknown browser action ${action || "(none)"}. Use snapshot, extract, find, wait, click, click_at, hover, type, fill, select, check, evaluate, press, scroll, navigate, open_in_chrome, back, forward or reload.`,
       );
   }
 }
@@ -1010,7 +1122,7 @@ export const TOOL_MANUAL = [
   '- edit {"path","oldString","newString","replaceAll?"} — exact replacement; oldString must be unique.',
   '- skill {"name"} — load the full instructions of an enabled skill when the task matches it.',
   '- terminal {"command","timeoutMs?"} — run a command in the open workspace and return its real stdout and stderr. Use this for tests, builds, git and shell commands. Never claim a command ran without a terminal result.',
-  '- browser {"action",...} — actions: snapshot, extract, click {"target"|"ref"}, click_at {"x","y"}, type {"text","selector?","submit?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, navigate {"url"}, open_in_chrome {"url"}, back, forward, reload.',
+  '- browser {"action",...} — actions: snapshot, extract, find {"query"}, wait {"text","timeoutMs?","gone?"}, click {"target"|"ref"}, click_at {"x","y"}, hover {"target"}, type/fill {"text","selector?","submit?"}, select {"target","value"}, check {"target","checked?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, navigate {"url"}, open_in_chrome {"url"}, back, forward, reload.',
   "",
   BROWSER_GUIDE,
   '- integrations {"action",...} — apps, tools {"toolkit"}, inbox {"limit","query"}, search_email {"query","limit"}, run {"slug","arguments"}.',

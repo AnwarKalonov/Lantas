@@ -393,6 +393,13 @@ export function LantasProvider({ children }: { children: ReactNode }) {
   }, [notify]);
 
   const createSession = useCallback<Store["createSession"]>((agent, provider, model) => {
+    // “New thread” on an untouched thread should focus that thread rather than
+    // stacking empty ones in the sidebar every time the plus is pressed.
+    const active = stateRef.current.sessions.find((session) => session.id === stateRef.current.activeId);
+    if (active && active.messages.length === 0) {
+      setState((prev) => ({ ...prev, activeId: active.id, view: "chats" }));
+      return active.id;
+    }
     const id = uid("ses");
     setState((prev) => {
       const nextProvider = provider ?? prev.settings.defaultProvider;

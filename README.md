@@ -1,57 +1,164 @@
 # Lantas
 
-**Chat, code, and your browser in one window.** Lantas is a free macOS agent for the work that does not fit in one tab: ask a question, edit a real project, and let the assistant read the page you are looking at.
+**Chat, code, and a real browser in one window.** Lantas is a local-first macOS agent for work that does not fit in a single tab: ask a question, edit a project, then let the assistant read and drive the page you are looking at.
 
 No account, no subscription, no telemetry. Bring a model key, or run a model locally.
 
 ![Lantas Home](docs/screenshots/home.png)
 
+## Contents
+
+- [What Lantas is](#what-lantas-is)
+- [The three surfaces](#the-three-surfaces)
+- [Browser agent design](#browser-agent-design)
+- [What is in the app](#what-is-in-the-app)
+- [Install](#install)
+- [Connect a model](#connect-a-model)
+- [Permissions and privacy](#permissions-and-privacy)
+- [Project layout](#project-layout)
+- [Development](#development)
+- [Release and updates](#release-and-updates)
+- [Troubleshooting](#troubleshooting)
+- [Credits](#credits)
+- [License](#license)
+
+## What Lantas is
+
+Lantas is a desktop coding agent with a browser attached. It is built for the ordinary loop of agent work:
+
+1. Read the request and the relevant local context.
+2. Take one concrete action.
+3. Read the result from the real filesystem or the real page.
+4. Continue only from evidence, not from an assumed success.
+
+The same principle applies in every surface. A file write is checked against disk after saving. A browser click returns the new URL, title and controls. A failed tool call is reported as failed.
+
+Lantas runs as a Tauri application on macOS. The React interface also runs in a normal browser for development, with desktop-only features degrading visibly rather than silently.
+
 ## The three surfaces
 
 ### Chat
 
-A thread per topic with the model you chose. Attach files or images, share a screen frame, and keep working through long runs with turn checkpoints, context summaries and plan approval. `⌘K` reaches every session and command.
+A thread per topic with the model you chose. Attach files or images, share a screen frame, and keep long runs manageable with turn checkpoints, context summaries and plan approval.
+
+`⌘K` reaches every session and command. Sessions are stored locally; on desktop they are checkpointed to `~/Library/Application Support/Lantas/sessions.json` after each turn.
 
 ### Code
 
-A real workspace, not a code block in a chat. Open a folder and Lantas gets Monaco, an explorer, tabs, quick open, project-wide search and an assistant dock beside the files. It reads before it edits, stages writes as diffs, then checks the file on disk after saving. A terminal panel and your own git are built in.
+A real workspace, not a code block in a chat. Open a folder and Lantas gets Monaco, an explorer, tabs, quick open, project-wide search and an assistant dock beside the files.
 
-![Lantas Code](docs/screenshots/code.png)
-
-*The Code surface with a sample workspace open.*
+The agent reads before it edits, stages writes as diffs, and checks the file on disk after saving. A terminal panel and your own git are built in. Multi-root workspaces are supported; the file tree, search and git context follow all open folders.
 
 ### Browser
 
-A browser with its own engine, plus a Chrome bridge for the tabs you already have open. Lantas reads the DOM — roles, labels, values, what is visible and enabled — instead of guessing from a screenshot. It can click by label, type, scroll, navigate, wait for a result and re-read the page to verify what happened.
+A browser with two engines:
+
+- **Lantas Browser** uses a native child webview controlled by the app.
+- **Chrome** uses the Lantas Browser Bridge extension to read and drive a tab in the user's own Chrome profile.
+
+Both engines expose the same `browser` tool to the model. The agent reads the DOM — roles, labels, values, visibility and enabled state — instead of guessing from a screenshot. It can click by label or ref, type, fill, select, check, hover, wait, scroll, navigate, list tabs, switch tabs, open tabs and close tabs.
 
 ![Lantas Browser](docs/screenshots/browser.png)
 
-### Settings
+## Browser agent design
 
-Providers, models, agents, permissions, skills, commands, MCP integrations, appearance and keybinds live in one place. Permission rules are visible and editable, and every tool call is checked against them before it runs.
+The browser is intentionally not a collection of site-specific shortcuts. The app supplies primitives; the model makes decisions.
 
-![Lantas Settings](docs/screenshots/settings.png)
+### One tool, explicit actions
+
+Browser mode exposes exactly one tool:
+
+```json
+{"name":"browser","arguments":{"action":"navigate","url":"https://example.com"}}
+```
+
+The action set covers reading and acting:
+
+| Action | What it does |
+| --- | --- |
+| `snapshot` | Read the current URL, title, readable text and numbered controls. |
+| `extract` | Return the readable page text. |
+| `find` | Locate text on the page. |
+| `wait` | Wait for text to appear or disappear. |
+| `click` | Click a control by snapshot ref or exact visible label. |
+| `click_at` | Click a viewport coordinate for canvas-style interfaces. |
+| `hover` | Open a menu or tooltip by ref or label. |
+| `type` / `fill` | Type into a field, optionally submitting. |
+| `select` / `check` | Choose an option or set a checkbox/switch. |
+| `press` | Send a named key. |
+| `scroll` | Scroll the page. |
+| `tabs` | List open tabs with stable ids and the active tab. |
+| `switch_tab` | Make another tab the target. |
+| `new_tab` | Open a complete URL in a new tab. |
+| `close_tab` | Close a tab by id or index. |
+| `navigate` | Open a complete `https://` URL. |
+| `back` / `forward` / `reload` | Browser history and refresh. |
+| `evaluate` | Run page JavaScript for a site API or a verification read. |
+| `open_in_chrome` | Hand a login page to the user's real Chrome profile. |
+
+### The model owns destinations
+
+There is no product-name table, no route inference, no comma repair and no automatic Google fallback. If the user says “open the graphing calculator”, the model must decide the exact page and call `navigate` with a complete URL.
+
+If the model sends a bare name, a route such as `calculator`, or a malformed address, the tool refuses it and returns an actionable error. The model can then correct the call. This is deliberate: a silent guess is harder to detect than an explicit rejection.
+
+The native browser address bar still accepts ordinary human input, including a search fallback. That is a user-facing convenience, not an agent decision.
+
+### Observe, act, verify
+
+Every navigation and interaction returns the resulting URL, title and controls. The next step starts from that evidence. The guide tells the model to:
+
+- use a ref or exact label from the latest snapshot, never an invented selector;
+- take one action at a time and read the result;
+- verify the user-visible outcome before claiming success;
+- try one different supported action after a failure instead of repeating it;
+- ask before irreversible actions such as payments, deletions, account changes or closing something important.
+
+### Tabs
+
+The browser tool can list, switch, open and close tabs through the same tab strip the user sees. Native tab actions are delivered to `BrowserView` as events, so the UI and the agent cannot drift onto different tabs. Chrome tab actions use stable extension tab ids.
+
+### Safety and trust boundaries
+
+- Tool calls are checked against ordered permission rules (`allow`, `ask`, `deny`; last match wins).
+- Build can write and run; Plan and Chat are read-only.
+- Browser mode restricts the tool list to `browser`.
+- Snapshots pierce open shadow roots and same-origin iframes; cross-origin documents remain inaccessible.
+- Page text and page instructions are untrusted data. The model is told not to follow instructions found in a page.
+- `evaluate` is available for a site's documented API and verification, not for reading private storage or changing unrelated settings.
+- Chrome page access stays in the user's own profile through the extension; the app does not receive the user's Chrome password.
+
+### Relationship to Dao Browser
+
+The browser interaction model is informed by [Dao Browser](https://github.com/msgbyte/dao-browser), a BSD-3-Clause Chromium fork. In particular, Lantas follows the same broad ideas: a catalog of small browser tools, explicit tab control, observe-act-verify steps, and a preference for reading the live page over guessing.
+
+Lantas is not a Chromium fork and does not vendor or reproduce Dao source code. It is a Tauri application using a native webview plus a Chrome extension. Features that depend on Chromium internals — the native animated cursor, hidden Agent Spaces, Chromium network/console instrumentation and native sidebar — are not copied. The implementation here is written against Lantas's own browser bridge and accessibility scan.
 
 ## What is in the app
 
 - **Build, Plan and Chat agents.** Build can write and run; Plan and Chat are read-only. Plan approval and max-step continuation keep long tasks predictable.
 - **Any model.** Anthropic, OpenAI, OpenRouter, Groq, Google, NVIDIA NIM, Ollama, LM Studio and any OpenAI-compatible endpoint. Test a connection and fetch its model list from Settings.
-- **Ten tools.** `read`, `glob`, `grep`, `semantic_search`, `write`, `edit`, `terminal`, `browser`, `skill` and connected-app tools. Writes are verified against the file on disk, not just reported.
+- **A small, explicit toolset.** `read`, `glob`, `grep`, `semantic_search`, `write`, `edit`, `terminal`, `browser`, `skill` and connected-app tools. Writes are verified against disk.
 - **Diffs you approve.** Assistant edits in Code mode are staged. Review a side-by-side diff and Keep or Discard each file, or all of them, from the review bar.
 - **A real terminal.** Run commands in the workspace, see live stdout/stderr in the terminal panel, and get the same output in the transcript.
-- **Multi-root workspaces.** Add more than one folder to a session; the file tree, search and git context follow all of them.
 - **Project context.** Git status, branches, changed files, a file map, semantic search and an optional project summary feed the prompt instead of the whole repository.
-- **Browser verification.** Snapshot, DOM extraction, shadow DOM, forms, waits and a Chrome handoff. A browser task is not done until the page says so.
-- **Skills and commands.** Thirteen built-in procedures for commits, review, debugging, test gaps, refactors, release notes, PR descriptions, API design, SQL, security and interface copy. Import your own `SKILL.md` folders or zips; repeat work is a slash command.
+- **Browser verification.** Snapshot, readable text, shadow DOM, forms, waits, tab control and a Chrome handoff. A browser task is not done until the page says so.
+- **Skills and commands.** Built-in procedures for commits, review, debugging, test gaps, refactors, release notes, PR descriptions, API design, SQL, security and interface copy. Import your own `SKILL.md` folders or zips; repeat work is a slash command.
 - **MCP and integrations.** HTTP and stdio MCP servers, plus Composio toolkits for Gmail, Slack, Notion, Linear, GitHub, Drive and more. Read-only Gmail through your own OAuth client is also available.
-- **Session durability.** On desktop, sessions are checkpointed to `~/Library/Application Support/Lantas/sessions.json` after each turn. If browser storage is cleared, **Settings → General → Restore from disk** brings them back. The browser build falls back to local storage.
+- **Session durability.** Desktop sessions are checkpointed after each turn. If browser storage is cleared, **Settings → General → Restore from disk** brings them back. The web build falls back to local storage.
 - **Updates.** The installed macOS app checks the newest public release, verifies the bundle signature against the key compiled into the app, and offers **Restart to update** in the title bar.
 
 ## Install
 
-Download the latest macOS build from the [public releases page](https://github.com/AnwarKalonov/Lantas-download/releases/latest). Unzip it and drag **Lantas.app** to Applications.
+Download the current public macOS build from the [releases page](https://github.com/AnwarKalonov/Lantas-download/releases). Unzip it and drag **Lantas.app** to Applications.
 
-Lantas 1.0.6 requires macOS 11 or newer. The app is not notarized, so the first launch needs **System Settings → Privacy & Security → Open Anyway**.
+The app is ad-hoc signed and not notarized. On first launch, macOS may ask you to approve it once:
+
+1. Open **System Settings → Privacy & Security**.
+2. Find the Lantas notice and click **Open Anyway**.
+3. Authenticate.
+
+The current source tree is version **1.0.6**. The tagged macOS workflow builds the `.dmg`, app zip, Chrome extension and updater assets; release publication requires the repository's `LANTAS_RELEASE_TOKEN` secret.
 
 ### Run from source
 
@@ -63,13 +170,25 @@ npm start
 `npm start` reuses a running dev server on port 3000, or starts Vite and opens a chromeless app window. In a headless environment it prints the URL for the Browser panel.
 
 ```bash
-PORT=1700 npm start   # another port
-npm run build         # typecheck + production build
-npm run tauri dev     # native window (macOS, Rust and Xcode required)
-npm run tauri build   # signed .app and .dmg
+PORT=1700 npm start       # another port
+npm run dev               # Vite only
+npm run build             # typecheck + production build
+npm run tauri dev         # native window (macOS, Rust and Xcode required)
+npm run tauri build       # signed .app and .dmg
 ```
 
 Building the native shell needs Rust, Xcode command-line tools and, on Linux, `libwebkit2gtk-4.1` and `libgtk-3`. See [`PUBLISH.md`](PUBLISH.md) for the signing and release flow.
+
+### Chrome bridge
+
+Install the unpacked extension from `chrome-extension/`:
+
+1. Open `chrome://extensions`.
+2. Enable **Developer mode**.
+3. Choose **Load unpacked** and select the `chrome-extension` folder.
+4. Keep the Lantas desktop app running so the extension can connect.
+
+The extension is version `0.6.1`. Reload it after changing extension files.
 
 ### Terminal app
 
@@ -91,37 +210,117 @@ Use `--plan` for read-only work. The CLI keeps its config in `~/.lantas/config.j
 3. Press **Fetch models** to fill the model list.
 4. Choose a default model in **Settings → Models**, or per session from the composer.
 
-With no provider connected, Lantas does not fake a reply: the composer points you at Settings. Local models work through Ollama or LM Studio; for Ollama in a browser tab, start it with `OLLAMA_ORIGINS=* ollama serve`. Keys live in the app's local storage, unencrypted. Use a scoped key you can rotate.
+With no provider connected, Lantas does not fake a reply: the composer points you at Settings.
+
+Local models work through Ollama or LM Studio. For Ollama in a browser tab, start it with:
+
+```bash
+OLLAMA_ORIGINS=* ollama serve
+```
+
+Keys live in the app's local storage, unencrypted. Use a scoped key you can rotate. The desktop build sends provider requests through Tauri's HTTP client, so keys are not exposed to webview CORS. Add a custom endpoint's host to `src-tauri/capabilities/default.json`.
 
 ## Permissions and privacy
 
-Tool calls are checked against ordered rules (`allow`, `ask`, `deny`; last match wins). **Settings → Agents** controls whether Build asks before every write and command or runs automatically. Reads are local and cheap. Destructive actions and arbitrary connected-app calls always ask. Plan and Chat cannot write.
+Tool calls are checked against ordered rules. **Settings → Agents** controls whether Build asks before every write and command or runs automatically. Reads are local and cheap. Destructive actions and arbitrary connected-app calls ask. Plan and Chat cannot write.
 
-No usage telemetry is sent anywhere. Provider requests go directly to the provider. In the desktop build they use Tauri's HTTP client, so provider keys are not exposed to webview CORS; add a custom endpoint's host to `src-tauri/capabilities/default.json`.
+No usage telemetry is sent anywhere. Provider requests go directly to the provider. Browser page content is sent only to the model you chose when you ask the agent to work on it.
 
-The source repository is private. The public repository at [AnwarKalonov/Lantas-download](https://github.com/AnwarKalonov/Lantas-download) contains the website and signed release assets only — no application source.
+The source repository is private. The public repository at [AnwarKalonov/Lantas-download](https://github.com/AnwarKalonov/Lantas-download) contains the website and release assets only — no application source.
 
 ## Project layout
 
-```
+```text
 src/            React app: Chat, Code, Browser, settings, sessions
 src/lib/        store, providers, agent loop, tools, browser, git, search
 src/components/ UI, Monaco, diff viewer, browser chrome, title bar
 src-tauri/      Tauri 2 shell: macOS window, terminal, HTTP bridge, updater
 cli/            dependency-free terminal agent
+chrome-extension/ Chrome bridge: background service worker, content script, side panel
 Website/site/   source for the public website
 public-repo/    the files published to Lantas-download
 docs/           screenshots used here
 scripts/        launch, build and release helpers
 ```
 
-## Development notes
+## Development
+
+```bash
+npm install
+npx tsc --noEmit        # typecheck only
+npm run build           # typecheck + Vite production build
+node --check chrome-extension/background.js
+node --check chrome-extension/content.js
+```
+
+Notes:
 
 - `npm run build` runs `tsc --noEmit` before Vite, so a type error fails the build.
 - Browser automation requires either the built-in browser or the Chrome extension. If Chrome is not connected, the browser tool reports that instead of pretending to click.
-- The app runs as a web page too. Desktop-only features (disk persistence, native terminal, screen capture, updater) degrade gracefully with a visible error rather than a silent failure.
+- The app runs as a web page too. Desktop-only features (disk persistence, native terminal, screen capture, updater) degrade with a visible error rather than a silent failure.
 - The website and release copy are generated from `public-repo/`; do not publish the app source to that repository.
+- The Chrome extension is a separate unpacked extension. Bump `chrome-extension/manifest.json` and `VERSION` in `chrome-extension/background.js` when its behavior changes, then reload it.
+
+### Browser changes
+
+Browser behavior lives in:
+
+- `src/lib/browserAgent.ts` — address validation, snapshots, page actions, tab actions and the shared browser guide.
+- `src/lib/tools.ts` — the `browser` tool schema, action dispatch and result verification.
+- `src/lib/chat.ts` — the browser-only system prompt.
+- `src/lib/browserTurn.ts` — the Chrome side-panel turn loop.
+- `chrome-extension/background.js` and `content.js` — the Chrome bridge and its DOM actions.
+- `src/components/BrowserView.tsx` — the visible tab strip, address bar and native webview bounds.
+
+When changing an agent action, update the guide, the tool result text and the extension fallback together. A browser action is not complete until the page or the user's tab strip confirms it.
+
+## Release and updates
+
+Tagged releases are built by `.github/workflows/macos.yml` on an Apple Silicon runner. The workflow:
+
+1. checks the tag matches `package.json`;
+2. builds the Tauri app;
+3. verifies the app signature;
+4. packages the `.dmg`, app zip, Chrome extension and updater assets;
+5. uploads the build as an artifact;
+6. publishes to `Lantas-download` only when `LANTAS_RELEASE_TOKEN` is configured.
+
+`LANTAS_RELEASE_TOKEN` must be a classic GitHub PAT with `contents: write` on `AnwarKalonov/Lantas-download`. It is a repository Actions secret, never a file in this tree. Without it, the build succeeds and the publish step is skipped.
+
+The public site is generated from `public-repo/`. The `site-deploy.yml` workflow copies it to the public repository. It uses the same token; without it, the site job fails at the token check instead of publishing a partial site.
+
+## Troubleshooting
+
+### The app opens but the model does not answer
+
+Open **Settings → Providers**, test the connection and fetch models. A missing key is shown in the composer; Lantas will not invent a reply.
+
+### Chrome says the extension is not connected
+
+Start the desktop app, reload the extension at `chrome://extensions`, and open a normal `http(s)` page. Browser pages and the Chrome Web Store cannot be read by the content script.
+
+### A browser action says the address is not full
+
+That is intentional. Send a full `https://` URL, or navigate to the site first and click the page you want. The app will not guess a domain or turn a route into a search.
+
+### The browser tool cannot find a control
+
+Take a fresh snapshot. Refs belong to the latest snapshot; a page change can make an old ref stale. Use the exact label from the new snapshot, or `evaluate` to inspect a shadow root before trying again.
+
+### The macOS build is not notarized
+
+Use **System Settings → Privacy & Security → Open Anyway** once. The app is ad-hoc signed; the absence of notarization is not a sign that the download is corrupt.
+
+### The release or website did not update
+
+Check the Actions run. If the publish step was skipped, `LANTAS_RELEASE_TOKEN` is missing. Add the secret in **Settings → Secrets and variables → Actions**, then rerun the workflow. Never paste the token into a chat, source file or commit.
+
+## Credits
+
+- Browser interaction design is informed by [Dao Browser](https://github.com/msgbyte/dao-browser), copyright Dao Browser Authors, BSD-3-Clause. No Dao source code is vendored in this repository.
+- Chromium, Chrome and their marks belong to their respective owners. Lantas is not affiliated with Google or the Dao project.
+- Lantas uses React, Vite, Monaco, Tauri and the providers listed in `package.json`.
 
 ## License
 
-Lantas is free to download and use. The source is not public.
+Lantas is free to download and use. The source is not public. See [`LICENSE`](LICENSE) for the terms that apply to this repository.

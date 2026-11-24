@@ -9,9 +9,13 @@ import {
   agentEnter,
   agentCheck,
   agentEvaluate,
+  agentCloseTab,
   agentHistory,
   agentHover,
   agentNavigate,
+  agentNewTab,
+  agentSwitchTab,
+  agentTabs,
   agentPress,
   agentReload,
   agentScroll,
@@ -20,8 +24,8 @@ import {
   agentType,
   agentWaitForText,
   describeSnapshot,
+  parseBrowserAddress,
   resetDomObservation,
-  resolveBrowserAddress,
   waitForDomChange,
   waitForNavigation,
 } from "./browserAgent";
@@ -518,7 +522,7 @@ export async function runTool(
         return await runTerminalTool(call.args, context);
 
       case "browser":
-        return await runBrowserTool(call.args, context.drive, context.task);
+        return await runBrowserTool(call.args, context.drive);
 
       case "integrations":
         return await runIntegrationTool(call.args);
@@ -600,7 +604,6 @@ async function runTerminalTool(
 async function runBrowserTool(
   args: Record<string, unknown>,
   drive?: boolean,
-  task?: string,
 ): Promise<ToolOutcome> {
   const action = String(args.action ?? "").toLowerCase();
   const resource = toolResource({ name: "browser", args });
@@ -628,6 +631,9 @@ async function runBrowserTool(
     "select",
     "check",
     "navigate",
+    "switch_tab",
+    "new_tab",
+    "close_tab",
     "back",
     "forward",
   ].includes(action);
@@ -651,9 +657,7 @@ async function runBrowserTool(
         .slice(0, 80)
         .map((el) => `${el.i}. [${el.kind}] ${el.label}`)
         .join("\n");
-      const verifiedState = snapshot.page.text
-        .split("\n")
-        .find((line) => line.startsWith("Graph expressions:"));
+
       const changes = [];
       if (beforePage && beforePage.url !== snapshot.page.url) {
         changes.push(`URL ${beforePage.url} -> ${snapshot.page.url}`);
@@ -689,7 +693,6 @@ async function runBrowserTool(
             : "No URL, title, control or DOM change detected.",
         `Now at: ${snapshot.page.url}`,
         `Title: ${snapshot.page.title}`,
-        verifiedState ? `Page state: ${verifiedState.slice(0, 800)}` : "",
         controls ? `Controls:\n${controls}` : "",
       ]
         .filter(Boolean)
@@ -931,9 +934,9 @@ async function runBrowserTool(
     }
 
     case "open_in_chrome": {
-      const raw = String(args.url ?? "").trim();
-      if (!raw) return fail("A URL is required to open Chrome for sign-in.");
-      const opened = await openInChrome(resolveBrowserAddress(raw, task));
+      const address = parseBrowserAddress(String(args.url ?? ""));
+      if (!address.ok) return fail(address.error);
+      const opened = await openInChrome(address.url);
       return opened
         ? {
             ok: true,
@@ -945,10 +948,67 @@ async function runBrowserTool(
         : fail("Could not open Chrome. The desktop app is required.");
     }
 
+    case "tabs": {
+      const tabs = await agentTabs();
+      return {
+        ok: tabs.length > 0,
+        summary: tabs.length ? `${tabs.length} open tab${tabs.length === 1 ? "" : "s"}` : "No tabs are available",
+        content: tabs.length
+          ? tabs
+              .map(
+                (tab, index) =>
+                  `${index}. ${tab.active ? "● " : "  "}${tab.title}\n   id: ${tab.id}\n   ${tab.url}`,
+              )
+              .join("\n")
+          : "No browser tab could be read. Open Lantas Browser or connect Chrome.",
+        resource,
+      };
+    }
+
+    case "switch_tab": {
+      const target = args.id ?? args.tab ?? args.index;
+      const ok = await agentSwitchTab(target as string | number | undefined);
+      return ok
+        ? {
+            ok: true,
+            summary: `Switched to tab ${String(target ?? "active")}`,
+            content: await afterAction(`Switched to tab ${String(target ?? "active")}.`),
+            resource,
+          }
+        : fail("That tab does not exist, or the browser is not open.");
+    }
+
+    case "new_tab": {
+      const address = parseBrowserAddress(String(args.url ?? ""));
+      if (!address.ok) return fail(address.error);
+      const ok = await agentNewTab(address.url);
+      return ok
+        ? {
+            ok: true,
+            summary: `Opened a new tab at ${address.url}`,
+            content: await afterAction(`Opened a new tab at ${address.url}.`),
+            resource,
+          }
+        : fail("Could not open a new browser tab.");
+    }
+
+    case "close_tab": {
+      const target = args.id ?? args.tab ?? args.index;
+      const ok = await agentCloseTab(target as string | number | undefined);
+      return ok
+        ? {
+            ok: true,
+            summary: `Closed tab ${String(target ?? "active")}`,
+            content: await afterAction(`Closed tab ${String(target ?? "active")}.`),
+            resource,
+          }
+        : fail("That tab does not exist, the browser is not open, or it is the last tab.");
+    }
+
     case "navigate": {
-      const raw = String(args.url ?? "");
-      if (!raw) return fail("A URL is required.");
-      const url = resolveBrowserAddress(raw, task);
+      const address = parseBrowserAddress(String(args.url ?? ""));
+      if (!address.ok) return fail(address.error);
+      const url = address.url;
       const ok = await agentNavigate(url);
       return ok
         ? { ok: true, summary: `Opened ${url}`, content: await afterAction(`Navigated to ${url}.`), resource }
@@ -972,7 +1032,7 @@ async function runBrowserTool(
 
     default:
       return fail(
-        `Unknown browser action ${action || "(none)"}. Use snapshot, extract, find, wait, click, click_at, hover, type, fill, select, check, evaluate, press, scroll, navigate, open_in_chrome, back, forward or reload.`,
+        `Unknown browser action ${action || "(none)"}. Use snapshot, extract, find, wait, click, click_at, hover, type, fill, select, check, evaluate, press, scroll, tabs, switch_tab, new_tab, close_tab, navigate, open_in_chrome, back, forward or reload.`,
       );
   }
 }
@@ -1122,7 +1182,7 @@ export const TOOL_MANUAL = [
   '- edit {"path","oldString","newString","replaceAll?"} — exact replacement; oldString must be unique.',
   '- skill {"name"} — load the full instructions of an enabled skill when the task matches it.',
   '- terminal {"command","timeoutMs?"} — run a command in the open workspace and return its real stdout and stderr. Use this for tests, builds, git and shell commands. Never claim a command ran without a terminal result.',
-  '- browser {"action",...} — actions: snapshot, extract, find {"query"}, wait {"text","timeoutMs?","gone?"}, click {"target"|"ref"}, click_at {"x","y"}, hover {"target"}, type/fill {"text","selector?","submit?"}, select {"target","value"}, check {"target","checked?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, navigate {"url"}, open_in_chrome {"url"}, back, forward, reload.',
+  '- browser {"action",...} — actions: snapshot, extract, find {"query"}, wait {"text","timeoutMs?","gone?"}, click {"target"|"ref"}, click_at {"x","y"}, hover {"target"}, type/fill {"text","selector?","submit?"}, select {"target","value"}, check {"target","checked?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, tabs, switch_tab {"id"|"index"}, new_tab {"url"}, close_tab {"id"|"index"}, navigate {"url"}, open_in_chrome {"url"}, back, forward, reload.',
   "",
   BROWSER_GUIDE,
   '- integrations {"action",...} — apps, tools {"toolkit"}, inbox {"limit","query"}, search_email {"query","limit"}, run {"slug","arguments"}.',

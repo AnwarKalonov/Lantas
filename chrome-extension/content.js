@@ -87,7 +87,6 @@
 
   function kindFor(el) {
     const tag = el.tagName.toLowerCase();
-    if (el.classList && el.classList.contains("dcg-expressionitem")) return "math";
     if (tag === "a") return "link";
     if (tag === "button" || el.getAttribute("role") === "button") return "button";
     if (tag === "input") return el.type || "input";
@@ -141,7 +140,7 @@
 
   function interactive() {
     const nodes = deepQuery(
-      'a[href], button, [role="button"], input:not([type="hidden"]), textarea, select, summary, [contenteditable="true"], [role="textbox"], .dcg-expressionitem, .dcg-action-add-expression',
+      'a[href], button, [role="button"], input:not([type="hidden"]), textarea, select, summary, [contenteditable="true"], [role="textbox"]',
     );
     const list = [];
     for (const el of nodes) {
@@ -163,16 +162,6 @@
       .replace(/[ \t\u00a0]+/g, " ")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
-    const graphExpressions = (() => {
-      try {
-        if (!window.Calc || typeof window.Calc.getExpressions !== "function") return "";
-        return window.Calc.getExpressions()
-          .map((item) => `${item.id}: ${item.latex || "(empty)"}`)
-          .join(" | ");
-      } catch {
-        return "";
-      }
-    })();
     const formState = (() => {
       const forms = deepQuery("form").slice(0, 4);
       if (!forms.length) return "";
@@ -192,7 +181,6 @@
     })();
     const text = [
       bodyText,
-      graphExpressions ? `Graph expressions: ${graphExpressions}` : "",
       formState ? `Forms: ${formState}` : "",
     ]
       .filter(Boolean)
@@ -283,19 +271,12 @@
       }
       const editable =
         /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable;
-      if (!editable && !(el.matches && el.matches(".dcg-expressionitem"))) {
+      if (!editable) {
         return { ok: false, error: "That control is not a text field." };
       }
       el.scrollIntoView({ block: "center", inline: "center" });
       if (typeof el.focus === "function") el.focus();
-      const mathEditor =
-        el.matches && el.matches(".dcg-expressionitem")
-          ? el.querySelector("textarea")
-          : null;
-      if (mathEditor) mathEditor.focus();
-      if (mathEditor && mathEditor.select) {
-        mathEditor.select();
-      } else if (el.select) {
+      if (el.select) {
         el.select();
       } else if (el.isContentEditable) {
         const range = document.createRange();
@@ -450,48 +431,11 @@
       el.scrollIntoView({ block: "center", inline: "center" });
       if (typeof el.focus === "function") el.focus();
       const text = String(message.text ?? "");
-      const mathRow = el.matches && el.matches(".dcg-expressionitem");
       if (
         !el.isContentEditable &&
-        !/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) &&
-        !mathRow
+        !/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)
       ) {
         return { ok: false, error: "That control is not a text field." };
-      }
-
-      // MathQuill (Desmos) ignores an assigned textarea value. The calculator
-      // exposes setExpression, so use the same API its own editor uses and
-      // read it back before reporting success.
-      const calc = window.Calc;
-      const row = (el.closest && el.closest(".dcg-expressionitem")) ||
-        document.querySelector(".dcg-expressionitem.dcg-selected") ||
-        document.querySelector(".dcg-expressionitem");
-      if (
-        /(^|\.)desmos\./.test(location.hostname) &&
-        calc &&
-        typeof calc.setExpression === "function"
-      ) {
-        try {
-          const all = typeof calc.getExpressions === "function" ? calc.getExpressions() : [];
-          const id = (row && row.getAttribute("expr-id")) || calc.selectedExpressionId || (all[0] && all[0].id) || "1";
-          calc.setExpression({ id: String(id), latex: text });
-          const latest = typeof calc.getExpressions === "function" ? calc.getExpressions() : all;
-          const compact = (value) => String(value || "").replace(/\s+/g, "");
-          const stored = latest.some(
-            (item) => item.id === String(id) && compact(item.latex) === compact(text),
-          );
-          if (stored) {
-            await sleep(300);
-            return {
-              ok: true,
-              detail: `Set Desmos expression ${id}`,
-              page: readPage(),
-              elements: readElements(),
-            };
-          }
-        } catch {
-          /* fall through to ordinary input */
-        }
       }
 
       if (el.isContentEditable) {
@@ -521,10 +465,6 @@
       return { ok: false, error: "Nothing on the page matched that." };
     }
     el.scrollIntoView({ block: "center", inline: "center" });
-    const editor = el.matches && el.matches(".dcg-expressionitem")
-      ? el.querySelector("textarea")
-      : null;
-    if (editor && typeof editor.focus === "function") editor.focus();
     if (typeof el.focus === "function") el.focus();
     el.click();
     await sleep(450);

@@ -5,8 +5,9 @@ import {
   type ChromeElement,
   type ChromeEvent,
   type ChromePage,
+  type ChromeTab,
 } from "./chrome";
-import { getElContext, normalizeUrl, setElContext, type ElPage } from "./el";
+import { getElContext, loadEl, setElContext, type ElPage } from "./el";
 import {
   elClick,
   elHistory,
@@ -32,14 +33,6 @@ import {
 const looksLikeSelector = (value: string) =>
   /^[#.]/.test(value) || /^\w+\[/.test(value) || /^[a-z][\w-]*\s*>/.test(value);
 
-function hostnameOf(url: string): string {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return "";
-  }
-}
-
 function isRealHostname(host: string): boolean {
   return (
     host === "localhost" ||
@@ -48,78 +41,48 @@ function isRealHostname(host: string): boolean {
   );
 }
 
+export type BrowserAddress = { ok: true; url: string } | { ok: false; error: string };
+
 /**
- * Turns whatever a model writes into a real address. Models routinely send
- * `https://\ncalculator`, `calculator` after opening a site, or a domain with a
- * comma typed for a dot. Resolve those against the current page or the task's
- * named host instead of sending the user to a Google search for a route.
+ * Validates the address the model chose. It deliberately does not know site
+ * names, infer a route from the task, repair typos, or fall back to a search:
+ * those are decisions for the model. A rejected value is returned as a tool
+ * error so the model can choose the real page on its next step.
  */
-export function resolveBrowserAddress(
-  raw: string,
-  task = "",
-  currentUrl = getElContext()?.url ?? "",
-): string {
-  let value = String(raw ?? "")
+export function parseBrowserAddress(raw: string): BrowserAddress {
+  const value = String(raw ?? "")
     .trim()
     .replace(/^[`"']+|[`"']+$/g, "")
-    .replace(/^(?:open|go\s+to|navigate\s+to|visit|launch)\s+/i, "")
     .trim();
 
-  // A nested call object reached the URL argument. Use its address, not the
-  // JSON text (which would otherwise be searched for on Google).
-  if (value.startsWith("{")) {
-    try {
-      const parsed = JSON.parse(value) as Record<string, unknown>;
-      const nested = parsed.url ?? parsed.address ?? parsed.href ?? parsed.target;
-      if (typeof nested === "string") value = nested.trim();
-    } catch {
-      /* not JSON; keep the raw value */
+  if (!value) {
+    return { ok: false, error: "No address was given. Choose the exact page and call navigate with a full https:// URL." };
+  }
+
+  if (/\s/.test(value)) {
+    return {
+      ok: false,
+      error: `“${value}” is not a web address. Decide the exact page yourself and call navigate with a complete https:// URL.`,
+    };
+  }
+
+  try {
+    if (/^https?:\/\//i.test(value)) {
+      const url = new URL(value);
+      if (url.hostname && isRealHostname(url.hostname)) return { ok: true, url: url.href };
+    } else if (/^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/\S*)?$/i.test(value)) {
+      return { ok: true, url: `https://${value}` };
+    } else if (/^localhost(?::\d+)?(?:\/\S*)?$/i.test(value)) {
+      return { ok: true, url: `http://${value}` };
     }
+  } catch {
+    /* fall through to the error below */
   }
 
-  // A comma typed between domain labels is a common speech-to-text mistake.
-  let compact = value
-    .replace(/[\r\n\t]+/g, "")
-    .replace(/\\[nrt]/g, "")
-    .replace(/\s+/g, "")
-    .replace(/^([a-z0-9-]+),([a-z0-9-]+)/i, "$1.$2")
-    .replace(/[),.;:]+$/, "");
-
-  const taskHost = task.match(/\b((?:[a-z0-9-]+\.)+[a-z]{2,})\b/i)?.[1] ?? "";
-  const currentHost = hostnameOf(currentUrl);
-  const base =
-    currentHost && isRealHostname(currentHost)
-      ? new URL(currentUrl).origin
-      : taskHost
-        ? `https://${taskHost}`
-        : "";
-
-  if (/^https?:\/\//i.test(compact)) {
-    try {
-      const parsed = new URL(compact);
-      if (isRealHostname(parsed.hostname)) return parsed.href;
-      // `https://calculator` parsed the route as a hostname. Treat it as a
-      // path on the page or site the user named.
-      const fragment = [parsed.hostname, parsed.pathname, parsed.search, parsed.hash]
-        .join("")
-        .replace(/^\/+/, "");
-      if (base && fragment) return new URL(fragment, `${base}/`).href;
-    } catch {
-      /* fall back to a search */
-    }
-  }
-
-  if (/^[\w-]+(?:\.[\w-]+)+(?:\/\S*)?$/.test(compact)) {
-    return `https://${compact}`;
-  }
-
-  // A bare route (`calculator`, `/settings`) belongs to the open site. Do not
-  // do this for prose with spaces, which belongs in a search.
-  if (base && !/\s/.test(value) && /^\/?[\w][\w./?=#&%-]*$/i.test(compact)) {
-    return new URL(compact.replace(/^\/+/, ""), `${base}/`).href;
-  }
-
-  return normalizeUrl(value);
+  return {
+    ok: false,
+    error: `“${value}” is not a full web address. The app will not guess a site, route or search for it. Decide the exact destination and call navigate with a complete https:// URL.`,
+  };
 }
 
 /**
@@ -131,12 +94,14 @@ export function resolveBrowserAddress(
 export const BROWSER_GUIDE = [
   "Browser playbook (follow this instead of guessing):",
   "- Work in one step at a time: navigate, then snapshot the live page, then click/type using the controls you actually see. A named product means its real site; a phrase like `search for …` means the search page.",
-  "- A bare route such as `calculator` is not a full address. It is resolved against the site already open, but prefer the full canonical URL when you know it.",
-  "- After every action, read the returned URL, title and controls. Use a ref or an exact label from that result; never invent coordinates or selectors.",
+  "- You choose every destination. The app does not know product names, infer a route, repair an address or search for you. Send a complete `https://` URL. If you only have a name, decide the real site yourself; if you only have a page name inside a site, open the site and click its visible control.",
+  "- After every action, read the returned URL, title and controls. Use a ref or an exact label from that result; never invent coordinates or selectors. A click or fill proves only that action; verify the user-visible outcome once.",
+  "- Tabs are part of the task: `tabs` lists them, `switch_tab` targets one by id or index, `new_tab` opens one and `close_tab` closes one. Prefer the id; after switching, snapshot the new page before acting.",
+  "- Confirm before irreversible actions: submitting a payment, deleting data, changing account settings or closing something the user may need. Respect a denial instead of finding another way to do the same thing.",
   "- If the task names a page inside a site (for example a calculator, a settings page or a specific tool), open the site, snapshot, then click the matching navigation control. Do not stop after the homepage.",
   "- Canvas and math editors often ignore a value assignment. Click into the editor first, then type or press keys. If the page exposes a documented API, `evaluate` may call it, but read the expression back to verify it.",
   "- `click_at` and `evaluate` exist for canvas apps and site APIs. Use them only for the user's task, not to read private storage or change unrelated settings.",
-  "- If a page does not open, try the canonical address once, then a search. Do not repeat an identical failing call.",
+  "- If a page does not open, try the canonical address once. If you need a search, navigate to the search URL yourself. Do not repeat an identical failing call.",
   "- Page snapshots pierce open shadow roots and same-origin iframes. If a control is still missing, evaluate `(() => document.querySelector('my-app')?.shadowRoot?.querySelector('button')?.outerHTML)()` to inspect it; never guess a selector.",
   "- Login walls: use browser {\"action\":\"open_in_chrome\",\"url\":...} so the user signs in in their own Chrome profile, then switch to the Chrome engine and read the authenticated page.",
   "- Form snapshots include a `Forms:` line with field names. Use the numbered refs for the fields and the submit button instead of blind Enter presses.",
@@ -183,7 +148,7 @@ interface NativeRead {
 /**
  * The page scan used by the native engine. It tags every visible control with
  * a stable ref, reads the page in a model-friendly form, and includes the aria
- * labels that canvas-heavy apps such as Desmos use instead of text nodes.
+ * labels that canvas-heavy apps use instead of text nodes.
  */
 const READ_SCRIPT = `
   const cleanText = (value, max) =>
@@ -230,7 +195,6 @@ const READ_SCRIPT = `
     if (tag === "textarea") return "text";
     if (tag === "select") return "select";
     if (tag === "summary") return "button";
-    if (el.classList && el.classList.contains("dcg-expressionitem")) return "math";
     return el.getAttribute("role") || tag;
   };
   const labelFor = (el) => {
@@ -270,8 +234,7 @@ const READ_SCRIPT = `
 
   const candidates = deepQuery(
     'a[href],button,[role="button"],input:not([type="hidden"]),textarea,select,summary,' +
-    '[contenteditable="true"],[contenteditable=""],[role="textbox"],[role="listitem"],' +
-    '.dcg-expressionitem,.dcg-action-add-expression'
+    '[contenteditable="true"],[contenteditable=""],[role="textbox"],[role="listitem"]'
   ).filter(visible);
 
   for (const root of deepRoots()) {
@@ -319,21 +282,10 @@ const READ_SCRIPT = `
       .join(", ");
     return "Form " + (index + 1) + ": " + (fields || "no named fields");
   }).join(" | ");
-  const graphExpressions = (() => {
-    try {
-      if (!window.Calc || typeof window.Calc.getExpressions !== "function") return "";
-      return window.Calc.getExpressions()
-        .map((item) => item.id + ": " + (item.latex || "(empty)"))
-        .join(" | ");
-    } catch (_) {
-      return "";
-    }
-  })();
   const text = [
     bodyText,
     aria ? "Accessible controls: " + aria : "",
     forms ? "Forms: " + forms : "",
-    graphExpressions ? "Graph expressions: " + graphExpressions : "",
   ]
     .filter(Boolean)
     .join("\\n\\n")
@@ -450,7 +402,7 @@ export async function agentClick(target: string): Promise<boolean> {
     if (!el) {
       const options = Array.from(document.querySelectorAll(
         'a[href],button,[role="button"],input:not([type="hidden"]),textarea,select,summary,' +
-        '[contenteditable="true"],[role="textbox"],[role="listitem"],.dcg-expressionitem'
+        '[contenteditable="true"],[role="textbox"],[role="listitem"]'
       )).filter(visible);
       const folded = want.toLowerCase();
       el =
@@ -550,34 +502,6 @@ export async function agentType(
   const result = await runInPage<{ ok: boolean; detail?: string; error?: string }>(`
     const text = ${JSON.stringify(text)};
     const wanted = ${JSON.stringify(selector ?? "")};
-    const onDesmosPage = location.hostname.indexOf("desmos.") >= 0;
-    const desmosCalc = window.Calc;
-
-    // The canvas editor can be focused or not; when the user is on Desmos and
-    // asks to type an equation, the calculator's own API is the honest target.
-    // Read it back before falling through to ordinary keyboard input.
-    if (onDesmosPage && desmosCalc && typeof desmosCalc.setExpression === "function") {
-      try {
-        const rows = Array.from(document.querySelectorAll(".dcg-expressionitem"));
-        const selectedRow = document.querySelector(".dcg-expressionitem.dcg-selected");
-        const row = selectedRow || rows[0] || null;
-        const all = typeof desmosCalc.getExpressions === "function" ? desmosCalc.getExpressions() : [];
-        const id =
-          (row && row.getAttribute("expr-id")) ||
-          desmosCalc.selectedExpressionId ||
-          (all[0] && all[0].id) ||
-          "1";
-        desmosCalc.setExpression({ id: String(id), latex: text });
-        const latest = typeof desmosCalc.getExpressions === "function" ? desmosCalc.getExpressions() : all;
-        const compact = (value) => String(value || "").replace(/\\s+/g, "");
-        const stored = latest.some(
-          (item) => item.id === String(id) && compact(item.latex) === compact(text),
-        );
-        if (stored) return { ok: true, detail: "Desmos expression " + id };
-      } catch (_) {
-        /* fall through to the field */
-      }
-    }
 
     const visible = (el) => {
       const rect = el.getBoundingClientRect();
@@ -614,37 +538,6 @@ export async function agentType(
 
     el.scrollIntoView({ block: "center", inline: "center" });
     if (typeof el.focus === "function") el.focus();
-
-    // Desmos draws its equation editor on a canvas and drives MathQuill from a
-    // hidden textarea. Synthetic key events do not reach it reliably, but the
-    // page exposes the same graph API the calculator itself uses. This keeps
-    // the action real and verifiable: set the expression, then read it back.
-    const calc = window.Calc;
-    const desmosRow = el.closest ? el.closest(".dcg-expressionitem") : null;
-    const onDesmos = location.hostname.indexOf("desmos.") >= 0;
-    if (onDesmos && calc && typeof calc.setExpression === "function") {
-      try {
-        const all = typeof calc.getExpressions === "function" ? calc.getExpressions() : [];
-        const selected = document.querySelector(".dcg-expressionitem.dcg-selected");
-        const id =
-          (desmosRow && desmosRow.getAttribute("expr-id")) ||
-          (selected && selected.getAttribute("expr-id")) ||
-          calc.selectedExpressionId ||
-          (all[0] && all[0].id) ||
-          "1";
-        calc.setExpression({ id: String(id), latex: text });
-        const compact = (value) => String(value || "").replace(/\\s+/g, "");
-        const latest = typeof calc.getExpressions === "function" ? calc.getExpressions() : all;
-        const stored = latest.some(
-          (item) => item.id === String(id) && compact(item.latex) === compact(text),
-        );
-        return stored
-          ? { ok: true, detail: "Desmos expression " + id }
-          : { ok: false, error: "Desmos did not keep the expression; try clicking the row again." };
-      } catch (error) {
-        return { ok: false, error: String(error) };
-      }
-    }
 
     if (el.isContentEditable) {
       const selection = window.getSelection();
@@ -743,8 +636,7 @@ export async function agentScroll(pixels: number): Promise<boolean> {
   return Boolean(result?.ok);
 }
 
-async function navigateNative(raw: string, task = ""): Promise<boolean> {
-  const url = resolveBrowserAddress(raw, task);
+async function navigateNative(url: string): Promise<boolean> {
   const before = getElContext()?.url ?? "";
 
   // BrowserView owns the address bar, tab title, history and the native
@@ -798,9 +690,8 @@ export async function waitForNavigation(
   return false;
 }
 
-export async function agentNavigate(url: string, task = ""): Promise<boolean> {
+export async function agentNavigate(target: string): Promise<boolean> {
   if (activeEngine() === "chrome") {
-    const target = resolveBrowserAddress(url, task);
     const before = getElContext()?.url ?? "";
     try {
       await chromeCommand("navigate", { url: target });
@@ -813,7 +704,110 @@ export async function agentNavigate(url: string, task = ""): Promise<boolean> {
     }
     return waitForNavigation(target, 10_000, before);
   }
-  return navigateNative(url, task);
+  return navigateNative(target);
+}
+
+export interface AgentTab {
+  id: string;
+  title: string;
+  url: string;
+  active: boolean;
+}
+
+/** The tabs the browser agent can target, for either engine. */
+export async function agentTabs(): Promise<AgentTab[]> {
+  if (activeEngine() === "chrome") {
+    try {
+      const result = await chromeCommand<ChromeEvent & { tabs?: ChromeTab[] }>("tabs");
+      return (result.tabs ?? []).map((tab) => ({
+        id: String(tab.id),
+        title: tab.title || tab.url,
+        url: tab.url,
+        active: Boolean(tab.active),
+      }));
+    } catch {
+      return [];
+    }
+  }
+  const data = loadEl();
+  return data.tabs.map((tab) => ({
+    id: tab.id,
+    title: tab.title || tab.url,
+    url: tab.url,
+    active: tab.id === data.active,
+  }));
+}
+
+function resolveTab(tabs: AgentTab[], target?: string | number): AgentTab | null {
+  if (!tabs.length) return null;
+  if (target == null || target === "") return tabs.find((tab) => tab.active) ?? tabs[0];
+  const value = String(target);
+  const index = Number(value);
+  if (Number.isInteger(index) && index >= 0 && index < tabs.length) return tabs[index];
+  return tabs.find((tab) => tab.id === value) ?? null;
+}
+
+/** Native tabs live in BrowserView; the event keeps its title bar in sync. */
+function sendNativeTab(action: "activate" | "new" | "close", detail: Record<string, string>) {
+  if (!document.querySelector(".el")) return false;
+  window.dispatchEvent(new CustomEvent("lantas:tab", { detail: { action, ...detail } }));
+  return true;
+}
+
+/** Switch the page the agent is driving. */
+export async function agentSwitchTab(target?: string | number): Promise<boolean> {
+  const tab = resolveTab(await agentTabs(), target);
+  if (!tab) return false;
+  if (activeEngine() === "chrome") {
+    try {
+      await chromeCommand("activate", { tabId: Number(tab.id) });
+      await sleep(500);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  if (!sendNativeTab("activate", { id: tab.id })) return false;
+  await sleep(500);
+  return true;
+}
+
+/** Open a tab in the active engine and make it the agent's target. */
+export async function agentNewTab(url: string): Promise<boolean> {
+  if (activeEngine() === "chrome") {
+    try {
+      await chromeCommand("navigate", { url, newTab: true });
+      await sleep(600);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  if (!sendNativeTab("new", { url })) return false;
+  await sleep(600);
+  return true;
+}
+
+/** Close a tab by id or current index. */
+export async function agentCloseTab(target?: string | number): Promise<boolean> {
+  const tabs = await agentTabs();
+  // Closing the last tab can close the window or lose the page the user is
+  // reading. Ask the model to leave one tab instead.
+  if (tabs.length < 2) return false;
+  const tab = resolveTab(tabs, target);
+  if (!tab) return false;
+  if (activeEngine() === "chrome") {
+    try {
+      await chromeCommand("close", { tabId: Number(tab.id) });
+      await sleep(500);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  if (!sendNativeTab("close", { id: tab.id })) return false;
+  await sleep(500);
+  return true;
 }
 
 export async function agentHistory(direction: "back" | "forward"): Promise<boolean> {

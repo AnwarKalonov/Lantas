@@ -367,6 +367,33 @@ export function BrowserView({
     });
   };
 
+  // Browser-tool tab actions use the same tab strip the user sees. Keeping
+  // this in one place means an agent switch cannot silently point at a tab
+  // that the UI has already closed.
+  useEffect(() => {
+    const onAgentTab = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ action?: string; id?: string; url?: string }>
+      ).detail;
+      if (!detail) return;
+      if (detail.action === "activate" && detail.id) {
+        setData((current) =>
+          current.tabs.some((tab) => tab.id === detail.id)
+            ? { ...current, active: detail.id as string }
+            : current,
+        );
+      } else if (detail.action === "new") {
+        newTab(detail.url || EL_HOME);
+      } else if (detail.action === "close" && detail.id) {
+        closeTab(detail.id);
+      }
+    };
+    window.addEventListener("lantas:tab", onAgentTab);
+    return () => window.removeEventListener("lantas:tab", onAgentTab);
+    // The handlers only use state setters, so one listener is enough.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const step = (direction: "back" | "forward") => {
     if (engine === "chrome") {
       void agentHistory(direction).then((ok) => {

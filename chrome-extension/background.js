@@ -12,7 +12,7 @@
 
 const PORT = 47654;
 const ENDPOINT = `ws://127.0.0.1:${PORT}/lantas`;
-const VERSION = "0.6.0";
+const VERSION = "0.6.1";
 
 let socket = null;
 let retry = 0;
@@ -216,28 +216,6 @@ async function realAct(tab, message) {
       await waitForLoad(tab.id);
       const state = await inspectTab(tab.id);
 
-      // MathQuill can swallow synthetic-looking key events. If this is a
-      // Desmos calculator and the expression is not in the graph yet, set it
-      // through the calculator's own API instead of reporting a false success.
-      if (
-        /desmos\./i.test(tab.url || "") &&
-        message.text &&
-        state.page?.text &&
-        !state.page.text.replace(/\s+/g, "").includes(String(message.text).replace(/\s+/g, ""))
-      ) {
-        const fallback = await sendToTab(tab.id, {
-          cmd: "act",
-          action: "type",
-          selector: message.selector,
-          index: message.index,
-          text: message.text,
-          submit: message.submit,
-        });
-        if (fallback?.ok) {
-          return { ...fallback, detail: "Set the expression in the calculator" };
-        }
-      }
-
       return { ok: true, detail: "Typed with the keyboard", ...state };
     }
 
@@ -397,11 +375,25 @@ async function targetTab(tabId) {
 
 function normalizeUrl(raw) {
   const value = String(raw || "").trim();
-  if (!value) throw new Error("No address was given.");
-  if (/^https?:\/\//i.test(value)) return value;
-  if (value.toLowerCase() === "desmos") return "https://www.desmos.com/calculator";
-  if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(value)) return `https://${value}`;
-  return `https://www.google.com/search?q=${encodeURIComponent(value)}`;
+  if (!value) throw new Error("No address was given. The model must send a complete https:// URL.");
+  if (/\s/.test(value)) {
+    throw new Error(`"${value}" is not a web address. The model must choose the exact page and send a complete https:// URL.`);
+  }
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      const parsed = new URL(value);
+      if (parsed.hostname) return parsed.href;
+    } catch {
+      /* handled below */
+    }
+  }
+  if (/^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/\S*)?$/i.test(value)) {
+    return `https://${value}`;
+  }
+  if (/^localhost(?::\d+)?(?:\/\S*)?$/i.test(value)) return `http://${value}`;
+  throw new Error(
+    `"${value}" is not a full web address. The app will not guess a site or search for it; the model must send an exact https:// URL.`,
+  );
 }
 
 async function sendToTab(tabId, message) {

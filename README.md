@@ -192,16 +192,25 @@ The extension is version `0.6.1`. Reload it after changing extension files.
 
 ### Terminal app
 
-The same agent also runs without a window:
+The same agent also runs without a window. One command installs it and makes `lantas` available everywhere:
 
 ```bash
-node cli/lantas.mjs          # or npm run cli
-bash scripts/install-cli.sh  # installs `lantas` under ~/.local/bin
-lantas setup
-lantas "find the failing test and fix it"
+bash scripts/install-cli.sh   # copies the CLI to ~/.local/bin and adds it to PATH
+lantas setup                  # connect a provider once
+lantas                        # start a session in the current folder
 ```
 
-Use `--plan` for read-only work. The CLI keeps its config in `~/.lantas/config.json` with mode `0600`, or reads the provider's usual environment variable.
+The installer writes to `~/.local/share/lantas`, symlinks `~/.local/bin/lantas`, and appends one `export PATH=` line to `~/.zshrc` (or `~/.bashrc`) only when that folder is missing from `PATH`. Set `LANTAS_PREFIX` to install somewhere else. Node 18+ is the only requirement.
+
+Then ask it for work from any folder:
+
+```bash
+lantas "find the failing test and fix it"
+lantas --plan "explain how src/lib/agentRuntime.ts runs a turn"
+lantas --model claude-sonnet-4-5 --provider anthropic
+```
+
+Plan mode is read-only. Build mode asks before each write or command, and `--yes` approves them up front. The CLI keeps its config in `~/.lantas/config.json` with mode `0600`, or reads the provider's usual environment variable. Running it from the repository without installing also works: `node cli/lantas.mjs` or `npm run cli`.
 
 ## Connect a model
 
@@ -289,6 +298,8 @@ Tagged releases are built by `.github/workflows/macos.yml` on an Apple Silicon r
 
 The public site is generated from `public-repo/`. The `site-deploy.yml` workflow copies it to the public repository. It uses the same token; without it, the site job fails at the token check instead of publishing a partial site.
 
+Download links on the site never need editing. Every button points at `releases/latest` and carries a `data-dl` kind (`dmg`, `app`, `extension`); `assets/site.js` reads the latest release from the GitHub API on load and swaps in that build's real asset URLs, name and version. If the API is unreachable the buttons still land on the newest release page instead of a dead file.
+
 ## Troubleshooting
 
 ### The app opens but the model does not answer
@@ -313,11 +324,12 @@ Use **System Settings → Privacy & Security → Open Anyway** once. The app is 
 
 ### The release or website did not update
 
-Check the Actions run. If the publish step was skipped, `LANTAS_RELEASE_TOKEN` is missing. Add the secret in **Settings → Secrets and variables → Actions**, then rerun the workflow. Never paste the token into a chat, source file or commit.
+Check the Actions run. If the publish step was skipped, `LANTAS_RELEASE_TOKEN` is missing or expired. Add the secret in **Settings → Secrets and variables → Actions**, then rerun the workflow. Never paste the token into a chat, source file or commit.
 
 ## Credits
 
 - Browser interaction design is informed by [Dao Browser](https://github.com/msgbyte/dao-browser), copyright Dao Browser Authors, BSD-3-Clause. No Dao source code is vendored in this repository.
+- The Code surface follows the modern editor layout that [Zed](https://github.com/zed-industries/zed) popularised — an activity rail, editor tabs, a command palette, an integrated terminal and an agent panel. It is built on Monaco and written from scratch here; Zed is GPL-3.0, so none of its source is copied, vendored or linked into Lantas.
 - Chromium, Chrome and their marks belong to their respective owners. Lantas is not affiliated with Google or the Dao project.
 - Lantas uses React, Vite, Monaco, Tauri and the providers listed in `package.json`.
 

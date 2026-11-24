@@ -36,10 +36,28 @@ printf '    %s\n' "$BIN/lantas"
 printf '    config: ~/.lantas/config.json\n\n'
 
 case ":$PATH:" in
-  *":$BIN:"*) printf '  Run: lantas setup\n\n' ;;
+  *":$BIN:"*)
+    printf '  Run: lantas setup\n\n'
+    ;;
   *)
-    printf '  Add the folder to PATH, then run lantas setup:\n\n'
-    printf '    echo '\''export PATH="%s:$PATH"'\'' >> ~/.zshrc\n' "$BIN"
-    printf '    source ~/.zshrc\n\n'
+    # Pick the file the user's login shell actually reads, add the folder once,
+    # and stay silent on later installs.
+    SHELL_NAME="$(basename "${SHELL:-/bin/zsh}")"
+    case "$SHELL_NAME" in
+      bash) RC="$HOME/.bashrc" ;;
+      *)    RC="$HOME/.zshrc" ;;
+    esac
+    LINE="export PATH=\"$BIN:\$PATH\""
+    if [ -f "$RC" ] && grep -Fq "$BIN" "$RC" 2>/dev/null; then
+      printf '  %s is already on PATH in %s.\n\n' "$BIN" "$RC"
+    else
+      printf '\n# Lantas CLI\n%s\n' "$LINE" >> "$RC"
+      printf '  Added %s to PATH in %s\n\n' "$BIN" "$RC"
+    fi
+    if [ -x "$BIN/lantas" ]; then
+      printf '  Open a new terminal (or run: source %s), then:\n\n' "$RC"
+      printf '    lantas setup     # connect a model once\n'
+      printf '    lantas           # start a session in the current folder\n\n'
+    fi
     ;;
 esac

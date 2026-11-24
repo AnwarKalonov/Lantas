@@ -18,6 +18,8 @@ A real workspace, not a code block in a chat. Open a folder and Lantas gets Mona
 
 ![Lantas Code](docs/screenshots/code.png)
 
+*The Code surface with a sample workspace open.*
+
 ### Browser
 
 A browser with its own engine, plus a Chrome bridge for the tabs you already have open. Lantas reads the DOM — roles, labels, values, what is visible and enabled — instead of guessing from a screenshot. It can click by label, type, scroll, navigate, wait for a result and re-read the page to verify what happened.

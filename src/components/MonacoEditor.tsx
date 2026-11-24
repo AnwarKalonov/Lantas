@@ -160,9 +160,15 @@ export function MonacoEditor({
 
   useEffect(() => {
     if (!host.current) return undefined;
-    const editor = monaco.editor.create(host.current, {
+    // Give the model a real file URI so the TypeScript worker sees a `.tsx` or
+    // `.jsx` extension and parses JSX and generic type arguments correctly.
+    const model = monaco.editor.createModel(
       value,
-      language: monacoLanguage(path),
+      monacoLanguage(path),
+      monaco.Uri.file(`/${path}`),
+    );
+    const editor = monaco.editor.create(host.current, {
+      model,
       theme: theme === "dark" ? "lantas-dark" : "lantas-light",
       automaticLayout: true,
       fontFamily: prefs.fontFamily,
@@ -187,8 +193,7 @@ export function MonacoEditor({
       fixedOverflowWidgets: true,
     });
     editorRef.current = editor;
-    const first = editor.getModel();
-    if (first) models.current.set(path, first);
+    models.current.set(path, model);
 
     const change = editor.onDidChangeModelContent(() => {
       const model = editor.getModel();
@@ -221,7 +226,11 @@ export function MonacoEditor({
     if (!editor) return;
     let model = models.current.get(path);
     if (!model) {
-      model = monaco.editor.createModel(value, monacoLanguage(path));
+      model = monaco.editor.createModel(
+        value,
+        monacoLanguage(path),
+        monaco.Uri.file(`/${path}`),
+      );
       models.current.set(path, model);
     }
     if (editor.getModel() !== model) {

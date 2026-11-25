@@ -265,6 +265,43 @@ fn open_in_chrome(url: String) -> Result<(), String> {
     open_in_browser(&url, true)
 }
 
+/// Opens the macOS Privacy & Security pane for one permission.
+///
+/// An app cannot grant itself Screen Recording, Accessibility or Files access:
+/// the switch stays with the user. This puts the switch in front of them
+/// instead of telling them to go hunting through System Settings.
+#[tauri::command]
+fn open_privacy_settings(pane: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let anchor = match pane.as_str() {
+            "screen" => "Privacy_ScreenCapture",
+            "accessibility" => "Privacy_Accessibility",
+            "files" => "Privacy_FilesAndFolders",
+            "automation" => "Privacy_Automation",
+            "microphone" => "Privacy_Microphone",
+            "camera" => "Privacy_Camera",
+            other => return Err(format!("Unknown privacy pane: {other}")),
+        };
+        let url = format!("x-apple.systempreferences:com.apple.preference.security?{anchor}");
+        let status = std::process::Command::new("/usr/bin/open")
+            .arg(&url)
+            .status()
+            .map_err(|error| format!("Could not open System Settings: {error}"))?;
+        if status.success() {
+            return Ok(());
+        }
+        return Err("System Settings did not open. Choose Apple menu › System Settings › Privacy & Security."
+            .to_string());
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = pane;
+        Err("System Settings is macOS-only.".to_string())
+    }
+}
+
 /// Hands the open folder to VS Code. Lantas keeps its own workbench, but the
 /// same files can always be opened in the editor the user already knows.
 #[tauri::command]
@@ -309,6 +346,44 @@ fn open_in_vscode(path: String) -> Result<(), String> {
     }
 }
 
+/// One still frame of the whole screen as base64 JPEG.
+///
+/// WKWebView has no `getDisplayMedia`, which is why the browser build's screen
+/// sharing threw instead of opening a picker. The desktop app asks macOS for
+/// the shot with its own tool instead; the frontend turns the bytes into a
+/// data URL and attaches them exactly like a browser frame.
+#[tauri::command]
+fn screen_capture() -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+        let path = std::env::temp_dir().join(format!("lantas-screen-{}.jpg", std::process::id()));
+        let status = std::process::Command::new("/usr/sbin/screencapture")
+            .args(["-x", "-t", "jpg"])
+            .arg(&path)
+            .status()
+            .map_err(|error| format!("Could not start screen capture: {error}"))?;
+        if !status.success() {
+            return Err("Screen capture was refused. Allow Lantas in System Settings › Privacy & Security › Screen Recording, then try again.".to_string());
+        }
+        let bytes = std::fs::read(&path)
+            .map_err(|error| format!("Could not read the screen capture: {error}"))?;
+        let _ = std::fs::remove_file(&path);
+        if bytes.is_empty() {
+            return Err(
+                "The screen capture was empty. Check Screen Recording permission.".to_string(),
+            );
+        }
+        Ok(STANDARD.encode(bytes))
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Screen capture is available in the macOS build.".to_string())
+    }
+}
+
 fn open_in_browser(url: &str, prefer_chrome: bool) -> Result<(), String> {
     let parsed = parse_url(url)?;
     let target = parsed.as_str();
@@ -325,11 +400,16 @@ fn open_in_browser(url: &str, prefer_chrome: bool) -> Result<(), String> {
                 }
             }
         }
-        std::process::Command::new("open")
+        let status = std::process::Command::new("open")
             .arg(target)
             .status()
             .map_err(|error| format!("Could not open {target} ({error})."))?;
-        return Ok(());
+        if status.success() {
+            return Ok(());
+        }
+        // Report it: the app then keeps the connect link on screen instead of
+        // announcing a browser that never appeared.
+        return Err(format!("macOS could not open {target}."));
     }
 
     #[cfg(target_os = "windows")]
@@ -353,11 +433,14 @@ fn open_in_browser(url: &str, prefer_chrome: bool) -> Result<(), String> {
                 }
             }
         }
-        std::process::Command::new("xdg-open")
+        let status = std::process::Command::new("xdg-open")
             .arg(target)
             .status()
             .map_err(|error| format!("Could not open {target} ({error})."))?;
-        Ok(())
+        if status.success() {
+            return Ok(());
+        }
+        Err(format!("xdg-open could not open {target}."))
     }
 }
 
@@ -474,6 +557,8 @@ pub fn run() {
             open_external,
             open_in_chrome,
             open_in_vscode,
+            open_privacy_settings,
+            screen_capture,
             git::git_status,
             git::git_diff,
             git::git_stage,

@@ -91,6 +91,38 @@ export function ContextPanel({
               <button
                 type="button"
                 className="cap-row"
+                onClick={() => setSettings({ fileAccess: !settings.fileAccess })}
+              >
+                <span className="cap-icon">
+                  <Icon name="folder" size={14} />
+                </span>
+                <span className="cap-text">
+                  <span className="cap-title">Files</span>
+                  <span className="cap-sub">Reads the open folder</span>
+                </span>
+                <span className={cx("cap-state", settings.fileAccess && "is-on")}>
+                  {settings.fileAccess ? "on" : "off"}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="cap-row"
+                onClick={() => setSettings({ terminalAccess: !settings.terminalAccess })}
+              >
+                <span className="cap-icon">
+                  <Icon name="terminal" size={14} />
+                </span>
+                <span className="cap-text">
+                  <span className="cap-title">Commands</span>
+                  <span className="cap-sub">Runs in that folder</span>
+                </span>
+                <span className={cx("cap-state", settings.terminalAccess && "is-on")}>
+                  {settings.terminalAccess ? "on" : "off"}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="cap-row"
                 onClick={() => setSettings({ screenAccess: !settings.screenAccess })}
               >
                 <span className="cap-icon">

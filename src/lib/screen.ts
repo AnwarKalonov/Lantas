@@ -6,12 +6,34 @@
  * The stream is never uploaded; it stays in this process.
  */
 
+import { inTauri } from "./native";
+
 let active: MediaStream | null = null;
+
+/** Whether this window can produce a screen frame at all. */
+export function screenCaptureSupported(): boolean {
+  return inTauri() || Boolean(navigator.mediaDevices?.getDisplayMedia);
+}
+
+/**
+ * One frame from the desktop app.
+ *
+ * A WKWebView window has no getDisplayMedia, so the native side takes the shot
+ * and hands back a base64 JPEG. Resolves to a data URL ready to attach.
+ */
+export async function captureNativeScreen(): Promise<string | null> {
+  if (!inTauri()) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  const encoded = await invoke<string>("screen_capture");
+  return encoded ? `data:image/jpeg;base64,${encoded}` : null;
+}
 
 export async function acquireScreen(): Promise<MediaStream> {
   if (active) return active;
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getDisplayMedia) {
-    throw new Error("Screen capture is only available in a windowed build of this app.");
+    throw new Error(
+      "This window cannot capture the screen. In the desktop app, allow Lantas in System Settings › Privacy & Security › Screen Recording; in a browser, open the app in Chrome or Edge.",
+    );
   }
   active = await navigator.mediaDevices.getDisplayMedia({
     video: { frameRate: 4 },

@@ -10,7 +10,7 @@ import {
 } from "../lib/providers";
 import { useStore } from "../lib/store";
 import { APP_VERSION, checkForUpdate, checkNativeUpdate } from "../lib/updates";
-import { inTauri, openExternal, openInVsCode } from "../lib/native";
+import { inTauri, openExternal, openInVsCode, openPrivacySettings } from "../lib/native";
 import { clearAuditLog, getAuditLog, subscribeAudit } from "../lib/audit";
 import type { AgentId, ProviderId, ProviderMeta, ThemeMode } from "../lib/types";
 import { cx, uid } from "../lib/util";
@@ -237,9 +237,16 @@ interface SettingsModalProps {
   open: boolean;
   initialTab?: SettingsTab;
   onClose: () => void;
+  /** Reopens the consent sheet so the user can review every capability at once. */
+  onReviewPermissions?: () => void;
 }
 
-export function SettingsModal({ open, initialTab = "general", onClose }: SettingsModalProps) {
+export function SettingsModal({
+  open,
+  initialTab = "general",
+  onClose,
+  onReviewPermissions,
+}: SettingsModalProps) {
   const { state, setSettings, updateSkill, setView, setCommands, recoverSession, notify } =
     useStore();
   const [tab, setTab] = useState<SettingsTab>(initialTab);
@@ -663,7 +670,18 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
           {tab === "permissions" && (
             <section className="settings-section">
               <h2>Permissions</h2>
-              <p className="settings-lede">What a run may touch without asking.</p>
+              <p className="settings-lede">What Lantas may touch. Nothing here is on by default.</p>
+
+              {onReviewPermissions && (
+                <div className="settings-inline permissions-review">
+                  <span className="field-help">
+                    Show the same list Lantas asks about on first launch.
+                  </span>
+                  <button type="button" className="button-quiet small" onClick={onReviewPermissions}>
+                    Review permissions
+                  </button>
+                </div>
+              )}
 
               <div className="settings-field">
                 <span className="field-label">Edits and commands</span>
@@ -691,14 +709,26 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
               </div>
 
               <Toggle
+                label="File access"
+                description="Read and edit files in the folder you open. Off blocks every file tool."
+                checked={settings.fileAccess}
+                onChange={(next) => setSettings({ fileAccess: next })}
+              />
+              <Toggle
+                label="Run commands"
+                description="Run builds, tests and git in that folder."
+                checked={settings.terminalAccess}
+                onChange={(next) => setSettings({ terminalAccess: next })}
+              />
+              <Toggle
                 label="Screen access"
-                description="Reads the frontmost window and open files."
+                description="Attach a fresh screenshot to a turn while it is on."
                 checked={settings.screenAccess}
                 onChange={(next) => setSettings({ screenAccess: next })}
               />
               <Toggle
                 label="Computer control"
-                description="Pointer and keyboard. macOS asks for Accessibility on first use."
+                description="Click, type and scroll in the browser. macOS asks for Accessibility on first use."
                 checked={settings.computerControl}
                 onChange={(next) => setSettings({ computerControl: next })}
               />
@@ -706,9 +736,33 @@ export function SettingsModal({ open, initialTab = "general", onClose }: Setting
               <div className="notice">
                 <Icon name="alert" size={14} />
                 <span>
-                  Screen and Control are permissioned by macOS. The app requests Screen
+                  Screen and Control are also permissioned by macOS. The app requests Screen
                   Recording and Accessibility the first time either is used in the desktop build.
                 </span>
+              </div>
+
+              <div className="settings-inline permissions-review">
+                <span className="field-help">Open the switch yourself — macOS will not let an app grant it.</span>
+                <div className="perm-actions">
+                  <button
+                    type="button"
+                    className="button-quiet small"
+                    onClick={() => void openPrivacySettings("screen").then((ok) => {
+                      if (!ok) notify("System Settings only opens from the desktop app", "error");
+                    })}
+                  >
+                    Screen Recording
+                  </button>
+                  <button
+                    type="button"
+                    className="button-quiet small"
+                    onClick={() => void openPrivacySettings("accessibility").then((ok) => {
+                      if (!ok) notify("System Settings only opens from the desktop app", "error");
+                    })}
+                  >
+                    Accessibility
+                  </button>
+                </div>
               </div>
 
               <div className="settings-field">

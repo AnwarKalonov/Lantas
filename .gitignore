@@ -9,6 +9,8 @@ src-tauri/target
 src-tauri/gen
 
 # Local logs & scratch
+.cdp.pid
+.site.pid
 .logs
 .home.pid
 .dev.pid
@@ -20,3 +22,18 @@ src-tauri/gen
 /.rebrand/
 /.tmp/
 /freebuff-sites-build/
+
+# Browser engine venv (recreated by engine/run.sh)
+engine/.venv/
+__pycache__/
+
+# Secrets, keys and signing material — never commit these
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.key
+*.keystore
+release-assets/
+tauri-signing/

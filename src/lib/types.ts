@@ -57,7 +57,7 @@ export interface WorkspaceFile {
   relative?: string;
 }
 
-export type ToolKind = "read" | "grep" | "edit" | "terminal" | "plan" | "web";
+export type ToolKind = "read" | "grep" | "edit" | "terminal" | "plan" | "web" | "deliver";
 export type ToolState = "run" | "done" | "error";
 
 export interface DiffLine {
@@ -71,7 +71,16 @@ export type Part =
   | { id: string; kind: "tool"; tool: ToolKind; label: string; detail?: string; state: ToolState }
   | { id: string; kind: "diff"; path: string; added: number; removed: number; lines: DiffLine[] }
   | { id: string; kind: "shell"; command: string; output: string[]; state: ToolState }
-  | { id: string; kind: "note"; text: string };
+  | { id: string; kind: "note"; text: string }
+  | {
+      id: string;
+      kind: "artifact";
+      /** Key in the in-memory artifact registry, used by the Download button. */
+      artifactId: string;
+      name: string;
+      format: string;
+      bytes: number;
+    };
 
 export interface Message {
   id: string;
@@ -212,8 +221,14 @@ export interface Settings {
   defaultProvider: ProviderId;
   defaultModel: string;
   permissionMode: "auto" | "ask";
+  /** The user allowed Lantas to read and edit the folder it was given. */
+  fileAccess: boolean;
+  /** The user allowed commands to run in that folder. */
+  terminalAccess: boolean;
   screenAccess: boolean;
   computerControl: boolean;
+  /** The consent sheet has been shown, so it is not shown on every launch. */
+  permissionsReviewed: boolean;
   telemetry: boolean;
   notifications: boolean;
   /** "provider/model" keys pinned to the top of every model list. */

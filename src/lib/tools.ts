@@ -1,3 +1,4 @@
+import { buildArtifact, stashArtifact } from "./artifacts";
 import type { AgentId, DiffLine, Skill, WorkspaceFile } from "./types";
 import { languageFor } from "./workspace";
 import { semanticSearch } from "./semantic";
@@ -29,6 +30,7 @@ import {
   waitForDomChange,
   waitForNavigation,
 } from "./browserAgent";
+import { engineHealth, engineTask } from "./browserSidecar";
 import { openInChrome } from "./chrome";
 import { aiDriving, getElContext } from "./el";
 import { runTerminalCommand } from "./terminal";
@@ -66,6 +68,12 @@ export interface ToolContext {
   drive?: boolean;
   /** The user's request for this turn, used to resolve ambiguous browser targets. */
   task?: string;
+  /** What the user explicitly allowed in the permission sheet. */
+  grants?: {
+    files: boolean;
+    terminal: boolean;
+    control: boolean;
+  };
 }
 
 export interface ToolCall {
@@ -84,6 +92,8 @@ export interface ToolOutcome {
   changed?: { path: string; text: string };
   /** A command the assistant ran, with the output the user should see. */
   shell?: { command: string; output: string[]; state: "done" | "error" };
+  /** A finished file the transcript offers as a download. */
+  artifact?: { id: string; name: string; format: string; bytes: number };
   /** Resource the permission engine should check. */
   resource: string;
 }
@@ -99,6 +109,7 @@ export const TOOL_NAMES = [
   "terminal",
   "browser",
   "integrations",
+  "deliver",
 ] as const;
 
 export type ToolName = (typeof TOOL_NAMES)[number];
@@ -115,6 +126,7 @@ export const TOOL_LABELS: Record<string, string> = {
   terminal: "Terminal",
   browser: "Browser",
   integrations: "Connected apps",
+  deliver: "Deliver file",
 };
 
 export function toolLabel(call: ToolCall): string {
@@ -315,9 +327,80 @@ export async function runTool(
   context: ToolContext,
 ): Promise<ToolOutcome> {
   const { files } = context;
+  const grants = context.grants;
+
+  // Permission is enforced here, before a tool runs, not only in the UI. A
+  // model that ignores the rule still cannot read, run or click without the
+  // grant the user gave on the permission sheet.
+  if (grants) {
+    const action = String(call.args.action ?? "").toLowerCase();
+    const denied = (summary: string, content: string): ToolOutcome => ({
+      ok: false,
+      summary,
+      content,
+      resource: toolResource(call),
+    });
+    if (
+      ["read", "glob", "grep", "write", "edit", "semantic_search"].includes(call.name) &&
+      !grants.files
+    ) {
+      return denied(
+        "File access is off",
+        "The user has not allowed file access, so this file was not read. Ask them to allow it in Settings → Permissions, or to open a folder first. Do not try another way to reach the files.",
+      );
+    }
+    if (call.name === "terminal" && !grants.terminal) {
+      return denied(
+        "Running commands is off",
+        "The user has not allowed commands to run. Ask them to allow Run commands in Settings → Permissions, then continue. Do not retry the same command.",
+      );
+    }
+    if (
+      call.name === "browser" &&
+      !["snapshot", "extract", "find"].includes(action) &&
+      !grants.control
+    ) {
+      return denied(
+        "Computer control is off",
+        "The user has not allowed Lantas to click or type. Ask them to allow Computer control in Settings → Permissions, then continue. Reading the page is still fine.",
+      );
+    }
+  }
 
   try {
     switch (call.name) {
+      case "deliver": {
+        const files = Array.isArray(call.args.files)
+          ? (call.args.files as Array<{ name?: unknown; content?: unknown }>)
+              .filter((file) => file && typeof file.name === "string")
+              .map((file) => ({ name: String(file.name), content: String(file.content ?? "") }))
+          : undefined;
+        const built = buildArtifact({
+          name: typeof call.args.name === "string" ? call.args.name : "",
+          format: typeof call.args.format === "string" ? call.args.format : undefined,
+          content: typeof call.args.content === "string" ? call.args.content : undefined,
+          files,
+        });
+        const id = stashArtifact(built);
+        return {
+          ok: true,
+          summary: `Delivered ${built.filename}`,
+          content: [
+            `Built ${built.filename} — ${built.format}, ${built.bytes.length} bytes.`,
+            "It is attached to the conversation as a download card, so the user can save it with one click.",
+            "Do not paste the file contents into your answer and do not ask for a path.",
+            "Say what the file contains in one or two sentences, then stop.",
+          ].join("\n"),
+          resource: built.filename,
+          artifact: {
+            id,
+            name: built.filename,
+            format: built.format,
+            bytes: built.bytes.length,
+          },
+        };
+      }
+
       case "read": {
         const path = normalizePath(call.args.path);
         const file = findFile(files, path);
@@ -1065,6 +1148,39 @@ async function runBrowserTool(
         : fail("That tab does not exist, the browser is not open, or it is the last tab.");
     }
 
+    /**
+     * A whole browsing job, handed to the local browser-use engine in its own
+     * process. Step-by-step actions above stay the default; this is for tasks
+     * that need a real browser (trusted input, downloads, sign-in, multi-page
+     * work) rather than one synthesised click.
+     */
+    case "task": {
+      const goal = String(args.task ?? args.goal ?? args.prompt ?? "").trim();
+      if (!goal) {
+        return fail("A task is required, for example: open Mathway and solve 2x + 4 = 10.");
+      }
+      const engine = await engineHealth();
+      if (!engine.ok) {
+        return fail(`${engine.detail} Then call task again, or keep using navigate and click here.`);
+      }
+      const run = await engineTask(goal, Number(args.maxSteps ?? 25) || 25);
+      if (!run.ok) return fail(run.error || "The browser engine did not finish that task.");
+      return {
+        ok: true,
+        summary: "Browser task finished",
+        content: [
+          run.result || "The engine finished but wrote no final answer.",
+          run.steps.length
+            ? `Steps it took:\n${run.steps.slice(0, 12).join("\n")}`
+            : "",
+          "It ran in its own Chromium window with the local profile, not in the embedded tab.",
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
+        resource,
+      };
+    }
+
     case "navigate": {
       const address = parseBrowserAddress(String(args.url ?? ""));
       if (!address.ok) return fail(address.error);
@@ -1092,7 +1208,7 @@ async function runBrowserTool(
 
     default:
       return fail(
-        `Unknown browser action ${action || "(none)"}. Use snapshot, extract, find, wait, click, click_at, hover, type, fill, select, check, evaluate, press, scroll, tabs, switch_tab, new_tab, close_tab, navigate, open_in_chrome, back, forward or reload.`,
+        `Unknown browser action ${action || "(none)"}. Use snapshot, extract, find, wait, click, click_at, hover, type, fill, select, check, evaluate, press, scroll, tabs, switch_tab, new_tab, close_tab, navigate, task, open_in_chrome, back, forward or reload.`,
       );
   }
 }
@@ -1242,15 +1358,18 @@ export const TOOL_MANUAL = [
   '- edit {"path","oldString","newString","replaceAll?"} — exact replacement; oldString must be unique.',
   '- skill {"name"} — load the full instructions of an enabled skill when the task matches it.',
   '- terminal {"command","timeoutMs?"} — run a command in the open workspace and return its real stdout and stderr. Use this for tests, builds, git and shell commands. Never claim a command ran without a terminal result.',
-  '- browser {"action",...} — actions: snapshot, extract, find {"query"}, wait {"text","timeoutMs?","gone?"}, click {"target"|"ref"}, click_at {"x","y"}, hover {"target"}, type/fill {"text","selector?","submit?"}, select {"target","value"}, check {"target","checked?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, tabs, switch_tab {"id"|"index"}, new_tab {"url"}, close_tab {"id"|"index"}, navigate {"url"}, open_in_chrome {"url"}, back, forward, reload.',
+  '- browser {"action",...} — actions: snapshot, extract, find {"query"}, wait {"text","timeoutMs?","gone?"}, click {"target"|"ref"}, click_at {"x","y"}, hover {"target"}, type/fill {"text","selector?","submit?"}, select {"target","value"}, check {"target","checked?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, tabs, switch_tab {"id"|"index"}, new_tab {"url"}, close_tab {"id"|"index"}, navigate {"url"}, task {"task","maxSteps?"}, open_in_chrome {"url"}, back, forward, reload.',
+  "- browser task hands the whole job to the local browser-use engine in its own Chromium (trusted input, real downloads, saved logins). Prefer it for \"open X and do Y\" requests that span pages; use the single actions when you need to stay in the embedded tab. If it reports that no engine is running, tell the user to run bash engine/run.sh once and keep going with single actions.",
   "",
   BROWSER_GUIDE,
   '- integrations {"action",...} — apps, tools {"toolkit"}, inbox {"limit","query"}, search_email {"query","limit"}, run {"slug","arguments"}.',
+  '- deliver {"name","format?","content?","files?"} — build a file the user can download: txt, md, csv, json, html, svg, pdf, or zip (pass files: [{"name","content"}] for a zip). The format is inferred from the name when omitted. Use it for any "make me a …", "export", "write a report" or "bundle these files" request instead of pasting the whole thing into chat.',
   "",
   "Rules:",
   "- Paths are relative to the workspace root. Never use absolute paths or ..",
   "- Prefer read and grep over inventing file contents. Quote real code when you explain it.",
   "- Keep edits minimal and in the project's existing style.",
   "- When the user asks about their mail, use integrations; ask for a search query rather than assuming the mailbox is only six messages.",
+  "- You can create files: when the user asks for a document, spreadsheet, export or bundle, call deliver. Never reply that you cannot make files or downloads.",
   "- Finish with a short answer that states what you changed and what you verified. If you could not verify something, say so.",
 ].join("\n");

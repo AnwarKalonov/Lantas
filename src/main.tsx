@@ -9,6 +9,9 @@ import "./styles-ide.css";
 import "./styles-workbench.css";
 import "./styles-studio.css";
 import "./styles-activity.css";
+import "./styles-chat.css";
+import "./styles-code.css";
+import "./styles-permissions.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

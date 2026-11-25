@@ -68,6 +68,13 @@ export async function elEval(script: string): Promise<void> {
  * read the page it just acted on instead of assuming the action landed.
  */
 export async function runInPage<T>(body: string): Promise<T | null> {
+  if (!inTauri()) {
+    // The web preview has no child webview to script, and guessing would make
+    // every click look like a page problem. Say what is actually missing.
+    throw new Error(
+      "Live page control needs the desktop app. This browser tab can read a page but cannot click or type in it; connect the Chrome extension to drive your own Chrome instead.",
+    );
+  }
   const script = `(() => { try { const value = (() => { ${body} })(); return JSON.stringify(value); } catch (error) { return JSON.stringify({ ok: false, error: String(error && error.message ? error.message : error) }); } })()`;
   const raw = await command<string>("el_run", { script });
   if (raw == null) return null;
@@ -86,6 +93,28 @@ export async function runInPage<T>(body: string): Promise<T | null> {
 }
 
 /** Opens the current workspace in the real VS Code, when it is installed. */
+export type PrivacyPane =
+  | "screen"
+  | "accessibility"
+  | "files"
+  | "automation"
+  | "microphone"
+  | "camera";
+
+/**
+ * Opens the matching macOS Privacy & Security pane. macOS does not let an app
+ * grant itself these permissions, so this is the closest we can get to asking:
+ * the user flips the switch, and the app re-checks.
+ */
+export async function openPrivacySettings(pane: PrivacyPane): Promise<boolean> {
+  if (!inTauri()) {
+    lastNativeError = "System Settings only opens from the desktop app.";
+    return false;
+  }
+  await command("open_privacy_settings", { pane });
+  return lastNativeOk;
+}
+
 export async function openInVsCode(path: string): Promise<boolean> {
   await command("open_in_vscode", { path });
   return lastNativeOk;
@@ -127,6 +156,9 @@ export async function openExternal(
       return true;
     } catch (error) {
       lastNativeError = error instanceof Error ? error.message : String(error);
+      // No Chrome, or a URL handler the app refused: the default browser is
+      // still a valid place for the OAuth page to finish.
+      if (target === "chrome") return openExternal(url, "default");
       return false;
     }
   }

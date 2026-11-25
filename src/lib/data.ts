@@ -158,8 +158,13 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultProvider: "anthropic",
   defaultModel: "claude-opus-4-5",
   permissionMode: "auto",
-  screenAccess: true,
+  // Capabilities stay off until the user answers the permission sheet. The
+  // sheet is shown once, on first launch, and lives in Settings afterwards.
+  fileAccess: false,
+  terminalAccess: false,
+  screenAccess: false,
   computerControl: false,
+  permissionsReviewed: false,
   telemetry: false,
   notifications: true,
   favoriteModels: [],

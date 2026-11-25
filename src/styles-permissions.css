@@ -1,0 +1,210 @@
+/* ==========================================================================
+   Permission consent sheet
+   ========================================================================== */
+
+.perm-sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 94vw);
+  max-height: 84vh;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--overlay);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+}
+
+.perm-head {
+  padding: 22px 22px 12px;
+}
+
+.perm-kicker {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+
+.perm-head h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.perm-lede {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+.perm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 12px 12px;
+  overflow-y: auto;
+}
+
+.perm-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  width: 100%;
+  padding: 11px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  text-align: left;
+  color: var(--text-2);
+}
+
+.perm-row:hover {
+  background: var(--raised);
+}
+
+.perm-row.is-on {
+  border-color: var(--line-strong);
+  background: var(--raised);
+  color: var(--text);
+}
+
+.perm-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--text-3);
+}
+
+.perm-row.is-on .perm-icon {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.perm-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.perm-title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.perm-detail {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.perm-note {
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--text-4);
+}
+
+.perm-check {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  margin-top: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  color: var(--accent-ink);
+}
+
+.perm-row.is-on .perm-check {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.perm-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--raised);
+}
+
+.perm-foot-note {
+  max-width: 260px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-4);
+}
+
+.perm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 520px) {
+  .perm-foot {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .perm-foot-note {
+    max-width: none;
+    text-align: right;
+  }
+}
+
+/* Settings → Permissions: the entry point back to the same sheet. */
+.permissions-review {
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 0 14px;
+}
+
+/* macOS hands out these two itself; the sheet only opens the pane. */
+.perm-mac {
+  margin: 0 12px 12px;
+  padding: 11px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--raised) 60%, transparent);
+}
+
+.perm-mac-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+
+.perm-mac-head svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--text-4);
+}
+
+.perm-mac-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.perm-mac-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-3);
+}

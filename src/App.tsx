@@ -33,7 +33,13 @@ import {
   updateBrowserActivity,
 } from "./lib/browserActivity";
 import { useStore } from "./lib/store";
-import { acquireScreen, captureFrame, currentScreen, releaseScreen } from "./lib/screen";
+import {
+  acquireScreen,
+  captureFrame,
+  captureNativeScreen,
+  currentScreen,
+  releaseScreen,
+} from "./lib/screen";
 import {
   addWorkspaceFolder,
   clearExtraWorkspaceFolders,
@@ -62,11 +68,13 @@ import { BrowserView } from "./components/BrowserView";
 import { BrowserActivityDock } from "./components/BrowserActivityDock";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { IdeView } from "./components/IdeView";
+import { setEngineModel } from "./lib/browserSidecar";
 import { CommandPalette } from "./components/CommandPalette";
 import { ContextPanel } from "./components/ContextPanel";
 import { Home } from "./components/Home";
 import { IntegrationsView } from "./components/IntegrationsView";
 import { SessionView } from "./components/SessionView";
+import { PermissionsSheet } from "./components/PermissionsSheet";
 import { SettingsModal, type SettingsTab } from "./components/SettingsModal";
 import { Sidebar } from "./components/Sidebar";
 import { SkillsView } from "./components/SkillsView";
@@ -153,6 +161,7 @@ export function App() {
   } | null>(null);
   const approvalResolve = useRef<((allowed: boolean) => void) | null>(null);
   const [limitAsk, setLimitAsk] = useState(false);
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
   const limitResolve = useRef<((more: boolean) => void) | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const runs = useRef<Record<string, AbortController>>({});
@@ -164,6 +173,11 @@ export function App() {
     setSettingsTab(tab);
     setSettingsOpen(true);
   }, []);
+
+  // Ask once, before a capability is used, instead of assuming consent.
+  useEffect(() => {
+    if (!state.settings.permissionsReviewed) setPermissionsOpen(true);
+  }, [state.settings.permissionsReviewed]);
 
   useEffect(() => {
     const query = window.matchMedia("(prefers-color-scheme: light)");
@@ -382,6 +396,20 @@ export function App() {
   }, []);
 
   const startScreen = useCallback(async () => {
+    // A desktop window has no getDisplayMedia, so it captures natively instead
+    // of asking for a screen-share picker that can never appear.
+    if (inTauri()) {
+      try {
+        const frame = await captureNativeScreen();
+        if (!frame) throw new Error("The screen capture came back empty.");
+        setSettings({ screenAccess: true });
+        notify("Screen access on — every turn includes a fresh frame");
+      } catch (error) {
+        setSettings({ screenAccess: false });
+        notify(error instanceof Error ? error.message : "Screen capture failed", "error");
+      }
+      return;
+    }
     try {
       const stream = await acquireScreen();
       setScreenStream(stream);
@@ -400,9 +428,10 @@ export function App() {
   }, [notify, setSettings]);
 
   const handleScreenToggle = useCallback(() => {
-    if (screenStream) stopScreen();
+    // Native capture has no stream to inspect, so the setting is the truth.
+    if (state.settings.screenAccess) stopScreen();
     else void startScreen();
-  }, [screenStream, startScreen, stopScreen]);
+  }, [startScreen, state.settings.screenAccess, stopScreen]);
 
   const openFolder = useCallback(async () => {
     try {
@@ -410,11 +439,14 @@ export function App() {
       if (!next) return;
       clearExtraWorkspaceFolders();
       setWorkspace(next.name, next.files, next.root);
+      // Choosing a folder is explicit consent to read it, even if the sheet was
+      // skipped earlier.
+      setSettings({ fileAccess: true });
       notify(`${next.files.filter((file) => !file.dir).length} files from ${next.name}`);
     } catch (error) {
       notify(error instanceof Error ? error.message : "Could not open that folder", "error");
     }
-  }, [notify, setWorkspace]);
+  }, [notify, setSettings, setWorkspace]);
 
   const addFolder = useCallback(async () => {
     if (!state.workspaceRoot) {
@@ -879,20 +911,26 @@ export function App() {
 
       const screen = state.settings.screenAccess ? currentScreen() : null;
       let outgoing = attachments;
-      if (screen) {
-        const frame = await captureFrame(screen);
-        if (frame) {
-          outgoing = [
-            ...attachments,
-            {
-              id: uid("att"),
-              name: "screen.jpg",
-              size: frame.length,
-              kind: "image",
-              body: frame,
-            },
-          ];
+      let frame = screen ? await captureFrame(screen) : null;
+      if (!frame && !screen && state.settings.screenAccess && inTauri()) {
+        try {
+          frame = await captureNativeScreen();
+        } catch (error) {
+          setSettings({ screenAccess: false });
+          notify(error instanceof Error ? error.message : "Screen capture failed", "error");
         }
+      }
+      if (frame) {
+        outgoing = [
+          ...attachments,
+          {
+            id: uid("att"),
+            name: "screen.jpg",
+            size: frame.length,
+            kind: "image",
+            body: frame,
+          },
+        ];
       }
 
       if (existing) {
@@ -1076,6 +1114,11 @@ export function App() {
             agent,
             skills: state.skills,
             task: text,
+            grants: {
+              files: state.settings.fileAccess,
+              terminal: state.settings.terminalAccess,
+              control: state.settings.computerControl,
+            },
             readFile: async (path) =>
               state.mode === "code"
                 ? null
@@ -1155,6 +1198,10 @@ export function App() {
               }));
             }
           };
+
+          // The local browser engine runs browser-use with this session's own
+          // provider and key, so a delegated browsing task needs no extra setup.
+          setEngineModel({ provider, model, config: providerConfig });
 
           await runToolLoop({
             provider,
@@ -1259,6 +1306,16 @@ export function App() {
                       added: outcome.diff.added,
                       removed: outcome.diff.removed,
                       lines: outcome.diff.lines,
+                    });
+                  }
+                  if (outcome.artifact) {
+                    additions.push({
+                      id: uid("part"),
+                      kind: "artifact",
+                      artifactId: outcome.artifact.id,
+                      name: outcome.artifact.name,
+                      format: outcome.artifact.format,
+                      bytes: outcome.artifact.bytes,
                     });
                   }
                   if (
@@ -1438,7 +1495,9 @@ export function App() {
         createSession();
         return;
       }
-      if (event.key.toLowerCase() === "b") {
+      // In Code the workspace owns plain Cmd+B for its own rail, so handling it
+      // here as well toggled two panels on one keypress.
+      if (event.key.toLowerCase() === "b" && (event.shiftKey || state.mode !== "code")) {
         event.preventDefault();
         if (event.shiftKey) togglePanel();
         else toggleSidebar();
@@ -1452,7 +1511,7 @@ export function App() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [createSession, togglePanel, toggleSidebar, openSettings]);
+  }, [createSession, togglePanel, toggleSidebar, openSettings, state.mode]);
 
   const changeModel = (sessionId: string, provider: ProviderId, model: string) => {
     const local = PROVIDERS.find((item) => item.id === provider)?.local;
@@ -1490,6 +1549,7 @@ export function App() {
   const overlayOpen =
     paletteOpen ||
     settingsOpen ||
+    permissionsOpen ||
     helpOpen ||
     limitAsk ||
     Boolean(pendingAction) ||
@@ -1626,7 +1686,13 @@ export function App() {
         open={settingsOpen}
         initialTab={settingsTab}
         onClose={() => setSettingsOpen(false)}
+        onReviewPermissions={() => {
+          setSettingsOpen(false);
+          setPermissionsOpen(true);
+        }}
       />
+
+      {permissionsOpen && <PermissionsSheet onClose={() => setPermissionsOpen(false)} />}
 
       {helpOpen && (
         <div className="overlay" onMouseDown={() => setHelpOpen(false)}>

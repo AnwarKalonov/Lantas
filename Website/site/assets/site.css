@@ -8081,12 +8081,21 @@ img.mark {
 
 /* ---------- the mark is drawn in type: no brand image ships ---------- */
 
-.brand-word {
-  font-family: var(--serif);
-  font-size: 25px;
-  line-height: 1;
-  letter-spacing: -0.015em;
-  color: var(--ink);
+/* The wordmark is the pixel lettering, painted in the theme's ink through its
+   own alpha mask, so one file serves both themes and the mark never fights the
+   page colour. */
+.brand-mark {
+  display: block;
+  width: 112px;
+  height: 27px;
+  background: var(--ink);
+  -webkit-mask: url("img/wordmark-light.png") no-repeat center / contain;
+  mask: url("img/wordmark-light.png") no-repeat center / contain;
+  transition: opacity var(--t-fast) var(--ease);
+}
+
+.brand:hover .brand-mark {
+  opacity: 0.72;
 }
 
 .foot-word {

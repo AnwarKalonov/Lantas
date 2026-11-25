@@ -106,6 +106,8 @@ export function CompareView({
   const [answers, setAnswers] = useState<[Answer, Answer]>([EMPTY_ANSWER, EMPTY_ANSWER]);
   const [running, setRunning] = useState(false);
   const [round, setRound] = useState(0);
+  const [asked, setAsked] = useState("");
+  const [preference, setPreference] = useState<0 | 1 | null>(null);
   const controller = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -173,6 +175,8 @@ export function CompareView({
     controller.current = controllerForRound;
     setRunning(true);
     setRound((value) => value + 1);
+    setAsked(prompt);
+    setPreference(null);
     setAnswers([{ ...EMPTY_ANSWER }, { ...EMPTY_ANSWER }]);
 
     const messages: ChatTurn[] = [...history, { role: "user", content: prompt }];
@@ -276,6 +280,8 @@ export function CompareView({
                 onClick={() => {
                   setAnswers([{ ...EMPTY_ANSWER }, { ...EMPTY_ANSWER }]);
                   setQuestion("");
+                  setAsked("");
+                  setPreference(null);
                   setRound(0);
                   inputRef.current?.focus();
                 }}
@@ -316,13 +322,36 @@ export function CompareView({
                   </header>
 
                   <div className="compare-body">
+                    {started && asked ? (
+                      <div className="compare-q">
+                        <span>{asked}</span>
+                      </div>
+                    ) : null}
                     {!started ? (
                       <div className="compare-idle">
                         <Icon name="diff" size={15} />
                         <p>This answer will appear here. Both models get the same question and the same workspace.</p>
                       </div>
                     ) : answer.error ? (
-                      <p className="compare-error">{answer.error}</p>
+                      <div className="compare-fail">
+                        <span className="compare-fail-mark" aria-hidden="true">
+                          <Icon name="plug" size={15} />
+                        </span>
+                        <p className="compare-fail-title">Model not connected</p>
+                        <p className="compare-fail-text">{answer.error}</p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            window.dispatchEvent(
+                              new CustomEvent("lantas:settings", {
+                                detail: { tab: "models" },
+                              }),
+                            )
+                          }
+                        >
+                          Open provider settings
+                        </button>
+                      </div>
                     ) : answer.text ? (
                       <div className="compare-text">{answer.text}</div>
                     ) : (
@@ -350,13 +379,48 @@ export function CompareView({
                       Copy
                     </button>
                     <span className="compare-stat">
-                      {answer.done ? `${(answer.ms / 1000).toFixed(1)}s` : running ? "running" : "—"}
+                      {answer.error
+                        ? "—"
+                        : answer.done
+                          ? `${(answer.ms / 1000).toFixed(1)}s`
+                          : running
+                            ? "running"
+                            : "—"}
                     </span>
                     <span className="compare-stat">{tokens(answer).toLocaleString()} tokens</span>
                   </footer>
                 </article>
               );
             })}
+        </div>
+
+        <div className="compare-vs">
+          <span className="compare-vs-note">
+            {fastestSide && bothDone && finished.length === 2
+              ? `${prettyModel(fastestSide.model)} answered ${(
+                  (Math.max(...finished.map((answer) => answer.ms)) -
+                    Math.min(...finished.map((answer) => answer.ms))) /
+                  1000
+                ).toFixed(1)}s sooner`
+              : bothDone
+                ? answers.some((answer) => answer.error)
+                  ? "Connect a provider to compare answers"
+                  : "Both answers are ready"
+                : "Both models get the same question"}
+          </span>
+          <span className="compare-vs-label">Prefer</span>
+          <span className="compare-pref">
+            {sides.map((side, index) => (
+              <button
+                key={index}
+                type="button"
+                className={preference === index ? "is-on" : ""}
+                onClick={() => setPreference(index as 0 | 1)}
+              >
+                {prettyModel(side.model)}
+              </button>
+            ))}
+          </span>
         </div>
 
         <div className="compare-ask">
@@ -368,16 +432,6 @@ export function CompareView({
             <span className="compare-models">
               {prettyModel(sides[0].model)} vs {prettyModel(sides[1].model)}
             </span>
-            {fastestSide && bothDone && finished.length === 2 && (
-              <span className="compare-verdict">
-                {prettyModel(fastestSide.model)} answered{" "}
-                {((Math.max(...finished.map((answer) => answer.ms)) -
-                  Math.min(...finished.map((answer) => answer.ms))) /
-                  1000
-                ).toFixed(1)}
-                s sooner
-              </span>
-            )}
           </div>
           <div className={cx("compare-input", running && "is-running")}>
             <textarea

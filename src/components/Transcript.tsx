@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { EASE, timing, useStill } from "../lib/motion";
 import type { Message, Part, Session } from "../lib/types";
 import { AGENTS } from "../lib/data";
+import { prettyModel } from "../lib/providers";
 import { clock, cx, formatDuration, formatTokens } from "../lib/util";
 import { PATH_RE, looksLikePath, maskUrls, pathFrom } from "../lib/paths";
 import { formatBytes, saveArtifact } from "../lib/artifacts";
@@ -168,7 +169,9 @@ function SourceStrip({ parts }: { parts: Part[] }) {
   if (!sources.length) return null;
   return (
     <div className="msg-sources">
-      <span className="msg-sources-label">Sources</span>
+      <span className="msg-sources-label">
+        {sources.length} {sources.length === 1 ? "Source" : "Sources"}
+      </span>
       <div className="msg-sources-list">
         {sources.map((source) => {
           let host = source.label;
@@ -636,6 +639,7 @@ function AssistantMessage({
   onOpenFile?: (path: string, line?: number) => void;
 }) {
   const agent = AGENTS.find((item) => item.id === message.agent) ?? AGENTS[0];
+  const who = message.model ? prettyModel(message.model) : agent.name;
   const hasParts = message.parts.length > 0;
   const duration = message.durationMs ? formatDuration(message.durationMs) : null;
   // "Deliver file" finished and the card it produced sits directly below it,
@@ -685,8 +689,11 @@ function AssistantMessage({
 
   return (
     <div className="msg msg-assistant">
-      <div className="assistant-head">
-        <span>{agent.name}</span>
+      <div className="assistant-head" title={`${agent.name} · ${who}`}>
+        <span className="assistant-name">{who}</span>
+        <span className="assistant-sep" aria-hidden="true">
+          •
+        </span>
         <span className="assistant-time">{clock(message.created)}</span>
       </div>
 

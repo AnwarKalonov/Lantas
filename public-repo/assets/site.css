@@ -8278,3 +8278,91 @@ span.nav-wordmark {
   .mac--b, .mac--c { margin-top: 18px; }
   .macs-copy { position: static; margin: 26px auto 0; transform: none; opacity: 1; }
 }
+
+/* ============================================================
+   motion: the quiet, spring-loaded kind
+   ============================================================ */
+
+:root {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* text arrives a beat after the thing it belongs to, never all at once */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    h1, h2, .sec > p, .hero p, .foot-line {
+      animation: rise both linear;
+      animation-timeline: view();
+      animation-range: entry 2% cover 26%;
+    }
+    h3, h4, .sec li, .sec figure > img:not(.mac img) {
+      animation: rise-soft both linear;
+      animation-timeline: view();
+      animation-range: entry 0% cover 22%;
+    }
+  }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translate3d(0, 26px, 0); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes rise-soft {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+/* the header becomes glass, and stops pretending it is a document */
+header, .site-head, .nav, .bar {
+  transition:
+    background-color 400ms var(--ease-out),
+    border-color 400ms var(--ease-out),
+    backdrop-filter 400ms var(--ease-out),
+    box-shadow 400ms var(--ease-out);
+}
+header.is-stuck, .site-head.is-stuck, .nav.is-stuck, .bar.is-stuck {
+  background-color: rgba(255, 253, 248, 0.72);
+  border-color: var(--line);
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  box-shadow: 0 1px 0 rgba(28, 26, 22, 0.06);
+}
+[data-theme="dark"] header.is-stuck,
+[data-theme="dark"] .site-head.is-stuck,
+[data-theme="dark"] .nav.is-stuck,
+[data-theme="dark"] .bar.is-stuck {
+  background-color: rgba(20, 22, 26, 0.72);
+}
+
+/* controls answer quickly and settle slowly — the pressure of a finger */
+a, button, .btn, summary {
+  transition:
+    color 200ms var(--ease-out),
+    background-color 260ms var(--ease-out),
+    border-color 260ms var(--ease-out),
+    box-shadow 320ms var(--ease-out),
+    transform 320ms var(--ease-out);
+}
+a:active, button:active, .btn:active { transform: scale(0.985); }
+
+/* images never pop in; they resolve */
+img { transition: opacity 500ms var(--ease-out), filter 500ms var(--ease-out); }
+
+/* the cloud imagery drifts a touch slower than the page */
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .clouds img, .cloud-band img, .macs-sky {
+      animation: drift-parallax both linear;
+      animation-timeline: scroll(root block);
+      animation-range: 0 100%;
+    }
+  }
+}
+@keyframes drift-parallax {
+  from { translate: 0 -1.5%; }
+  to { translate: 0 1.5%; }
+}
+
+/* the macs stage owns its own transform and opacity — never animate it twice */
+.macs h1, .macs h2, .macs p, .macs figure, .macs img { animation: none; }

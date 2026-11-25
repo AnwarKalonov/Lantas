@@ -1200,7 +1200,6 @@ dist/index.html   4.1 kB</pre>
         <img class="lockup lockup-light" src="assets/img/lockup-light.png" alt="" aria-hidden="true" width="284" height="140">
       </div>
       <div class="foot-links">
-        <a href="about/index.html">About me</a>
         <a href="docs.html">Docs</a>
         <a href="download.html">Download</a>
         <a href="versions.html">Versions</a>
@@ -1245,6 +1244,24 @@ dist/index.html   4.1 kB</pre>
   };
   addEventListener("scroll", queue, { passive: true });
   addEventListener("resize", queue, { passive: true });
+  update();
+})();
+</script>
+<script>
+/* A header that settles into frosted glass once you leave the top of the page. */
+(() => {
+  const head = document.querySelector("header, .site-head, .nav, .bar");
+  if (!head) return;
+  let queued = false;
+  const update = () => {
+    queued = false;
+    head.classList.toggle("is-stuck", scrollY > 12);
+  };
+  addEventListener("scroll", () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(update);
+  }, { passive: true });
   update();
 })();
 </script>

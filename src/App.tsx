@@ -8,6 +8,7 @@ import type { ToolCall, ToolContext } from "./lib/tools";
 import { getElContext } from "./lib/el";
 import { consumeGoogleHash, getGoogleToken } from "./lib/google";
 import { inTauri } from "./lib/native";
+import { openCliInTerminal } from "./lib/terminal";
 import { agentClick, agentEnter, agentScroll, agentType } from "./lib/browserAgent";
 import {
   buildBrowserSystemPrompt,
@@ -71,6 +72,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { IdeView } from "./components/IdeView";
 import { setEngineModel } from "./lib/browserSidecar";
 import { CommandPalette } from "./components/CommandPalette";
+import { CompareView } from "./components/CompareView";
 import { ContextPanel } from "./components/ContextPanel";
 import { Home } from "./components/Home";
 import { IntegrationsView } from "./components/IntegrationsView";
@@ -150,6 +152,12 @@ export function App() {
     nonce: number;
   } | null>(null);
   const [cliRequest, setCliRequest] = useState(0);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const compareSeed = useMemo(() => {
+    const lastUser = activeSession?.messages.filter((message) => message.role === "user").at(-1);
+    const text = lastUser?.parts.find((part) => part.kind === "text");
+    return text && text.kind === "text" ? text.text.slice(0, 4_000) : "";
+  }, [activeSession]);
   const [pendingAction, setPendingAction] = useState<{
     message: string;
     apply: () => void;
@@ -1613,12 +1621,36 @@ export function App() {
   );
 
   const openCli = useCallback(() => {
+    // Desktop: the terminal button opens the user's own Terminal.app, already
+    // running `lantas` in the open folder. The web build has no Terminal.app,
+    // so there the in-app CLI tab is the same surface.
+    if (inTauri()) {
+      void openCliInTerminal(state.workspaceRoot || "")
+        .then(() => notify("Lantas CLI opened in Terminal"))
+        .catch((error) => {
+          setMode("code");
+          setCliRequest((value) => value + 1);
+          notify(
+            error instanceof Error ? error.message : "Terminal did not open",
+            "error",
+          );
+        });
+      return;
+    }
     setMode("code");
     setCliRequest((value) => value + 1);
-  }, [setMode]);
+  }, [notify, setMode, state.workspaceRoot]);
+
+  // Compare is reachable from the composer, the thread header and the rail.
+  useEffect(() => {
+    const open = () => setCompareOpen(true);
+    window.addEventListener("lantas:compare", open);
+    return () => window.removeEventListener("lantas:compare", open);
+  }, []);
 
   const overlayOpen =
     paletteOpen ||
+    compareOpen ||
     settingsOpen ||
     permissionsOpen ||
     helpOpen ||
@@ -1744,6 +1776,16 @@ export function App() {
             </button>
           </div>
         </div>
+      )}
+
+      {compareOpen && (
+        <ErrorBoundary label="Compare">
+          <CompareView
+            session={activeSession}
+            seed={compareSeed}
+            onClose={() => setCompareOpen(false)}
+          />
+        </ErrorBoundary>
       )}
 
       <CommandPalette

@@ -68,8 +68,8 @@ export function TitleBar({
         <button
           className="icon-button"
           onClick={onOpenCli}
-          title="Terminal and Lantas CLI"
-          aria-label="Terminal and Lantas CLI"
+          title="Open the Lantas CLI in Terminal"
+          aria-label="Open the Lantas CLI in Terminal"
           type="button"
         >
           <Icon name="terminal" size={15} />

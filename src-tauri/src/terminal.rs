@@ -297,6 +297,65 @@ pub fn open_external_terminal(cwd: String) -> Result<(), String> {
     opened
 }
 
+/// Opens Terminal.app on the CLI, in the folder the app has open.
+///
+/// The in-app CLI tab is a pty inside Lantas; this is the escape hatch the user
+/// asked for: their own Terminal window, their own shell settings, the same
+/// `lantas` session. A temporary .command file gives Terminal a real tty and a
+/// working directory without typing anything into the user's shell.
+#[tauri::command]
+pub fn open_cli_terminal(app: AppHandle, cwd: String) -> Result<(), String> {
+    let directory = resolve_dir(&cwd)?;
+    let cli = find_cli(&app)
+        .ok_or("The bundled Lantas CLI was not found. Reinstall the app.".to_string())?;
+
+    #[cfg(target_os = "macos")]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let script = std::env::temp_dir().join(format!(
+            "lantas-cli-{}-{}.command",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|elapsed| elapsed.as_millis())
+                .unwrap_or(0)
+        ));
+        let body = format!(
+            "#!/bin/bash\ncd {} || exit 1\n\
+             export PATH=\"/opt/homebrew/bin:/usr/local/bin:$HOME/.volta/bin:$HOME/.local/bin:$PATH\"\n\
+             export LANTAS_NO_WINDOW=1\n\
+             if command -v lantas >/dev/null 2>&1; then exec lantas --here; fi\n\
+             if command -v node >/dev/null 2>&1; then exec node {} --here; fi\n\
+             printf '%s\\n' 'The Lantas CLI needs Node.js 18 or newer.' 'Install it from https://nodejs.org, then run lantas again.'\n\
+             sleep 8\n",
+            shell_quote(&directory.to_string_lossy()),
+            shell_quote(&cli.to_string_lossy())
+        );
+        std::fs::write(&script, body).map_err(|error| error.to_string())?;
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755))
+            .map_err(|error| error.to_string())?;
+
+        let status = Command::new("/usr/bin/open")
+            .arg("-a")
+            .arg("Terminal")
+            .arg(&script)
+            .status()
+            .map_err(|error| format!("Could not open Terminal: {error}"))?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err("Terminal did not open. Open it from the Dock and run lantas.".to_string())
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (&directory, &cli);
+        Err("Opening the CLI in Terminal is supported on macOS in this build.".to_string())
+    }
+}
+
 /// The launcher written to ~/.local/bin/lantas. `__LIB__` is replaced with the
 /// folder the bundled CLI lives in.
 const LAUNCHER: &str = r####"#!/bin/bash

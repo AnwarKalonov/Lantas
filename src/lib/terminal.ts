@@ -42,6 +42,11 @@ export async function openExternalTerminal(cwd: string) {
   await invoke("open_external_terminal", { cwd });
 }
 
+/** Opens Terminal.app already running the Lantas CLI in this folder. */
+export async function openCliInTerminal(cwd: string) {
+  await invoke("open_cli_terminal", { cwd });
+}
+
 export async function terminalWrite(id: string, data: string) {
   await invoke("terminal_write", { id, data });
 }

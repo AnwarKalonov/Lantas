@@ -611,6 +611,7 @@ pub fn run() {
             workspace::workspace_rename,
             workspace::workspace_delete,
             terminal::open_external_terminal,
+            terminal::open_cli_terminal,
             terminal::terminal_start,
             terminal::terminal_shell,
             terminal::terminal_cli,

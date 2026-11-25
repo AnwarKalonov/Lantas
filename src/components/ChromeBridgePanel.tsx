@@ -202,7 +202,10 @@ export function ChromeBridgePanel({
               <span>4</span>
               <div>
                 <strong>Keep Chrome open</strong>
-                <small>The extension connects on its own; this panel turns green.</small>
+                <small>
+                  The extension connects on its own; this panel turns green. Tabs it opens go in a
+                  blue “agents” tab group, and the panel’s Agents button starts that workspace.
+                </small>
               </div>
             </li>
           </ol>

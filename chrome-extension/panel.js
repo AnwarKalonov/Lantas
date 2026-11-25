@@ -19,6 +19,8 @@ const els = {
   thread: document.getElementById("thread"),
   empty: document.getElementById("empty"),
   emptyCopy: document.getElementById("empty-copy"),
+  emptyPage: document.getElementById("empty-page"),
+  agentsSpace: document.getElementById("agents-space"),
   messages: document.getElementById("messages"),
   form: document.getElementById("form"),
   input: document.getElementById("input"),
@@ -191,7 +193,9 @@ function renderPicks() {
   els.modeLabel.textContent = mode;
   els.modeDot.classList.toggle("is-act", pick.mode === "act");
   els.footNote.textContent =
-    pick.mode === "act" ? "Can read and act in this tab" : "Reads this tab, changes nothing";
+    pick.mode === "act"
+      ? "Replies can be wrong. Check before acting."
+      : "Ask mode · reads this tab, changes nothing";
 
   const row = currentModel();
   els.modelLabel.textContent = row ? prettyModel(row.model) : "Choose a model";
@@ -321,10 +325,18 @@ async function refresh() {
   els.dot.classList.toggle("is-on", online);
   els.statusText.textContent = online ? "Connected" : "Offline";
   els.emptyCopy.textContent = online
-    ? "Lantas reads this tab and can act in it. Keep the app open on this Mac."
+    ? "Lantas reads this tab and can act in it. Work stays in the agents group."
     : "Open the Lantas app on this Mac to chat and to let the agent act.";
 
   const active = status?.active || null;
+  if (els.emptyPage) {
+    const title = String(active?.title || "").replace(/\s+/g, " ").trim();
+    els.emptyPage.textContent = title
+      ? title.length > 44
+        ? `${title.slice(0, 44)}…`
+        : title
+      : "this page";
+  }
   els.ctxMark.textContent = active?.url ? (hostOf(active.url)[0] || "·").toUpperCase() : "·";
   els.ctxTitle.textContent = active?.title || "No page open";
   els.ctxUrl.textContent = active?.url ? shortUrl(active.url) : "Open a site, then ask about it";
@@ -403,6 +415,24 @@ function toggleMenu(menu, button) {
 els.form.addEventListener("submit", (event) => {
   event.preventDefault();
   void submit();
+});
+
+els.agentsSpace?.addEventListener("click", async () => {
+  try {
+    const result = await chrome.runtime.sendMessage({ cmd: "agents" });
+    if (!result?.ok) {
+      messages.push({
+        role: "note",
+        text: result?.error || "Chrome would not open the agents group. Try again from a website tab.",
+      });
+      renderMessages();
+      persist();
+    }
+  } catch (error) {
+    messages.push({ role: "note", text: String(error?.message || error) });
+    renderMessages();
+    persist();
+  }
 });
 
 els.input.addEventListener("input", () => {

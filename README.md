@@ -132,17 +132,17 @@ The browser tool can list, switch, open and close tabs through the same tab stri
 
 The browser interaction model is informed by [Dao Browser](https://github.com/msgbyte/dao-browser), a BSD-3-Clause Chromium fork. In particular, Lantas follows the same broad ideas: a catalog of small browser tools, explicit tab control, observe-act-verify steps, and a preference for reading the live page over guessing.
 
-Lantas is not a Chromium fork and does not vendor or reproduce Dao source code. It is a Tauri application using a native webview plus a Chrome extension. Features that depend on Chromium internals — the native animated cursor, hidden Agent Spaces, Chromium network/console instrumentation and native sidebar — are not copied. The implementation here is written against Lantas's own browser bridge and accessibility scan.
+Lantas is not a Chromium fork and does not vendor or reproduce Dao source code. It is a Tauri application using a native webview plus a Chrome extension. Features that depend on Chromium internals — network/console instrumentation and a native sidebar — are not copied. The agent pointer is a page overlay in both engines, and the agents workspace is an ordinary Chrome tab group rather than hidden tabs. The implementation here is written against Lantas's own browser bridge and accessibility scan.
 
 ## What is in the app
 
 - **Build, Plan and Chat agents.** Build can write and run; Plan and Chat are read-only. Plan approval and max-step continuation keep long tasks predictable.
-- **Any model.** Anthropic, OpenAI, OpenRouter, Groq, Google, NVIDIA NIM, Ollama, LM Studio and any OpenAI-compatible endpoint. Test a connection and fetch its model list from Settings.
+- **Any model, and two at once.** Anthropic, OpenAI, OpenRouter, Groq, Google, NVIDIA NIM, Ollama, LM Studio and any OpenAI-compatible endpoint. Test a connection and fetch its model list from Settings. **Compare** asks two models the same question in two columns, with time, tokens and a Faster mark.
 - **A small, explicit toolset.** `read`, `glob`, `grep`, `semantic_search`, `write`, `edit`, `terminal`, `browser`, `skill` and connected-app tools. Writes are verified against disk.
 - **Diffs you approve.** Assistant edits in Code mode are staged. Review a side-by-side diff and Keep or Discard each file, or all of them, from the review bar.
-- **A real terminal.** Run commands in the workspace, see live stdout/stderr in the terminal panel, and get the same output in the transcript.
+- **A real terminal, and the real Terminal.** Run commands in the workspace, see live stdout/stderr in the terminal panel, and get the same output in the transcript. **CLI in Terminal** opens Terminal.app already running `lantas` in the open folder, and the title-bar terminal button does the same on the desktop.
 - **Project context.** Git status, branches, changed files, a file map, semantic search and an optional project summary feed the prompt instead of the whole repository.
-- **Browser verification.** Snapshot, readable text, shadow DOM, forms, waits, tab control and a Chrome handoff. A browser task is not done until the page says so.
+- **Browser verification, with a visible hand.** Snapshot, readable text, shadow DOM, forms, waits, tab control and a Chrome handoff. The agent's blue pointer glides to each control and ripples on a click, in the native browser and in Chrome. Each action returns a fresh page read plus the lines of text that changed, so the model reads the result as text instead of taking a screenshot. A browser task is not done until the page says so.
 - **Skills and commands.** Built-in procedures for commits, review, debugging, test gaps, refactors, release notes, PR descriptions, API design, SQL, security and interface copy. Import your own `SKILL.md` folders or zips; repeat work is a slash command.
 - **MCP and integrations.** HTTP and stdio MCP servers, plus Composio toolkits for Gmail, Slack, Notion, Linear, GitHub, Drive and more. Read-only Gmail through your own OAuth client is also available.
 - **Session durability.** Desktop sessions are checkpointed after each turn. If browser storage is cleared, **Settings → General → Restore from disk** brings them back. The web build falls back to local storage.
@@ -160,7 +160,7 @@ The app is ad-hoc signed and not notarized. On first launch, macOS may ask you t
 2. Find the Lantas notice and click **Open Anyway**.
 3. Authenticate.
 
-The current source tree is version **1.0.6**. The tagged macOS workflow builds the `.dmg`, app zip, Chrome extension and updater assets; release publication requires the repository's `LANTAS_RELEASE_TOKEN` secret.
+The current source tree is version **1.2.0**. The tagged macOS workflow builds the `.dmg`, app zip, Chrome extension and updater assets; release publication requires the repository's `LANTAS_RELEASE_TOKEN` secret.
 
 ### Run from source
 
@@ -190,7 +190,7 @@ Install the unpacked extension from `chrome-extension/`:
 3. Choose **Load unpacked** and select the `chrome-extension` folder.
 4. Keep the Lantas desktop app running so the extension can connect.
 
-The extension is version `0.6.1`. Reload it after changing extension files.
+The extension is version `0.7.0`. Reload it after changing extension files. Every tab the agent opens lands in a blue Chrome tab group named **agents**; the pill in the panel header focuses that group or starts it, so agent work never buries the tab you are reading.
 
 ### Terminal app
 
@@ -212,9 +212,10 @@ Then ask it for work from any folder:
 lantas "find the failing test and fix it"
 lantas --plan "explain how src/lib/agentRuntime.ts runs a turn"
 lantas --model claude-sonnet-4-5 --provider anthropic
+lantas compare "should this be a map or a list?"
 ```
 
-Plan mode is read-only. Build mode asks before each write or command, and `--yes` approves them up front. The CLI keeps its config in `~/.lantas/config.json` with mode `0600`, or reads the provider's usual environment variable. Running it from the repository without installing also works: `node cli/lantas.mjs` or `npm run cli`.
+Inside a session, `/compare <question>` prints both answers with time and token count, `/compare-model <name>` picks the second model, `/web <url>` reads a page as text, and `/auto` stops asking before writes and commands. Plan mode is read-only. Build mode asks before each write or command, and `--yes` approves them up front. The CLI keeps its config in `~/.lantas/config.json` with mode `0600`, or reads the provider's usual environment variable. Running it from the repository without installing also works: `node cli/lantas.mjs` or `npm run cli`.
 
 ## Connect a model
 

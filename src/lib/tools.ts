@@ -987,6 +987,29 @@ async function runBrowserTool(
         if (appeared.length) changes.push(`appeared: ${appeared.join(", ")}`);
         if (disappeared.length) changes.push(`disappeared: ${disappeared.join(", ")}`);
       }
+      // The readable text is the page's real output: a model that only sees
+      // "DOM changed" has to ask for the page again. A short line delta is the
+      // same evidence as a screenshot, as text.
+      if (beforePage?.text && snapshot.page.text) {
+        const beforeLines = new Set(
+          beforePage.text
+            .split(/\n+/)
+            .map((line) => line.trim())
+            .filter(Boolean),
+        );
+        const fresh = snapshot.page.text
+          .split(/\n+/)
+          .map((line) => line.trim())
+          .filter((line) => line.length > 1 && !beforeLines.has(line))
+          .slice(0, 4);
+        if (fresh.length) {
+          changes.push(
+            `new text: ${fresh
+              .map((line) => (line.length > 110 ? `${line.slice(0, 110)}…` : line))
+              .join(" | ")}`,
+          );
+        }
+      }
       return [
         base,
         changes.length

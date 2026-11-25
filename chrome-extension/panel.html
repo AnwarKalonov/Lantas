@@ -24,6 +24,12 @@
             <path d="M13.2 6.4A5.4 5.4 0 1 0 13 9.8" /><path d="M13.4 2.9v3.7H9.7" />
           </svg>
         </button>
+        <button class="icon agents-pill" id="agents-space" type="button" title="Open the agents tab group" aria-label="Open the agents tab group">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <rect x="2.2" y="2.2" width="7.2" height="7.2" rx="1.6" /><rect x="6.6" y="6.6" width="7.2" height="7.2" rx="1.6" />
+          </svg>
+          <span>Agents</span>
+        </button>
         <button class="icon" id="new-chat" type="button" title="New chat" aria-label="New chat">
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
             <path d="M8 3.5v9M3.5 8h9" />
@@ -43,15 +49,10 @@
 
     <main class="thread" id="thread">
       <div class="empty" id="empty">
-        <div class="empty-mark" aria-hidden="true">
-          <span class="empty-cloud"></span>
-          <img src="icons/icon128.png" alt="" />
-        </div>
-        <p class="eyebrow">Private to this tab</p>
-        <h1>Ask this page.</h1>
-        <p class="lede" id="empty-copy">
-          Lantas reads the tab beside you, answers from it, and can click, type and navigate when you choose Act.
-        </p>
+        <h1>Hi Maya</h1>
+        <p class="lede">I read <strong id="empty-page">this page</strong> and anything you attach.</p>
+        <p class="empty-note" id="empty-copy">Keep Lantas open on this Mac to chat and to let the agent act.</p>
+        <p class="try-label">Try Asking</p>
         <div class="prompts">
           <button type="button" data-prompt="Summarize this page in five lines.">
             <span class="prompt-ic" aria-hidden="true">
@@ -75,13 +76,13 @@
             <span class="arrow">→</span>
           </button>
         </div>
-        <div class="local-note"><span class="pulse"></span>Reads this tab only · actions run here, on this Mac</div>
+        <div class="local-note"><span class="pulse"></span>Reads this tab only · actions run in the agents group, on this Mac</div>
       </div>
       <div class="messages" id="messages" aria-live="polite"></div>
     </main>
 
     <form class="composer" id="form">
-      <textarea id="input" rows="1" placeholder="Ask about this tab, or tell Lantas what to do" autocomplete="off" aria-label="Message Lantas"></textarea>
+              <textarea id="input" rows="1" placeholder="Ask about this page" autocomplete="off" aria-label="Message Lantas"></textarea>
       <div class="composer-foot">
         <div class="picks">
           <div class="pick-wrap">
@@ -125,7 +126,7 @@
     </form>
 
     <footer class="foot">
-      <span class="foot-note" id="foot-note">Tab context only</span>
+      <span class="foot-note" id="foot-note">Replies can be wrong. Check before acting.</span>
       <button class="id-chip" id="ext-id" type="button" title="Copy extension ID">Extension ID</button>
     </footer>
 

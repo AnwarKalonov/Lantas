@@ -12,7 +12,9 @@
 
 const PORT = 47654;
 const ENDPOINT = `ws://127.0.0.1:${PORT}/lantas`;
-const VERSION = "0.6.1";
+const VERSION = "0.7.0";
+/** Agent work lives in its own tab group so it never buries the user's tabs. */
+const AGENT_GROUP = "agents";
 
 let socket = null;
 let retry = 0;
@@ -227,7 +229,11 @@ async function realAct(tab, message) {
     }
 
     if (action === "click_at") {
-      await cdpClick(tab.id, Number(message.x) || 0, Number(message.y) || 0);
+      const x = Number(message.x) || 0;
+      const y = Number(message.y) || 0;
+      // Draw the agent's pointer at the same point the real click will land.
+      await sendToTab(tab.id, { cmd: "act", action: "pointer", x, y }).catch(() => {});
+      await cdpClick(tab.id, x, y);
       await sleep(300);
       const state = await inspectTab(tab.id);
       return { ok: true, detail: `Clicked at ${message.x}, ${message.y}`, ...state };
@@ -330,6 +336,39 @@ function tabSummary(tab) {
 
 function isWebTab(tab) {
   return /^https?:/i.test(tab?.url || "");
+}
+
+/**
+ * Put a tab in the "agents" group, creating the group on first use. The group
+ * is the workspace the agent does its work in: its navigations, its new tabs
+ * and anything it opens stay together and out of the user's reading.
+ */
+async function groupAgentTab(tabId, collapsed = false) {
+  if (typeof tabId !== "number") return null;
+  try {
+    const existing = await chrome.tabs.get(tabId);
+    if (existing.groupId && existing.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
+      const group = await chrome.tabGroups.get(existing.groupId);
+      if (group?.title === AGENT_GROUP) return existing.groupId;
+    }
+    const groupId = await chrome.tabs.group({ tabIds: [tabId] });
+    await chrome.tabGroups.update(groupId, {
+      title: AGENT_GROUP,
+      color: "blue",
+      collapsed,
+    });
+    return groupId;
+  } catch {
+    // Some pages cannot join a group; acting in the tab still works.
+    return null;
+  }
+}
+
+async function openAgentTab(url, active = true) {
+  const created = await chrome.tabs.create({ url, active });
+  if (created.id != null) await groupAgentTab(created.id);
+  if (created.windowId != null) await chrome.windows.update(created.windowId, { focused: true });
+  return created;
 }
 
 function pushState() {
@@ -481,11 +520,8 @@ async function execute(message) {
         const url = normalizeUrl(message.url);
         let targetId = tab.id;
         if (message.newTab) {
-          const created = await chrome.tabs.create({ url, active: true });
+          const created = await openAgentTab(url, true);
           targetId = created.id;
-          if (created.windowId != null) {
-            await chrome.windows.update(created.windowId, { focused: true });
-          }
         } else {
           await chrome.tabs.update(tab.id, { url, active: true });
           if (tab.windowId != null) await chrome.windows.update(tab.windowId, { focused: true });
@@ -494,6 +530,41 @@ async function execute(message) {
         if (targetId != null) await waitForLoad(targetId, 4500);
         pushState();
         return { ok: true, detail: `Opened ${url}` };
+      }
+
+      case "new_tab":
+      case "agent_tab": {
+        const url = message.url ? normalizeUrl(message.url) : "about:blank";
+        const created = await openAgentTab(url, true);
+        if (created.id != null) await waitForLoad(created.id, 4500);
+        pushState();
+        return {
+          ok: true,
+          tabId: created.id,
+          detail: `Opened ${url === "about:blank" ? "a tab" : url} in the ${AGENT_GROUP} group`,
+        };
+      }
+
+      case "agents": {
+        // Focus the agent workspace, or start one. The group is found by title,
+        // so it survives a service-worker restart.
+        const groups = await chrome.tabGroups.query({ title: AGENT_GROUP });
+        for (const group of groups) {
+          const tabs = await chrome.tabs.query({ groupId: group.id });
+          const first = tabs.find((item) => item.active) || tabs[0];
+          if (!first) continue;
+          await chrome.tabs.update(first.id, { active: true });
+          if (first.windowId != null) await chrome.windows.update(first.windowId, { focused: true });
+          return { ok: true, detail: "Focused the agents workspace", tabId: first.id };
+        }
+        const anchor = await targetTab();
+        const created = await chrome.tabs.create({
+          url: anchor && isWebTab(anchor) ? anchor.url : "https://www.google.com",
+          active: true,
+        });
+        if (created.id != null) await groupAgentTab(created.id);
+        pushState();
+        return { ok: true, detail: "Started the agents workspace", tabId: created.id };
       }
 
       case "history": {
@@ -697,8 +768,8 @@ chrome.runtime.onMessageExternal.addListener((message, _sender, respond) => {
 chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   if (!message || typeof message.cmd !== "string") return undefined;
 
-  if (message.cmd === "status") {
-    const open = Boolean(socket && socket.readyState === WebSocket.OPEN);
+          if (message.cmd === "status") {
+      const open = Boolean(socket && socket.readyState === WebSocket.OPEN);
     respond({
       connected: true,
       lantas: open,

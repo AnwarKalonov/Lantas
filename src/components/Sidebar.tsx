@@ -270,6 +270,16 @@ export function Sidebar({
         <button
           type="button"
           className="rail-button"
+          onClick={() => window.dispatchEvent(new CustomEvent("lantas:compare"))}
+          title="Compare two models"
+          aria-label="Compare two models"
+        >
+          <Icon name="diff" size={16} />
+        </button>
+
+        <button
+          type="button"
+          className="rail-button"
           onClick={onOpenSettings}
           title="Settings (⌘,)"
           aria-label="Settings"
@@ -288,6 +298,15 @@ export function Sidebar({
             <span className="nav-panel-eyebrow">{SURFACES[state.mode] ?? "Chat"}</span>
             <h1 className="nav-heading-label">Threads</h1>
           </div>
+          <button
+            type="button"
+            className="nav-new"
+            onClick={() => window.dispatchEvent(new CustomEvent("lantas:compare"))}
+            title="Compare two models"
+            aria-label="Compare two models"
+          >
+            <Icon name="diff" size={14} />
+          </button>
           <button
             type="button"
             className="nav-new"

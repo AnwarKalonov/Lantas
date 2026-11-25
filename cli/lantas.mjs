@@ -1213,6 +1213,41 @@ async function executeTool(call, ctx) {
         };
       }
 
+      case "web": {
+        const url = String(args.url || "").trim();
+        if (!/^https?:\/\//i.test(url)) {
+          throw new Error("web needs a complete http(s) URL, for example https://example.com/docs");
+        }
+        const response = await fetch(url, {
+          redirect: "follow",
+          signal: AbortSignal.timeout(20_000),
+          headers: { "user-agent": `LantasCLI/${VERSION} (+local)` },
+        });
+        if (!response.ok) throw new Error(`${url} answered ${response.status} ${response.statusText}`);
+        const html = await response.text();
+        const text = html
+          .replace(/<script[\s\S]*?<\/script>/gi, " ")
+          .replace(/<style[\s\S]*?<\/style>/gi, " ")
+          .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<\/(p|div|li|h[1-6]|tr|section|article)>/gi, "\n")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/&nbsp;/gi, " ")
+          .replace(/&amp;/gi, "&")
+          .replace(/&lt;/gi, "<")
+          .replace(/&gt;/gi, ">")
+          .replace(/&quot;/gi, '"')
+          .replace(/&#39;/gi, "'")
+          .replace(/[ \t]+/g, " ")
+          .replace(/\n\s*\n\s*\n+/g, "\n\n")
+          .trim();
+        return {
+          ok: true,
+          summary: `Read ${url}`,
+          content: text.slice(0, 22_000) || "(the page has no readable text)",
+        };
+      }
+
       case "bash": {
         const command = String(args.command || "").trim();
         if (!command) throw new Error("bash needs a command.");
@@ -1429,6 +1464,7 @@ async function systemPrompt(cwd, mode) {
     '  write {"path": string, "content": string} — create or replace a file',
     '  edit {"path": string, "oldString": string, "newString": string, "replaceAll"?: boolean}',
     '  bash {"command": string} — run one shell command in the folder',
+    '  web {"url": string} — read a public http(s) page as text',
     "",
     "Answers: plain text, short paragraphs, no headings. Use a fenced code block only when code is the answer.",
     "If a tool fails, say what happened and try one different approach; do not loop.",
@@ -1533,6 +1569,129 @@ async function runAgent(question, ctx) {
   ctx.history = ctx.history.slice(-16);
 }
 
+/** The two models a /compare asks, and why: the current one plus the next
+ * connected one, unless the user chose a second with /compare-model. */
+function compareTargets(config) {
+  const modelsFor = (id) =>
+    Array.from(
+      new Set([
+        ...(config.providers?.[id]?.models || []),
+        ...(PROVIDERS[id]?.models || []),
+      ]),
+    );
+  const left = { provider: config.provider, model: config.model };
+  const connected = Object.keys(PROVIDERS).filter((id) => isConfigured(config, id));
+  let right = null;
+
+  const wanted = String(config.compareModel || "").trim();
+  if (wanted) {
+    if (modelsFor(left.provider).includes(wanted)) {
+      right = { provider: left.provider, model: wanted };
+    } else {
+      const owner = connected.find((id) => modelsFor(id).includes(wanted));
+      if (owner) right = { provider: owner, model: wanted };
+    }
+  }
+
+  if (!right) {
+    outer: for (const id of connected) {
+      for (const model of modelsFor(id)) {
+        if (id === left.provider && model === left.model) continue;
+        right = { provider: id, model };
+        break outer;
+      }
+    }
+  }
+
+  if (!right || (right.provider === left.provider && right.model === left.model)) {
+    const alternate = modelsFor(left.provider).find((model) => model !== left.model);
+    if (alternate) right = { provider: left.provider, model: alternate };
+  }
+
+  return [left, right];
+}
+
+function indentBlock(text) {
+  return text
+    .split("\n")
+    .map((line) => `  ${line}`)
+    .join("\n");
+}
+
+/**
+ * Ask two models the same question at once and print both answers with their
+ * time and rough token cost. This is the terminal version of the app's
+ * Compare pane: same question, two very different answers, one place to see
+ * which one actually did the work.
+ */
+async function compareModels(question, ctx) {
+  const targets = compareTargets(ctx.config).filter(Boolean);
+  if (targets.length < 2) {
+    console.log(`  ${paint("Only one model is available to compare. Connect another provider, or /compare-model <name>.", C.yellow)}`);
+    return;
+  }
+
+  const system = await systemPrompt(ctx.cwd, ctx.mode);
+  const ask = async (target) => {
+    const started = Date.now();
+    let text = "";
+    try {
+      await streamChat({
+        config: ctx.config,
+        provider: target.provider,
+        model: target.model,
+        system,
+        messages: [{ role: "user", content: question }],
+        signal: ctx.signal,
+        onDelta: (chunk) => {
+          text += chunk;
+        },
+      });
+      return { ...target, text: text.trim(), ms: Date.now() - started, error: "" };
+    } catch (error) {
+      return {
+        ...target,
+        text: "",
+        ms: Date.now() - started,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  };
+
+  console.log(`\n  ${paint("Both models", C.text)} ${paint(`· ${question}`, C.faint)}`);
+  const spin = spinner("Asking both models");
+  const results = await Promise.all(targets.map(ask));
+  spin.stop();
+
+  const width = Math.max(28, Math.min(56, COLUMNS - 4));
+  for (const result of results) {
+    const tokens = Math.max(1, Math.round(result.text.length / 4));
+    console.log(
+      `\n  ${paint(prettyModel(result.model), C.text)} ${paint(
+        `· ${result.provider} · ${(result.ms / 1000).toFixed(1)}s · ~${tokens} tok`,
+        C.faint,
+      )}`,
+    );
+    console.log(`  ${paint("─".repeat(width), C.faint)}`);
+    console.log(result.error ? `  ${paint(result.error, C.red)}` : indentBlock(result.text));
+  }
+
+  const finished = results.filter((result) => !result.error);
+  if (finished.length === 2) {
+    const [fast, slow] = [...finished].sort((a, b) => a.ms - b.ms);
+    const diff = ((slow.ms - fast.ms) / 1000).toFixed(1);
+    console.log(
+      `\n  ${paint(
+        fast.ms === slow.ms
+          ? "Finished together"
+          : `${prettyModel(fast.model)} was ${diff}s faster`,
+        C.green,
+      )}`,
+    );
+  }
+  console.log();
+}
+
 /* --------------------------------------------------------------- commands */
 
 async function setup(config) {
@@ -1628,6 +1787,7 @@ function help() {
       console.log(`    lantas                      start a session in this folder`);
     console.log(`    lantas --here               stay in this terminal (default opens a new one)`);
     console.log(`    lantas "fix the failed test"  one task, then exit`);
+  console.log(`    lantas compare "question"    ask two models, side by side`);
   console.log(`    lantas setup                connect a provider`);
   console.log(`    lantas models               list providers and models`);
   console.log();
@@ -1646,6 +1806,9 @@ function help() {
   console.log(`    ${paint("/provider <id>", C.soft)} ${paint("switch provider", C.faint)}`);
   console.log(`    ${paint("/plan, /build", C.soft)}  ${paint("change what the agent may do", C.faint)}`);
   console.log(`    ${paint("/auto", C.soft)}          ${paint("toggle approval prompts", C.faint)}`);
+  console.log(`    ${paint("/compare <question>", C.soft)}  ${paint("ask two models, side by side", C.faint)}`);
+  console.log(`    ${paint("/compare-model <name>", C.soft)} ${paint("pick the second model", C.faint)}`);
+  console.log(`    ${paint("/web <url>", C.soft)}      ${paint("read a page as text", C.faint)}`);
   console.log(`    ${paint("/clear, /help, /exit", C.soft)}`);
   console.log();
 }
@@ -1666,6 +1829,7 @@ function parseArgs(argv) {
     else if (arg === "--help" || arg === "-h") options.help = true;
     else if (arg === "--version" || arg === "-v") options.version = true;
     else if (arg === "--model") options.model = argv[++index];
+    else if (arg === "--model2") options.model2 = argv[++index];
     else if (arg === "--provider") options.provider = argv[++index];
     else if (arg === "--cwd") options.cwd = argv[++index];
     else if (arg.startsWith("--")) {
@@ -1753,6 +1917,16 @@ async function interactive(config, options) {
         console.log(`  ${paint("Thread cleared", C.faint)}`);
         continue;
       }
+      if (command === "web") {
+        const url = argument.trim();
+        if (!/^https?:\/\//i.test(url)) {
+          console.log(`  ${paint("Usage: /web https://example.com", C.yellow)}`);
+          continue;
+        }
+        const outcome = await executeTool({ name: "web", args: { url } }, ctx);
+        console.log(indentBlock(outcome.content.slice(0, 12_000)));
+        continue;
+      }
       if (command === "plan" || command === "build") {
         ctx.mode = command;
         config.mode = command;
@@ -1787,6 +1961,35 @@ async function interactive(config, options) {
       }
       if (command === "setup") {
         await setup(config);
+        continue;
+      }
+      if (command === "compare") {
+        const question = argument.trim();
+        if (!question) {
+          console.log(`  ${paint("Usage: /compare <question>", C.yellow)}  ${paint("asks two models and prints both answers", C.faint)}`);
+          continue;
+        }
+        abortController = new AbortController();
+        ctx.signal = abortController.signal;
+        try {
+          await compareModels(question, ctx);
+        } catch (error) {
+          console.log(`  ${paint(error instanceof Error ? error.message : String(error), C.red)}`);
+        } finally {
+          abortController = null;
+          ctx.signal = null;
+        }
+        continue;
+      }
+      if (command === "compare-model") {
+        const clean = argument.trim();
+        if (!clean) {
+          console.log(`  ${paint(`Second model: ${config.compareModel || "auto (next connected provider)"}`, C.faint)}`);
+          continue;
+        }
+        config.compareModel = clean;
+        await saveConfig(config);
+        console.log(`  ${paint(`Compare model → ${prettyModel(clean)}`, C.green)}`);
         continue;
       }
       console.log(`  ${paint(`Unknown command /${command}. /help lists them.`, C.yellow)}`);
@@ -1882,6 +2085,7 @@ async function main() {
     config.model = PROVIDERS[options.provider].models[0] || config.model;
   }
   if (options.model) config.model = options.model;
+  if (options.model2) config.compareModel = options.model2;
 
   const command = options.rest[0];
   if (command === "setup") {
@@ -1920,6 +2124,19 @@ async function main() {
       process.exitCode = 1;
       return;
     }
+  }
+
+  if (options.rest[0] === "compare") {
+    const question = options.rest.slice(1).join(" ").trim();
+    if (!question) {
+      console.error('Usage: lantas compare "your question"');
+      process.exitCode = 2;
+      return;
+    }
+    const controller = new AbortController();
+    process.on("SIGINT", () => controller.abort());
+    await compareModels(question, { cwd, config, signal: controller.signal });
+    return;
   }
 
   const prompt = options.rest.join(" ").trim();

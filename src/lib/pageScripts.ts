@@ -254,14 +254,14 @@ export function pointerScript(x: number, y: number, kind: string): string {
       const root = node.attachShadow({ mode: "open" });
       root.innerHTML =
         '<style>' +
-        '.arrow{position:absolute;left:0;top:0;width:18px;height:24px;filter:drop-shadow(0 2px 5px rgba(8,20,40,.35));}' +
-        '.ring{position:absolute;left:-14px;top:-14px;width:28px;height:28px;border-radius:50%;border:2px solid #3b82f6;opacity:0;}' +
+        '.arrow{position:absolute;left:0;top:0;width:20px;height:26px;filter:drop-shadow(0 3px 8px rgba(8,20,40,.4));}' +
+        '.ring{position:absolute;left:-16px;top:-16px;width:32px;height:32px;border-radius:50%;border:2px solid #3b82f6;opacity:0;}' +
         '.ring.on{animation:ripple .55s ease-out;}' +
-        '.dot{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.18);}' +
-        '@keyframes ripple{0%{opacity:.85;transform:scale(.35)}100%{opacity:0;transform:scale(1.5)}}' +
+        '.dot{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:#3b82f6;box-shadow:0 0 0 4px rgba(59,130,246,.22);}' +
+        '@keyframes ripple{0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(1.6)}}' +
         '</style>' +
         '<svg class="arrow" viewBox="0 0 18 24" aria-hidden="true">' +
-        '<path d="M2 1.5 16 13.5l-6.4.9 3.2 6.1-2.8 1.4-3.1-6.2L2 19.7z" fill="#2c6a4e" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/>' +
+        '<path d="M2 1.5 16 13.5l-6.4.9 3.2 6.1-2.8 1.4-3.1-6.2L2 19.7z" fill="#2563eb" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>' +
         '</svg>' +
         '<span class="ring"></span><span class="dot"></span>';
       document.documentElement.appendChild(node);

@@ -13,6 +13,7 @@ import "./styles-chat.css";
 import "./styles-code.css";
 import "./styles-permissions.css";
 import "./styles-polish.css";
+import "./styles-compare.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

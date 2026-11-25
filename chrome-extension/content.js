@@ -14,6 +14,93 @@
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+  /* ---------------------------------------------------------- agent cursor */
+  // The page gets a real blue pointer, so a person watching Chrome can see
+  // where the agent is about to act. It lives in a shadow root and is pointer
+  // transparent, so no site styles can hide it and it never blocks a click.
+  const POINTER_ID = "lantas-agent-pointer";
+  const pointer = {
+    x: Math.round(window.innerWidth / 2),
+    y: Math.round(window.innerHeight / 2),
+    frame: 0,
+  };
+
+  function pointerNode() {
+    let node = document.getElementById(POINTER_ID);
+    if (node && node.shadowRoot) return node;
+    node = document.createElement("div");
+    node.id = POINTER_ID;
+    node.style.cssText =
+      "all:initial;position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none;width:0;height:0;will-change:transform";
+    const root = node.attachShadow({ mode: "open" });
+    root.innerHTML =
+      "<style>" +
+      ".arrow{position:absolute;left:0;top:0;width:20px;height:26px;filter:drop-shadow(0 3px 8px rgba(8,20,40,.4));}" +
+      ".ring{position:absolute;left:-16px;top:-16px;width:32px;height:32px;border-radius:50%;border:2px solid #3b82f6;opacity:0;}" +
+      ".ring.on{animation:ripple .55s ease-out;}" +
+      ".dot{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:#3b82f6;box-shadow:0 0 0 4px rgba(59,130,246,.22);}" +
+      "@keyframes ripple{0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(1.6)}}" +
+      "</style>" +
+      '<svg class="arrow" viewBox="0 0 18 24" aria-hidden="true">' +
+      '<path d="M2 1.5 16 13.5l-6.4.9 3.2 6.1-2.8 1.4-3.1-6.2L2 19.7z" fill="#2563eb" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>' +
+      "</svg><span class=\"ring\"></span><span class=\"dot\"></span>";
+    document.documentElement.appendChild(node);
+    return node;
+  }
+
+  function movePointer(x, y, pulse = false, duration) {
+    const node = pointerNode();
+    node.style.opacity = "1";
+    const root = node.shadowRoot;
+    const ring = root.querySelector(".ring");
+    const distance = Math.hypot(x - pointer.x, y - pointer.y);
+    const ms = duration ?? Math.min(520, Math.max(140, distance * 1.1));
+    const from = { x: pointer.x, y: pointer.y };
+    const started = performance.now();
+    const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+    cancelAnimationFrame(pointer.frame);
+    const step = (now) => {
+      const t = Math.min(1, (now - started) / (ms || 1));
+      const e = ease(t);
+      const x = from.x + (x - from.x) * e;
+      const y = from.y + (y - from.y) * e;
+      node.style.transform = `translate(${Math.round(x)}px,${Math.round(y)}px)`;
+      pointer.x = x;
+      pointer.y = y;
+      if (t < 1) {
+        pointer.frame = requestAnimationFrame(step);
+        return;
+      }
+      pointer.x = x;
+      pointer.y = y;
+      if (pulse && ring) {
+        ring.classList.remove("on");
+        void ring.offsetWidth;
+        ring.classList.add("on");
+      }
+    };
+    pointer.frame = requestAnimationFrame(step);
+    clearTimeout(pointer.hide);
+    pointer.hide = setTimeout(() => {
+      if (node) node.style.opacity = "0";
+    }, 60000);
+  }
+
+  async function pointAt(el, kind = "click") {
+    if (!el || typeof el.getBoundingClientRect !== "function") return;
+    try {
+      el.scrollIntoView({ block: "center", inline: "center" });
+    } catch {
+      /* nothing to scroll */
+    }
+    const rect = el.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    movePointer(x, y, false, 240);
+    await sleep(240);
+    if (kind === "click" || kind === "type") movePointer(x, y, true, 1);
+  }
+
   function tidy(value, max = 140) {
     return String(value || "")
       .replace(/\s+/g, " ")
@@ -254,6 +341,9 @@
     if (action === "point") {
       const el = findTarget(message);
       if (!el) return { ok: false, error: "That control was not found on the page." };
+      // Real CDP input bypasses this script, so the pointer is drawn here
+      // before the background worker sends the actual mouse event.
+      await pointAt(el, "click");
       el.scrollIntoView({ block: "center", inline: "center" });
       const rect = el.getBoundingClientRect();
       return {
@@ -274,6 +364,7 @@
       if (!editable) {
         return { ok: false, error: "That control is not a text field." };
       }
+      await pointAt(el, "type");
       el.scrollIntoView({ block: "center", inline: "center" });
       if (typeof el.focus === "function") el.focus();
       if (el.select) {
@@ -292,6 +383,15 @@
       return { ok: true, label: labelFor(el) || el.tagName.toLowerCase() };
     }
 
+    if (action === "pointer") {
+      const x = Number(message.x);
+      const y = Number(message.y);
+      movePointer(x, y, false, 220);
+      await sleep(220);
+      movePointer(x, y, true, 1);
+      return { ok: true };
+    }
+
     if (action === "click_at") {
       const x = Number(message.x);
       const y = Number(message.y);
@@ -308,6 +408,9 @@
         pointerType: "mouse",
         isPrimary: true,
       };
+      movePointer(x, y, false, 240);
+      await sleep(240);
+      movePointer(x, y, true, 1);
       for (const type of ["pointerover", "pointerenter", "pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
         const Ctor = type.indexOf("pointer") === 0 ? PointerEvent : MouseEvent;
         el.dispatchEvent(new Ctor(type, { ...base, buttons: type.endsWith("down") ? 1 : 0 }));
@@ -356,6 +459,7 @@
     if (action === "hover") {
       const el = findTarget(message);
       if (!el) return { ok: false, error: "That control was not found on the page." };
+      await pointAt(el, "hover");
       el.scrollIntoView({ block: "center", inline: "center" });
       const rect = el.getBoundingClientRect();
       const base = {
@@ -428,6 +532,7 @@
       if (!el || el === document.body) {
         return { ok: false, error: "That field was not found on the page." };
       }
+      await pointAt(el, "type");
       el.scrollIntoView({ block: "center", inline: "center" });
       if (typeof el.focus === "function") el.focus();
       const text = String(message.text ?? "");
@@ -464,6 +569,7 @@
     if (!el) {
       return { ok: false, error: "Nothing on the page matched that." };
     }
+    await pointAt(el, "click");
     el.scrollIntoView({ block: "center", inline: "center" });
     if (typeof el.focus === "function") el.focus();
     el.click();

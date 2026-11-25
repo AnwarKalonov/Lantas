@@ -383,6 +383,16 @@ export function Composer({
               <Icon name="chevronDown" size={12} />
             </button>
 
+            <button
+              type="button"
+              className="bar-pill bar-compare"
+              onClick={() => window.dispatchEvent(new CustomEvent("lantas:compare"))}
+              title="Ask two models the same question, side by side"
+            >
+              <Icon name="diff" size={12} />
+              Compare
+            </button>
+
             <span className="bar-divider" />
 
             <button

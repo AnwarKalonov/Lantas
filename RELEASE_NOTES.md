@@ -1,3 +1,14 @@
+Lantas 1.2.0
+
+- **Compare two models on one question.** The composer and the thread header open a two-column Compare view: the same question, both models streaming at once, each with its own model picker, time and token count, and a quiet "Faster" mark on the one that finished first. Both answers use the thread history and the open workspace, so the comparison is about your files rather than a generic prompt.
+- **Your own Terminal, already in the CLI.** The terminal button opens Terminal.app running `lantas --here` in the open folder. The terminal panel also has **CLI in Terminal**, next to the in-app CLI tab and Install lantas. The in-app shell is unchanged for people who want everything in one window.
+- **The CLI can do more of what the app does.** `lantas compare "question"` asks two models and prints both answers with time and rough token count; `/compare` does it inside a session, `/compare-model` picks the second model, and `web {"url"}` (or `/web <url>`) reads a page as text with scripts and styles stripped. File reads, writes, edits, search and commands are unchanged and still ask before changing anything.
+- **Chrome has an agents workspace.** The Lantas extension now creates a blue tab group called **agents** for every tab the agent opens, so its navigation never buries your reading. The pill in the panel header focuses the group or starts one; a new_tab action lands there automatically.
+- **The cursor is blue and it is visible in Chrome too.** The bridge page now draws the same animated blue pointer as the native browser: it glides to the control, ripples on a click, and marks the field before typing. Agent typing and clicking return a fresh page read, including a short text delta, so the model sees what changed as text instead of asking for a screenshot.
+- **The side panel reads like a chat, not a form.** The extension opens on "Hi Maya", the live page title, "Try Asking" prompts, a rounded composer and the same blue accent as the pointer. Ask/Act and the model picker still sit beside the send button.
+
+This build is ad-hoc signed and not notarized. macOS may ask you to approve Lantas once: open **System Settings → Privacy & Security**, click **Open Anyway**, and authenticate.
+
 Lantas 1.1.3
 
 - **The banner is the real lockup.** The terminal logo was resampled from `public/logo.png` at 72 columns with an averaging blur, so the dashed cloud ridges averaged away into a blob and the letters melted into one another. Each cell is scored from its brightest tenth as well as its mean now, at 82 columns, which keeps the dashed enclosure and the hatched letterforms of the mark — the same art the app draws, in the terminal.

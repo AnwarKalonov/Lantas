@@ -1417,3 +1417,316 @@ body {
     max-width: 120px;
   }
 }
+
+/* ------------------------------------------------------------- ReUI pass
+   The side panel now reads like a modern chat surface: one charcoal sheet,
+   quiet hairlines, a single blue accent that matches the agent cursor, and
+   generous spacing around the greeting and the composer. Colour is a state
+   cue, not decoration. */
+
+:root {
+  --bg: #f6f6f4;
+  --panel: #ffffff;
+  --raise: #efefed;
+  --ink: #17181a;
+  --ink-2: #53565c;
+  --ink-3: #8d9098;
+  --line: rgba(18, 20, 24, 0.08);
+  --line-strong: rgba(18, 20, 24, 0.15);
+  --accent: #2f6bff;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(47, 107, 255, 0.08);
+  --green: #2f6bff;
+  --green-wash: rgba(47, 107, 255, 0.08);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1d;
+    --panel: #262627;
+    --raise: #303032;
+    --ink: #f4f4f3;
+    --ink-2: #c5c6c8;
+    --ink-3: #8b8d92;
+    --line: rgba(255, 255, 255, 0.075);
+    --line-strong: rgba(255, 255, 255, 0.16);
+    --accent: #6aa0ff;
+    --accent-ink: #0d1524;
+    --accent-wash: rgba(106, 160, 255, 0.12);
+    --green: #6aa0ff;
+    --green-wash: rgba(106, 160, 255, 0.12);
+  }
+}
+
+body {
+  background: var(--bg);
+  font-size: 13px;
+  letter-spacing: -0.006em;
+}
+
+.bar {
+  flex-basis: 52px;
+  padding: 0 12px 0 14px;
+  border-bottom: 0;
+  background: var(--bg);
+}
+
+.name {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.conn {
+  border-left: 0;
+  padding-left: 2px;
+  font-size: 10px;
+}
+
+.bar-actions {
+  gap: 4px;
+}
+
+.icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.icon:hover {
+  background: var(--raise);
+}
+
+.agents-pill {
+  width: auto;
+  padding: 0 9px;
+  gap: 5px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 10.5px;
+  color: var(--ink-2);
+}
+
+.agents-pill:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+  background: var(--panel);
+}
+
+.agents-pill svg {
+  color: var(--accent);
+}
+
+.ctx {
+  margin: 2px 12px 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.ctx-title,
+.ctx-text strong {
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.thread {
+  padding: 8px 16px 12px;
+}
+
+.empty {
+  padding: 14px 4px 0;
+}
+
+.empty-mark,
+.empty-cloud {
+  display: none;
+}
+
+.empty h1 {
+  margin: 6px 0 0;
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.lede {
+  margin-top: 10px;
+  max-width: 100%;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.lede strong {
+  color: var(--ink);
+  font-weight: 550;
+}
+
+.empty-note {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.try-label {
+  margin: 26px 0 9px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+
+.prompts {
+  gap: 6px;
+  margin-top: 0;
+}
+
+.prompts button {
+  padding: 10px 11px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  box-shadow: none;
+}
+
+.prompts button:hover {
+  padding-left: 11px;
+  border-color: var(--line-strong);
+  background: var(--panel);
+  color: var(--ink);
+  transform: none;
+}
+
+.prompt-ic {
+  width: 20px;
+  height: 20px;
+  flex-basis: 20px;
+  border-radius: 6px;
+  background: var(--raise);
+  color: var(--ink-3);
+}
+
+.prompts .arrow {
+  color: var(--ink-3);
+  font-size: 13px;
+}
+
+.local-note {
+  margin-top: 22px;
+  font-size: 9.5px;
+  color: var(--ink-3);
+}
+
+.local-note .pulse {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+.messages {
+  gap: 16px;
+}
+
+.msg-role {
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+.msg-body {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.msg.user .msg-body {
+  border-radius: 14px 14px 4px 14px;
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.composer {
+  margin: 6px 12px 0;
+  padding: 11px 10px 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: 0 10px 30px -24px rgba(0, 0, 0, 0.55);
+}
+
+.composer:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  box-shadow: 0 0 0 3px var(--accent-wash), 0 10px 30px -24px rgba(0, 0, 0, 0.55);
+}
+
+.composer textarea {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pick {
+  border-radius: 8px;
+  padding: 4px 7px;
+  font-size: 10.5px;
+  color: var(--ink-2);
+}
+
+.pick:hover {
+  background: var(--raise);
+  color: var(--ink);
+}
+
+.send {
+  width: 30px;
+  height: 30px;
+  flex-basis: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: none;
+}
+
+.send:not(:disabled):hover {
+  transform: none;
+  background: color-mix(in srgb, var(--accent) 86%, #000);
+}
+
+.foot {
+  flex-basis: 34px;
+  border-top: 0;
+  padding: 0 16px;
+}
+
+.foot-note {
+  font-size: 9.5px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--ink-3);
+}
+
+.id-chip {
+  font-size: 8.5px;
+  opacity: 0.4;
+}
+
+.foot-note {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+@media (max-width: 420px) {
+  .agents-pill span {
+    display: none;
+  }
+
+  .agents-pill {
+    width: 28px;
+    padding: 0;
+    justify-content: center;
+  }
+}

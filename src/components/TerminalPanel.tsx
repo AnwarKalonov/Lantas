@@ -4,6 +4,7 @@ import {
   installCliCommand,
   onTerminalExit,
   onTerminalOutput,
+  openCliInTerminal,
   openExternalTerminal,
   stripAnsi,
   terminalCli,
@@ -260,6 +261,19 @@ export function TerminalPanel({
     }
   };
 
+  const openCliInTerminalApp = async () => {
+    if (!native) {
+      append("err", "Opening Terminal.app needs the desktop app.");
+      return;
+    }
+    try {
+      await openCliInTerminal(cwd);
+      append("meta", `Opened the Lantas CLI in Terminal${cwd ? ` at ${cwd}` : ""}.`);
+    } catch (error) {
+      append("err", error instanceof Error ? error.message : String(error));
+    }
+  };
+
   const submit = async () => {
     if (tab === "shell") {
       await runShell();
@@ -344,6 +358,14 @@ export function TerminalPanel({
                 title="Put `lantas` on your PATH. It opens the CLI in a Terminal window of its own."
               >
                 Install lantas
+              </button>
+              <button
+                type="button"
+                className="ide-terminal-action"
+                onClick={() => void openCliInTerminalApp()}
+                title="Open the Lantas CLI in your own Terminal.app"
+              >
+                CLI in Terminal
               </button>
               <button
                 type="button"

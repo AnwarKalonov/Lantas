@@ -37,3 +37,6 @@ __pycache__/
 *.keystore
 release-assets/
 tauri-signing/
+
+# Uploaded design toolkit, not part of the product
+/impeccable-main/

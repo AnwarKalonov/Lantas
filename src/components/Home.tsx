@@ -30,9 +30,9 @@ export function Home({ onSend, onOpenSettings, onScreenToggle }: HomeProps) {
       <div className="home-inner">
         <div className="home-head">
           <Lockup className="home-lockup" />
-          <p className="home-kicker">
-            {state.workspaceName ? `Working in ${state.workspaceName}` : "Chat"}
-          </p>
+          {state.workspaceName ? (
+            <p className="home-kicker">Working in {state.workspaceName}</p>
+          ) : null}
           <h1 className="home-title">Ask, build or browse</h1>
           <p className="home-line">
             One thread for the folder, the screen and the page in front of you.

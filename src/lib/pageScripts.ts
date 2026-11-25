@@ -261,7 +261,7 @@ export function pointerScript(x: number, y: number, kind: string): string {
         '@keyframes ripple{0%{opacity:.85;transform:scale(.35)}100%{opacity:0;transform:scale(1.5)}}' +
         '</style>' +
         '<svg class="arrow" viewBox="0 0 18 24" aria-hidden="true">' +
-        '<path d="M2 1.5 16 13.5l-6.4.9 3.2 6.1-2.8 1.4-3.1-6.2L2 19.7z" fill="#2563eb" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/>' +
+        '<path d="M2 1.5 16 13.5l-6.4.9 3.2 6.1-2.8 1.4-3.1-6.2L2 19.7z" fill="#2c6a4e" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/>' +
         '</svg>' +
         '<span class="ring"></span><span class="dot"></span>';
       document.documentElement.appendChild(node);

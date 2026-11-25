@@ -14,15 +14,15 @@
  * mode on a near-black background. Dark values are dark-only.
  */
 :root {
-  --probe: #4c8dff;
-  --probe-soft: rgba(76, 141, 255, 0.16);
-  --probe-line: rgba(76, 141, 255, 0.38);
+  --probe: #4f9d78;
+  --probe-soft: rgba(79, 157, 120, 0.16);
+  --probe-line: rgba(79, 157, 120, 0.38);
 }
 
 [data-theme="dark"] {
-  --probe: #4c8dff;
-  --probe-soft: rgba(76, 141, 255, 0.16);
-  --probe-line: rgba(76, 141, 255, 0.38);
+  --probe: #4f9d78;
+  --probe-soft: rgba(79, 157, 120, 0.16);
+  --probe-line: rgba(79, 157, 120, 0.38);
 
   /* Slightly deeper steps so panels separate without borders everywhere. */
   --bg: #0a0a0b;
@@ -34,19 +34,19 @@
   --text-2: #b8b6ae;
   --text-3: #8a887f;
 
-  --accent: #4c8dff;
+  --accent: #4f9d78;
   --accent-ink: #07101f;
-  --accent-soft: rgba(76, 141, 255, 0.16);
+  --accent-soft: rgba(79, 157, 120, 0.16);
 }
 
 [data-theme="light"] {
-  --probe: #2563eb;
-  --probe-soft: rgba(37, 99, 235, 0.12);
-  --probe-line: rgba(37, 99, 235, 0.34);
+  --probe: #2c6a4e;
+  --probe-soft: rgba(44, 106, 78, 0.12);
+  --probe-line: rgba(44, 106, 78, 0.34);
 
-  --accent: #2563eb;
+  --accent: #2c6a4e;
   --accent-ink: #ffffff;
-  --accent-soft: rgba(37, 99, 235, 0.12);
+  --accent-soft: rgba(44, 106, 78, 0.12);
 
   /* Wash the light chrome slightly warmer so the blue reads as the only colour. */
   --bg: #f6f5f0;
@@ -773,15 +773,10 @@
   color: var(--text-2);
 }
 
+/* The open thread reads as a raised row with a hairline, not a coloured bar
+   down one side. */
 .thread-row::before {
-  content: "";
-  position: absolute;
-  left: 2px;
-  top: 9px;
-  bottom: 9px;
-  width: 2px;
-  border-radius: 2px;
-  background: transparent;
+  content: none;
 }
 
 .thread-row:hover {
@@ -789,12 +784,12 @@
 }
 
 .thread-row.is-active {
-  background: var(--raised);
-  box-shadow: none;
+  background: var(--raised-2);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 
-.thread-row.is-active::before {
-  background: var(--probe);
+.thread-row.is-active .thread-title {
+  font-weight: 600;
 }
 
 .thread-title {

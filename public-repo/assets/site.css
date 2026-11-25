@@ -8078,3 +8078,75 @@ img.mark {
     animation: none !important;
   }
 }
+
+/* ---------- the mark is drawn in type: no brand image ships ---------- */
+
+.brand-word {
+  font-family: var(--serif);
+  font-size: 25px;
+  line-height: 1;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+.foot-word {
+  display: block;
+  font-family: var(--serif);
+  font-size: clamp(30px, 3.6vw, 44px);
+  line-height: 1;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+.foot-line {
+  display: block;
+  margin-top: 12px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.dmg-tile {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 19px;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--serif);
+  font-size: 40px;
+  line-height: 1;
+  box-shadow: var(--sh);
+}
+
+span.tb-mark,
+span.bot-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 1.02em;
+  height: 1.02em;
+  border-radius: 0.26em;
+  background: var(--green-wash);
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 0.62em;
+  font-weight: 600;
+  line-height: 1;
+  opacity: 1;
+  vertical-align: -0.1em;
+}
+
+span.nav-wordmark {
+  display: block;
+  width: auto;
+  font-family: var(--serif);
+  font-size: 1.55em;
+  line-height: 1;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  margin: 0.35em 0 1.15em 0.25em;
+  opacity: 0.94;
+}

@@ -20,7 +20,7 @@ No account, no subscription, no telemetry. Bring a model key, or run a model loc
 - [Release and updates](#release-and-updates)
 - [Troubleshooting](#troubleshooting)
 - [Credits](#credits)
-- [License](#license)
+- [Licence and credit](#licence-and-credit)
 
 ## What Lantas is
 
@@ -150,7 +150,9 @@ Lantas is not a Chromium fork and does not vendor or reproduce Dao source code. 
 
 ## Install
 
-Download the current public macOS build from the [releases page](https://github.com/AnwarKalonov/Lantas-download/releases). Unzip it and drag **Lantas.app** to Applications.
+Download the current macOS build from the [releases page](https://github.com/AnwarKalonov/Lantas-download/releases). Unzip it and drag **Lantas.app** to Applications.
+
+The release repository must be **public** for those links and for the in-app updater to work: GitHub refuses anonymous downloads of assets on a private repository. It holds only the published site, the README, the licence and the signed binaries — never the application source.
 
 The app is ad-hoc signed and not notarized. On first launch, macOS may ask you to approve it once:
 
@@ -231,11 +233,17 @@ Keys live in the app's local storage, unencrypted. Use a scoped key you can rota
 
 ## Permissions and privacy
 
-Tool calls are checked against ordered rules. **Settings → Agents** controls whether Build asks before every write and command or runs automatically. Reads are local and cheap. Destructive actions and arbitrary connected-app calls ask. Plan and Chat cannot write.
+Lantas asks before it uses anything. On first launch a permission sheet lists the four capabilities, and each one is a separate grant: **files** (read and edit the folder you opened), **commands** (builds, tests and git in that folder), **screen** (attach a screenshot to a turn) and **computer control** (click, type and scroll in the browser). *Allow these* saves the grants; *Not now* leaves them off. Reopen the sheet any time from **Settings → Permissions → Review permissions**.
 
-No usage telemetry is sent anywhere. Provider requests go directly to the provider. Browser page content is sent only to the model you chose when you ask the agent to work on it.
+The grants are enforced in the tool layer, not just in the interface: `read`, `glob`, `grep`, `write`, `edit` and `semantic_search` are refused without file access, `terminal` without the command grant, and every browser action except `snapshot`, `extract` and `find` without computer control. A denied tool returns a plain “not allowed” message that tells the model to ask, not to retry another way.
 
-The source repository is private. The public repository at [AnwarKalonov/Lantas-download](https://github.com/AnwarKalonov/Lantas-download) contains the website and release assets only — no application source.
+Screen Recording and Accessibility are also granted by macOS. Lantas opens the right System Settings pane and offers a one-frame capture test, but only the user can flip the switch; Screen Recording takes effect after a relaunch.
+
+On top of the grants, tool calls are checked against ordered rules. **Settings → Agents** controls whether Build asks before every write and command or runs automatically. Destructive actions and arbitrary connected-app calls ask. Plan and Chat cannot write.
+
+No usage telemetry is sent anywhere. Provider requests go directly to the provider. Browser page content is sent only to the model you chose when you ask the agent to work on it. The full data-flow list is the site's [privacy policy](Website/site/privacy.html).
+
+The application source is not published. Nothing in this repository is licensed for redistribution; see [Licence and credit](#licence-and-credit).
 
 ## Project layout
 
@@ -298,6 +306,8 @@ Tagged releases are built by `.github/workflows/macos.yml` on an Apple Silicon r
 
 The public site is generated from `public-repo/`. The `site-deploy.yml` workflow copies it to the public repository. It uses the same token; without it, the site job fails at the token check instead of publishing a partial site.
 
+The release repository has to be public for any of this to reach people: GitHub does not serve release assets, the `latest.json` updater feed or Pages content from a private repository to anonymous visitors. Keep the application repository private and make `Lantas-download` public — that repository contains the published site and the signed binaries only.
+
 Download links on the site never need editing. Every button points at `releases/latest` and carries a `data-dl` kind (`dmg`, `app`, `extension`); `assets/site.js` reads the latest release from the GitHub API on load and swaps in that build's real asset URLs, name and version. If the API is unreachable the buttons still land on the newest release page instead of a dead file.
 
 ## Troubleshooting
@@ -333,6 +343,15 @@ Check the Actions run. If the publish step was skipped, `LANTAS_RELEASE_TOKEN` i
 - Chromium, Chrome and their marks belong to their respective owners. Lantas is not affiliated with Google or the Dao project.
 - Lantas uses React, Vite, Monaco, Tauri and the providers listed in `package.json`.
 
-## License
+## Licence and credit
 
-Lantas is free to download and use. The source is not public. See [`LICENSE`](LICENSE) for the terms that apply to this repository.
+Lantas is free to download and use, but it is **not open source**. It is covered by the **Lantas License 1.0** ([`LICENSE`](LICENSE)):
+
+- Use it, free of charge, for personal or commercial work, on machines you control.
+- Do not redistribute it, sell it, host it as a service or bundle it into a product.
+- Do not strip the Lantas name, the copyright line or the project links.
+- If you build a derivative and distribute it, that derivative must be licensed under the same terms, must credit **“Based on Lantas, originally by Anwar Kalonov — https://github.com/AnwarKalonov”** in its about screen, README and website, and must publish its complete source free of charge.
+
+That last rule is the one that matters: a fork cannot go closed, cannot drop the credit and cannot be sold. [`NOTICE`](NOTICE) has the credit line to reproduce, and the site's [terms page](Website/site/terms.html#licence) has the same licence in readable form.
+
+This is a source-available licence, which is why the source stays private. A copyleft licence such as AGPL would require publishing the source to everyone who receives the app, which is the opposite of the goal here. Have a lawyer look at it before you rely on it commercially.

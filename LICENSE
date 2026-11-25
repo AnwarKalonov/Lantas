@@ -1,21 +1,111 @@
-MIT License
+Lantas License 1.0
+Copyright © 2026 Anwar Kalonov. All rights reserved.
 
-Copyright (c) 2026 AnwarKalonov
+SPDX-License-Identifier: LicenseRef-Lantas-1.0
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This licence covers the Lantas application, its source code, its website, its
+documentation, its images and every other file distributed with them (together,
+the "Software"). It is not an open-source licence. It exists so that the
+Software cannot be copied, rebranded or resold, and so that anyone who does
+build on it must do so in the open and with credit.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Read section 5 if you only want to know the rule for forks.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+1. Definitions
+
+"You" means the person or organisation using the Software.
+"Derivative" means any work that is based on the Software, including a modified
+version, a port, a translation, a reimplementation of a substantial part of it,
+or a work that incorporates a substantial part of it.
+"Distribute" means to give, publish, upload, sell, sublicense, lend or otherwise
+make the Software or a Derivative available to anyone other than You.
+"Credit" means the notice described in section 5(b).
+
+2. What You may do
+
+a) Run the Software, free of charge, for personal or commercial work, on
+   machines You own or control.
+b) Make copies of the Software for backup, testing and archival purposes.
+c) Read, study and learn from the source code if You lawfully receive it.
+
+3. Conditions on every use
+
+a) Keep every copyright, licence and attribution notice in the Software.
+b) Do not remove, hide or alter the name "Lantas", the copyright line, or the
+   links to the project.
+c) Do not represent the Software as Your own work.
+
+4. What You may not do without prior written permission
+
+a) Distribute the Software, in whole or in part, in any form.
+b) Distribute a Derivative, except as allowed by section 5.
+c) Sell, rent, lease, sublicense or charge for the Software or a Derivative.
+d) Make the Software or a Derivative available to others as a hosted or managed
+   service, or bundle it into a product You offer.
+e) Use the "Lantas" name, wordmark or logo for a fork, product or service, apart
+   from the factual credit required by section 5.
+
+5. Building on the Software: open source and credit
+
+This is the only way a Derivative may be Distributed. If You create a Derivative
+and Distribute it, then all of the following must be true:
+
+a) The Derivative is licensed under this same licence, Lantas License 1.0, and
+   carries a copy of it.
+b) It gives clear Credit to the original in its about screen, its README and any
+   website for it, worded at least as: "Based on Lantas, originally by Anwar
+   Kalonov — https://github.com/AnwarKalonov", with the link visible and
+   clickable wherever the credit appears in a user interface.
+c) You publish the complete corresponding source code of the Derivative, under
+   this licence, free of charge, at the same place the Derivative is published,
+   in a form that can be rebuilt.
+d) You do not charge for the Derivative, and You do not add technical measures
+   that prevent recipients from exercising the rights in this licence.
+
+Nothing in this section permits Distributing the unmodified Software, or a
+Derivative that does not meet every condition above. A copy that fails these
+conditions is not licensed, and section 7 applies.
+
+6. Contributions
+
+If You send a patch, pull request, suggestion or other contribution, You grant
+Anwar Kalonov a perpetual, worldwide, royalty-free licence to use, modify and
+distribute it as part of the Software under this licence. You keep ownership of
+Your contribution and are not owed anything for it.
+
+7. Termination
+
+a) This licence ends automatically if You breach it.
+b) It is reinstated automatically if You cure the breach within 30 days of
+   learning of it and stop the conduct that caused it.
+c) When it ends, You must stop using the Software and delete every copy of the
+   Software and of any Derivative You made.
+d) Sections 3, 4, 5, 8, 9 and 10 survive termination.
+
+8. No warranty
+
+The Software is provided "as is", without warranty of any kind, express or
+implied, including merchantability, fitness for a particular purpose,
+non-infringement and uninterrupted or error-free operation. You use it at Your
+own risk. You are responsible for Your own data, backups, API keys, provider
+costs and for any change the Software makes to Your files or systems.
+
+9. Limitation of liability
+
+To the maximum extent permitted by law, Anwar Kalonov is not liable for any
+indirect, incidental, special, consequential or punitive damages, or for lost
+profits, lost data, business interruption or the cost of substitutes, arising
+from the Software or this licence, even if advised of the possibility. Where
+liability cannot be excluded, it is limited to the amount You paid for the
+Software, which is zero.
+
+10. No other rights
+
+No trademark, service mark, trade name, patent or other intellectual property
+right is granted except the limited rights in sections 2 and 5. All rights not
+expressly granted are reserved.
+
+11. Contact
+
+For permission to do anything section 4 prohibits, or to ask about this licence,
+write to Anwar Kalonov through https://github.com/AnwarKalonov.

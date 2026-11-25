@@ -5,15 +5,14 @@
 Lantas runs on your Mac. Ask anything, change a codebase, connect the apps you already
 work in, or hand it the tab you have open. No account, no subscription, no trial.
 
-This repository is the **download and website** repository. It contains the built app,
-the Chrome extension, and the site at `index.html`. The application source is not
-published here.
+This repository is the **download and website** repository. It contains the published
+site (`index.html`), the Chrome extension build and the signed application releases.
+The application source is not published here and is not open source.
 
 ## Download
 
-The newest build is always on the [releases page](https://github.com/AnwarKalonov/Lantas-download/releases/latest).
-Every version ever published, with its notes and downloads, is on the
-[versions page](versions.html).
+The newest build is always on the [releases page](releases). Every version ever
+published, with its notes and downloads, is on the [versions page](versions.html).
 
 | Build | For | File |
 | --- | --- | --- |
@@ -41,9 +40,13 @@ https://github.com/AnwarKalonov/Lantas-download/releases/latest/download/Lantas-
    ```
 
    Only run a script you trust.
-3. Add a model in **Settings → Providers**: Anthropic, OpenAI, OpenRouter, Groq or
+3. Lantas asks what it may do before it does anything. The permission sheet lists
+   **files**, **commands**, **screen** and **computer control**; anything you leave off
+   stays off, and every tool checks the grant before it runs. You can change all of it
+   later in **Settings → Permissions**.
+4. Add a model in **Settings → Providers**: Anthropic, OpenAI, OpenRouter, Groq or
    Google with your own key, or Ollama / LM Studio running on the same Mac.
-4. Load the Chrome extension once: `chrome://extensions` → Developer mode →
+5. Load the Chrome extension once: `chrome://extensions` → Developer mode →
    **Load unpacked** → `/Applications/Lantas.app/Contents/Resources/chrome-extension`.
 
 ## What it does
@@ -64,17 +67,31 @@ https://github.com/AnwarKalonov/Lantas-download/releases/latest/download/Lantas-
 Requires macOS 11 or newer. Chrome 116 or newer is only needed for the optional
 Chrome bridge; the built-in browser works on its own.
 
-![The Lantas Code workspace](https://anwarkalonov.github.io/Lantas-download/assets/img/app-code.webp)
+![The Lantas Code workspace](assets/img/app-code.webp)
 
 ## Free
 
 The app is free to download and use: no account, no seats, no metering, no per-task fee.
 A local model on the same Mac costs nothing; a hosted provider bills you directly.
 
+## Privacy and terms
+
+No account, no analytics, no server holding your work. Chats and settings stay on your
+Mac, and a model request goes straight to the provider you configured.
+
+- [Privacy policy](privacy.html) — every moment data can leave your Mac.
+- [Terms and licence](terms.html) — acceptable use and the Lantas License 1.0.
+- [Versions](versions.html) — every release with its notes.
+
 ## Support
 
-Open an [issue](https://github.com/AnwarKalonov/Lantas-download/issues).
+Open an [issue](https://github.com/AnwarKalonov/Lantas-download/issues), or reach the
+author through [github.com/AnwarKalonov](https://github.com/AnwarKalonov).
 
 ## Licence
 
-Free to download and use, but not open source. See [LICENSE](LICENSE).
+Free to download and use, **not open source**. The **Lantas License 1.0** allows
+personal and commercial use of the app, forbids redistributing or reselling it, and
+requires any distributed derivative to be licensed under the same terms, credit
+“Based on Lantas, originally by Anwar Kalonov — https://github.com/AnwarKalonov”, and
+publish its complete source free of charge. See [LICENSE](LICENSE).

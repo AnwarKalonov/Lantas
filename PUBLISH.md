@@ -5,6 +5,23 @@ the static site in `public-repo/` plus the built app on GitHub Releases. Nothing
 folder is source code, build tooling or git history, and no file in it points at this
 repository.
 
+Two rules keep that true:
+
+1. **`Lantas-download` has to be public.** GitHub will not serve release assets, the
+   `latest.json` updater feed or Pages content from a private repository, so a private
+   release repository means every download link and every update check fails with a
+   404. Its contents are the published site, the README, the licence and the signed
+   binaries — no application source.
+2. **Never publish `Website/` (the source tree).** Only `public-repo/` is uploaded, and
+   `scripts/sync-public-repo.sh` is the only thing that writes to it. Run
+   `scripts/check-public-repo.sh` before pushing; it fails on source paths, secrets and
+   files that should not leave the machine.
+
+Pages: `index.html`, `docs.html`, `download.html`, `versions.html`, `privacy.html`,
+`terms.html`. The privacy policy and the terms (which carry the Lantas License 1.0)
+are part of the release surface: update them in the same change as the behaviour they
+describe.
+
 ## How a new version reaches people
 
 1. Bump the version in `src-tauri/tauri.conf.json` **and** `APP_VERSION` in

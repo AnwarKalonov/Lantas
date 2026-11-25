@@ -62,9 +62,11 @@ export function ComposioPanel() {
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : String(caught);
       setError(
-        /failed to fetch|network/i.test(message) && !inTauri()
+        /failed to fetch|network|load failed/i.test(message) && !inTauri()
           ? "The web preview blocks Composio's API. The app calls it through Rust, so connections work in the desktop build."
-          : message,
+          : /failed to fetch|network|load failed/i.test(message)
+            ? "Composio could not be reached from the app. Check the connection and that the key is a project key (ak_…), then retry."
+            : message,
       );
     } finally {
       setBusy(null);

@@ -509,15 +509,15 @@ export function BrowserView({
 
   const toggleBookmark = () => {
     if (atHome) return;
-    setData((current) => {
-      const exists = current.bookmarks.some((item) => item.url === active.url);
-      return {
-        ...current,
-        bookmarks: exists
-          ? current.bookmarks.filter((item) => item.url !== active.url)
-          : [{ url: active.url, title: active.title }, ...current.bookmarks],
-      };
-    });
+    const exists = data.bookmarks.some((item) => item.url === active.url);
+    setData((current) => ({
+      ...current,
+      bookmarks: exists
+        ? current.bookmarks.filter((item) => item.url !== active.url)
+        : [{ url: active.url, title: active.title }, ...current.bookmarks],
+    }));
+    // The star used to change state with no visible result until you went home.
+    notify(exists ? "Removed from home" : `Saved “${active.title || hostOf(active.url)}” to home`);
   };
 
   const signIn = () => {

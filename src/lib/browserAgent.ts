@@ -95,7 +95,7 @@ export function parseBrowserAddress(raw: string): BrowserAddress {
 
   return {
     ok: false,
-    error: `“${value}” is not a full web address. The app will not guess a site, route or search for it. Decide the exact destination and call navigate with a complete https:// URL.`,
+    error: `“${value}” is not a web address. If the user named a site, give its domain (for example github.com) or the full https:// URL; do not substitute a search.`,
   };
 }
 
@@ -107,7 +107,9 @@ export function parseBrowserAddress(raw: string): BrowserAddress {
  */
 export const BROWSER_GUIDE = [
   "Browser playbook (follow this instead of guessing):",
-  "- Work in one step at a time: navigate, then snapshot the live page, then click/type using the controls you actually see. A named product means its real site; a phrase like `search for …` means the search page.",
+  "- Work in one step at a time: navigate, then snapshot the live page, then click/type using the controls you actually see.",
+  "- \"Open X\", \"go to X\" and \"take me to X\" mean X's real home page. Decide the address and navigate straight there (https://github.com, https://www.youtube.com, https://notion.so). Never route an open request through a search engine, and never replace it with a query, unless the user actually said search.",
+  "- A bare domain is a valid address: `github.com` becomes https://github.com. Only ask for a full URL when the value is not a domain at all.",
   "- You choose every destination. The app does not know product names, infer a route, repair an address or search for you. Send a complete `https://` URL. If you only have a name, decide the real site yourself; if you only have a page name inside a site, open the site and click its visible control.",
   "- After every action, read the returned URL, title and controls. Use a ref or an exact label from that result; never invent coordinates or selectors. A click or fill proves only that action; verify the user-visible outcome once.",
   "- Tabs are part of the task: `tabs` lists them, `switch_tab` targets one by id or index, `new_tab` opens one and `close_tab` closes one. Prefer the id; after switching, snapshot the new page before acting.",
@@ -115,7 +117,7 @@ export const BROWSER_GUIDE = [
   "- If the task names a page inside a site (for example a calculator, a settings page or a specific tool), open the site, snapshot, then click the matching navigation control. Do not stop after the homepage.",
   "- Canvas and math editors often ignore a value assignment. Click into the editor first, then type or press keys. If the page exposes a documented API, `evaluate` may call it, but read the expression back to verify it.",
   "- `click_at` and `evaluate` exist for canvas apps and site APIs. Use them only for the user's task, not to read private storage or change unrelated settings.",
-  "- If a page does not open, try the canonical address once. If you need a search, navigate to the search URL yourself. Do not repeat an identical failing call.",
+  "- If a page does not open, try its canonical address once (github.com, then https://www.github.com). If you need a search, navigate to the search URL yourself. Do not repeat an identical failing call.",
   "- Page snapshots pierce open shadow roots and same-origin iframes. If a control is still missing, evaluate `(() => document.querySelector('my-app')?.shadowRoot?.querySelector('button')?.outerHTML)()` to inspect it; never guess a selector.",
   "- Login walls: use browser {\"action\":\"open_in_chrome\",\"url\":...} so the user signs in in their own Chrome profile, then switch to the Chrome engine and read the authenticated page.",
   "- Form snapshots include a `Forms:` line with field names. Use the numbered refs for the fields and the submit button instead of blind Enter presses.",

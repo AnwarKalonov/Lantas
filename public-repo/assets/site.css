@@ -8407,3 +8407,15 @@ img { transition: opacity 500ms var(--ease-out), filter 500ms var(--ease-out); }
   aspect-ratio: auto;
   border-radius: 4px;
 }
+
+/* pointer motion: the frame leans, then springs back */
+.player {
+  transition: transform 420ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-style: preserve-3d;
+}
+.player:hover { box-shadow: 0 54px 100px -66px rgba(29, 42, 35, 0.78); }
+.btn { transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1), background-color 200ms ease, border-color 200ms ease, color 200ms ease; will-change: transform; }
+.hero-sky { will-change: translate; }
+@media (prefers-reduced-motion: reduce) {
+  .player, .btn, .hero-sky { transition: none !important; transform: none !important; translate: none !important; }
+}

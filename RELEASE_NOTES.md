@@ -1,3 +1,15 @@
+Lantas 1.0.7
+
+- **Lantas asks before it acts.** A consent sheet on first launch lists files, commands, screen and computer control; every tool checks the grant before it runs, so a denied capability cannot reach the disk, a shell or the pointer. Settings → Permissions reopens it, and macOS keeps its own switches for Screen Recording and Accessibility with a button straight to the right pane.
+- **Screen capture works in the desktop app.** A WKWebView has no `getDisplayMedia`, so the app asks macOS for one frame through `screencapture`, plus a one-frame test in the permission sheet that reports what macOS actually allowed.
+- **Composio, GitHub and Google are reachable from the app.** The Tauri HTTP scope only allowed model providers, so `backend.composio.dev` was refused and the fallback surfaced Safari's “Load failed” on every connect. The scope now includes Composio, `api.github.com`, Gmail/Google APIs and the Google accounts hosts.
+- **Chat, browser and code keep separate threads.** Each thread records its surface, switching surfaces reopens the last thread you used there, and the sidebar lists only that surface's threads.
+- **The browser opens the site you named.** The manual says an “open X” request means X's real home page, a bare domain such as `github.com` is a valid address, and a search engine is never substituted unless you asked for a search.
+- **The bookmark star answers back.** Saving a page confirms it instead of changing an invisible flag until you return home.
+- **Smaller fixes.** Release links in the app and site follow the newest release; the download page names the current build.
+
+This build is ad-hoc signed and not notarized. macOS may ask you to approve Lantas once: open **System Settings → Privacy & Security**, click **Open Anyway**, and authenticate.
+
 Lantas 1.0.6
 
 - **The browser now works one step at a time.** The model gets one `browser` tool with explicit actions for opening a page, reading its controls, clicking, typing, filling, selecting, checking, hovering, waiting, scrolling, going back and going forward. It has to read the page again after each action, so a second step like “open the graphing calculator” starts from the controls that are actually on screen.

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { inTauri } from "../lib/native";
 import {
+  installCliCommand,
   onTerminalExit,
   onTerminalOutput,
   openExternalTerminal,
@@ -102,9 +103,12 @@ export function TerminalPanel({
         // worse than a stopped process. The input stays live and typing starts
         // the CLI again.
         if (code !== 0) {
+          // This is the CLI's message, not the terminal's: the Terminal tab
+          // runs without a model, a key or an account, and saying so here
+          // made the whole panel look gated behind a provider.
           append(
             "meta",
-            "It needs a model: connect one in Settings → Providers, or run `lantas setup` here and type a task again.",
+            "The CLI stopped. Type again to restart it; connect a model in Settings → Providers if it asked for one. The Terminal tab needs none.",
           );
         }
       }
@@ -235,6 +239,14 @@ export function TerminalPanel({
     }
   };
 
+  const installCommand = async () => {
+    try {
+      append("meta", await installCliCommand());
+    } catch (error) {
+      append("err", error instanceof Error ? error.message : String(error));
+    }
+  };
+
   const openInTerminalApp = async () => {
     if (!native) {
       append("err", "Opening Terminal.app needs the desktop app.");
@@ -324,14 +336,24 @@ export function TerminalPanel({
         </div>
         <div className="ide-terminal-actions">
           {native && (
-            <button
-              type="button"
-              className="ide-terminal-action"
-              onClick={() => void openInTerminalApp()}
-              title="Open this folder in the real Terminal.app"
-            >
-              Open in Terminal
-            </button>
+            <>
+              <button
+                type="button"
+                className="ide-terminal-action"
+                onClick={() => void installCommand()}
+                title="Put `lantas` on your PATH. It opens the CLI in a Terminal window of its own."
+              >
+                Install lantas
+              </button>
+              <button
+                type="button"
+                className="ide-terminal-action"
+                onClick={() => void openInTerminalApp()}
+                title="Open this folder in the real Terminal.app"
+              >
+                Open in Terminal
+              </button>
+            </>
           )}
           {!shellReady && tab === "shell" && (
             <button

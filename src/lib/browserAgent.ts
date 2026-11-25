@@ -15,6 +15,8 @@ import {
   clickScript,
   evaluateScript,
   hoverScript,
+  pointAtRefScript,
+  pointAtScript,
   pointerScript,
   pressScript,
   scrollScript,
@@ -222,6 +224,18 @@ function drawPointer(x: number, y: number, kind: "move" | "click" | "type" | "sc
   void runInPage(pointerScript(x, y, kind)).catch(() => {});
 }
 
+/**
+ * Glide the pointer onto a control before touching it.
+ *
+ * Clicking and then drawing the cursor made it look like the agent teleported:
+ * the ripple appeared at the new place with no approach. The page animates the
+ * move itself, so this only has to wait for the pointer to arrive.
+ */
+async function movePointerTo(x: number, y: number) {
+  drawPointer(x, y, "move");
+  await sleep(240);
+}
+
 async function pointerAt(fallback?: { x: number; y: number }) {
   if (fallback) return fallback;
   try {
@@ -248,6 +262,16 @@ export async function agentClick(target: string): Promise<boolean> {
     }
   }
 
+  // Find the control and walk the pointer onto it before the click lands.
+  try {
+    const spot = await runInPage<{ ok: boolean; x?: number; y?: number }>(pointAtScript(target));
+    if (spot?.ok && typeof spot.x === "number" && typeof spot.y === "number") {
+      await movePointerTo(spot.x, spot.y);
+    }
+  } catch {
+    // The pointer is decoration; the click below is the action that matters.
+  }
+
   const result = await runInPage<{ ok: boolean; error?: string; x?: number; y?: number }>(
     clickScript(target),
   );
@@ -258,7 +282,7 @@ export async function agentClick(target: string): Promise<boolean> {
       : undefined,
   );
   drawPointer(point.x, point.y, "click");
-  await sleep(200);
+  await sleep(160);
   return true;
 }
 
@@ -278,6 +302,17 @@ export async function agentClickRef(index: number | string): Promise<boolean> {
     }
   }
 
+  // A ref is stable, so the control found here is the one clicked below. The
+  // pointer travels first, exactly like the label-based click.
+  try {
+    const spot = await runInPage<{ ok: boolean; x?: number; y?: number }>(pointAtRefScript(index));
+    if (spot?.ok && typeof spot.x === "number" && typeof spot.y === "number") {
+      await movePointerTo(spot.x, spot.y);
+    }
+  } catch {
+    // Best effort; a stale ref still fails in the click below.
+  }
+
   const result = await runInPage<{ ok: boolean; x?: number; y?: number }>(clickRefScript(index));
   if (!result?.ok) return false;
   const point = await pointerAt(
@@ -286,7 +321,7 @@ export async function agentClickRef(index: number | string): Promise<boolean> {
       : undefined,
   );
   drawPointer(point.x, point.y, "click");
-  await sleep(200);
+  await sleep(160);
   return true;
 }
 

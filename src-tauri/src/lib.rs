@@ -614,6 +614,7 @@ pub fn run() {
             terminal::terminal_start,
             terminal::terminal_shell,
             terminal::terminal_cli,
+            terminal::install_cli_command,
             terminal::terminal_write,
             terminal::terminal_stop,
             vscode::vscode_import,

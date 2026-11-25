@@ -250,7 +250,7 @@ export function pointerScript(x: number, y: number, kind: string): string {
     if (!node || !node.shadowRoot) {
       node = document.createElement("div");
       node.id = ID;
-      node.style.cssText = "all:initial;position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none;width:0;height:0;transition:transform .22s cubic-bezier(.2,.75,.3,1);will-change:transform";
+      node.style.cssText = "all:initial;position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none;width:0;height:0;will-change:transform";
       const root = node.attachShadow({ mode: "open" });
       root.innerHTML =
         '<style>' +
@@ -266,18 +266,108 @@ export function pointerScript(x: number, y: number, kind: string): string {
         '<span class="ring"></span><span class="dot"></span>';
       document.documentElement.appendChild(node);
     }
-    node.style.transform = "translate(" + px + "px," + py + "px)";
     node.style.opacity = "1";
     const root = node.shadowRoot;
-    if (kind === "click") {
+
+    // A hand does not teleport. The pointer eases from wherever it was to the
+    // control along a shallow arc, and mousemove follows it so hover menus and
+    // hover styles open under it on the way. A click's ripple waits for the
+    // pointer to arrive, which is what makes the click read as a click.
+    const state = window.__lantasPointerState ||
+      (window.__lantasPointerState = { x: px, y: py, frame: 0 });
+    const from = { x: state.x, y: state.y };
+    const to = { x: px, y: py };
+    const distance = Math.hypot(to.x - from.x, to.y - from.y);
+    const pulse = () => {
+      if (kind !== "click") return;
       const ring = root.querySelector(".ring");
       if (ring) { ring.classList.remove("on"); void ring.offsetWidth; ring.classList.add("on"); }
+    };
+
+    if (distance < 2) {
+      node.style.transform = "translate(" + to.x + "px," + to.y + "px)";
+      state.x = to.x;
+      state.y = to.y;
+      pulse();
+    } else {
+      const bow = Math.min(34, distance * 0.16) * (Math.random() < 0.5 ? -1 : 1);
+      const mid = {
+        x: (from.x + to.x) / 2 - ((to.y - from.y) / distance) * bow,
+        y: (from.y + to.y) / 2 + ((to.x - from.x) / distance) * bow,
+      };
+      const duration = Math.min(620, Math.max(170, distance * 1.15));
+      const started = performance.now();
+      const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+      cancelAnimationFrame(state.frame);
+      const step = (now) => {
+        const t = Math.min(1, (now - started) / duration);
+        const e = ease(t);
+        const x = (1 - e) * (1 - e) * from.x + 2 * (1 - e) * e * mid.x + e * e * to.x;
+        const y = (1 - e) * (1 - e) * from.y + 2 * (1 - e) * e * mid.y + e * e * to.y;
+        node.style.transform = "translate(" + x + "px," + y + "px)";
+        state.x = x;
+        state.y = y;
+        const under = document.elementFromPoint(x, y);
+        if (under) {
+          under.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: x, clientY: y }));
+        }
+        if (t < 1) {
+          state.frame = requestAnimationFrame(step);
+        } else {
+          state.x = to.x;
+          state.y = to.y;
+          pulse();
+        }
+      };
+      state.frame = requestAnimationFrame(step);
     }
+
     // The pointer stays for the whole task. A three-second fade made it look
     // like the agent had stopped working whenever it paused to think.
     clearTimeout(window.__lantasPointerTimer);
     window.__lantasPointerTimer = setTimeout(() => { if (node) node.style.opacity = "0"; }, 60000);
     return { ok: true, x: px, y: py };
+  `;
+}
+
+/**
+ * Where an element is, without clicking it.
+ *
+ * The agent moves its pointer here first and clicks a moment later, the way a
+ * person does, and hover menus get a real mousemove on the way in.
+ */
+export function pointAtRefScript(index: number | string): string {
+  const ref = quote(String(index ?? "").trim().replace(/^e/i, ""));
+  return `${HELPERS}
+    const el = deepFind('[data-lantas-ref="' + ${ref} + '"]');
+    if (!el) {
+      return { ok: false, error: "Ref " + ${ref} + " is gone from the page." };
+    }
+    el.scrollIntoView({ block: "center", inline: "center" });
+    const point = midpoint(el);
+    fire(el, "pointerover", point);
+    fire(el, "pointerenter", point);
+    fire(el, "mouseover", point);
+    fire(el, "pointermove", point);
+    fire(el, "mousemove", point);
+    return { ok: true, x: Math.round(point.x), y: Math.round(point.y) };
+  `;
+}
+
+/** Same, for an element named by label or selector. */
+export function pointAtScript(target: string): string {
+  return `${HELPERS}
+    const want = ${quote(target)};
+    const el = resolve(want);
+    if (!el) return { ok: false, error: "Nothing matched \\"" + want + "\\"." };
+    el.scrollIntoView({ block: "center", inline: "center" });
+    const point = midpoint(el);
+    fire(el, "pointerover", point);
+    fire(el, "pointerenter", point);
+    fire(el, "mouseover", point);
+    fire(el, "pointermove", point);
+    fire(el, "mousemove", point);
+    return { ok: true, x: Math.round(point.x), y: Math.round(point.y) };
   `;
 }
 

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Put the terminal app on PATH without npm or a build step.
+# Put the Lantas CLI on PATH without npm or a build step.
 #
 #   bash scripts/install-cli.sh
-#   lantas
+#   lantas            # opens in its own Terminal window, in this folder
+#   lantas --here     # runs in the terminal you are already in
 #
-# Files go to ~/.local/share/lantas and a symlink goes to ~/.local/bin/lantas.
+# Files go to ~/.local/share/lantas and the `lantas` command to ~/.local/bin.
 # Override those roots with LANTAS_PREFIX (the parent of bin/ and share/).
 # No sudo, no global npm install, no dependencies beyond Node 18+.
 
@@ -29,7 +30,60 @@ BIN="$PREFIX/bin"
 mkdir -p "$LIB" "$BIN"
 cp cli/lantas.mjs cli/logo.mjs "$LIB/"
 chmod +x "$LIB/lantas.mjs"
-ln -sf "$LIB/lantas.mjs" "$BIN/lantas"
+
+# The command is a launcher, not the script itself: `lantas` should open a
+# terminal window of its own the way a coding agent is normally started, and
+# `lantas --here` should stay in the shell for scripts and pipelines.
+cat > "$BIN/lantas" <<'LAUNCHER'
+#!/bin/bash
+# lantas — the coding agent, in its own terminal window.
+set -euo pipefail
+
+BIN_DIR="$(cd "$(dirname "$0")" && pwd)"
+LIB_DIR="$BIN_DIR/../share/lantas"
+[ -f "$LIB_DIR/lantas.mjs" ] || LIB_DIR="$BIN_DIR"
+
+HERE=0
+ARGS=()
+for arg in "$@"; do
+  if [ "$arg" = "--here" ]; then
+    HERE=1
+  else
+    ARGS+=("$arg")
+  fi
+done
+
+run_here() {
+  exec node "$LIB_DIR/lantas.mjs" ${ARGS[@]+"${ARGS[@]}"}
+}
+
+if [ "$HERE" = "1" ] || [ "${LANTAS_NO_WINDOW:-}" = "1" ]; then
+  run_here
+fi
+
+# No macOS, no Terminal, or no keyboard in front of us: stay in this shell.
+if [ "$(uname)" != "Darwin" ] || ! command -v osascript >/dev/null 2>&1 || [ ! -t 0 ]; then
+  run_here
+fi
+
+# A .command file opened with Terminal.app gets its own window, already in the
+# folder the user ran the command from, so the agent starts where they are.
+SCRIPT="$(mktemp "${TMPDIR:-/tmp}/lantas-XXXXXX.command")"
+{
+  printf '#!/bin/bash\n'
+  printf 'cd %q || exit 1\n' "$PWD"
+  printf 'export LANTAS_NO_WINDOW=1\n'
+  printf 'exec node %q' "$LIB_DIR/lantas.mjs"
+  for arg in ${ARGS[@]+"${ARGS[@]}"}; do
+    printf ' %q' "$arg"
+  done
+  printf '\n'
+} > "$SCRIPT"
+chmod +x "$SCRIPT"
+
+exec open -a Terminal "$SCRIPT"
+LAUNCHER
+chmod +x "$BIN/lantas"
 
 printf '\n  Lantas CLI installed\n\n'
 printf '    %s\n' "$BIN/lantas"
@@ -37,7 +91,7 @@ printf '    config: ~/.lantas/config.json\n\n'
 
 case ":$PATH:" in
   *":$BIN:"*)
-    printf '  Run: lantas setup\n\n'
+    printf '  Run: lantas\n\n'
     ;;
   *)
     # Pick the file the user's login shell actually reads, add the folder once,
@@ -56,8 +110,9 @@ case ":$PATH:" in
     fi
     if [ -x "$BIN/lantas" ]; then
       printf '  Open a new terminal (or run: source %s), then:\n\n' "$RC"
-      printf '    lantas setup     # connect a model once\n'
-      printf '    lantas           # start a session in the current folder\n\n'
+      printf '    lantas           # a new terminal window, in this folder\n'
+      printf '    lantas --here    # stay in this terminal\n'
+      printf '    lantas setup     # connect a model once\n\n'
     fi
     ;;
 esac

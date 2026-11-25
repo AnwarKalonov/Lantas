@@ -16,7 +16,7 @@ import { spawn, spawnSync } from "node:child_process";
 import readline from "node:readline";
 import { LOGO_ROWS } from "./logo.mjs";
 
-let VERSION = "1.0.6";
+let VERSION = "1.1.1";
 try {
   const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   VERSION = pkg.version || VERSION;
@@ -1355,8 +1355,9 @@ async function listModels(config) {
 function help() {
   printBrand({ compact: true });
   console.log(`  ${paint("Usage", C.text)}`);
-  console.log(`    lantas                      start a session in this folder`);
-  console.log(`    lantas "fix the failed test"  one task, then exit`);
+      console.log(`    lantas                      start a session in this folder`);
+    console.log(`    lantas --here               stay in this terminal (default opens a new one)`);
+    console.log(`    lantas "fix the failed test"  one task, then exit`);
   console.log(`    lantas setup                connect a provider`);
   console.log(`    lantas models               list providers and models`);
   console.log();
@@ -1388,6 +1389,7 @@ function parseArgs(argv) {
     const arg = argv[index];
     if (arg === "--plan") options.mode = "plan";
     else if (arg === "--build") options.mode = "build";
+    else if (arg === "--here") options.here = true;
     else if (arg === "--yes" || arg === "-y") options.yes = true;
     else if (arg === "--light") options.light = true;
     else if (arg === "--dark") options.light = false;
@@ -1616,13 +1618,30 @@ async function main() {
   }
 
   if (!isConfigured(config, config.provider)) {
-    printBrand({ compact: true });
-    console.log(`  ${paint(`No ${PROVIDERS[config.provider].name} credential yet.`, C.yellow)}`);
-    console.log(`  ${paint("Run", C.faint)} ${paint("lantas setup", C.text)} ${paint("to connect a provider.", C.faint)}`);
-    console.log(`  ${paint("Local models work too: Ollama or LM Studio need no key.", C.faint)}`);
-    console.log();
-    process.exitCode = 1;
-    return;
+    if (IS_TTY && process.stdin.isTTY && !options.rest.length) {
+      // First run in a terminal window: ask right here instead of printing a
+      // dead end and exiting. The same list holds Ollama and LM Studio, which
+      // need no key at all, so this is not a paywall.
+      printBrand({ compact: true });
+      console.log(`  ${paint("No model connected yet.", C.yellow)} ${paint("One step, then you can code.", C.faint)}`);
+      console.log();
+      await setup(config);
+      const fresh = await loadConfig();
+      if (!isConfigured(fresh, fresh.provider)) {
+        console.log(`  ${paint("Nothing was connected. Run lantas setup when you are ready.", C.faint)}`);
+        process.exitCode = 1;
+        return;
+      }
+      Object.assign(config, fresh);
+    } else {
+      printBrand({ compact: true });
+      console.log(`  ${paint(`No ${PROVIDERS[config.provider].name} credential yet.`, C.yellow)}`);
+      console.log(`  ${paint("Run", C.faint)} ${paint("lantas setup", C.text)} ${paint("to connect a provider.", C.faint)}`);
+      console.log(`  ${paint("Local models work too: Ollama or LM Studio need no key.", C.faint)}`);
+      console.log();
+      process.exitCode = 1;
+      return;
+    }
   }
 
   const prompt = options.rest.join(" ").trim();

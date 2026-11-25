@@ -29,6 +29,14 @@ export async function terminalCli(id: string, cwd: string) {
   await invoke("terminal_cli", { id, cwd });
 }
 
+/**
+ * Puts `lantas` on the PATH so the CLI can be started from any terminal.
+ * Returns the line the panel shows, e.g. what was installed and where.
+ */
+export async function installCliCommand(): Promise<string> {
+  return invoke<string>("install_cli_command", {});
+}
+
 /** Opens the user's own Terminal.app in this folder. */
 export async function openExternalTerminal(cwd: string) {
   await invoke("open_external_terminal", { cwd });

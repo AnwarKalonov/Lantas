@@ -1,3 +1,15 @@
+Lantas 1.1.1
+
+- **The terminal is a terminal again.** The shell was started through macOS `script`, which inspects its own stdin before it allocates anything; the app gives it a pipe, so it exited immediately and the panel said "Shell ready" over a dead session. The pty is opened by the app now (`portable-pty`), so typing works, `sudo` and REPLs get a real tty, and both the Terminal and the CLI tabs run on the same pty.
+- **The terminal needs no key.** It is your own zsh in your folder — no model, no account, no provider. The line that told you to connect one was the CLI's exit message, and it now says exactly that instead of making the whole panel look gated.
+- **`lantas` is a command in your terminal.** The app can install it (Terminal → **Install lantas**), which writes a launcher to `~/.local/bin` and adds that to your PATH once. Running `lantas` opens a Terminal window of its own in the folder you are in, with the LANTAS art at the top; `lantas --here` stays in the current shell.
+- **The CLI sets itself up.** Started without a provider, it asks which one and reads the key (hidden) in that window, instead of printing "run lantas setup" and exiting.
+- **A batch the model writes now runs.** Models build call names out of parts — `browsertypesteps {"steps":[…]}` — and only an exact name was recognised, so the whole batch was read as prose and nothing happened. Compound names are matched now, `steps` wins when it appears, and the call is stripped from the reply.
+- **The mouse moves like a hand.** The pointer eases from where it was to the control along a shallow arc, firing mousemove as it travels so hover menus open under it, then the click ripple lands on arrival. Clicks by ref and by label both walk the pointer in first.
+- **The download page numbers match the build.**
+
+This build is ad-hoc signed and not notarized. macOS may ask you to approve Lantas once: open **System Settings → Privacy & Security**, click **Open Anyway**, and authenticate.
+
 Lantas 1.1.0
 
 - **The browser never acts on its own.** The browser panel had a local command layer that read "open …", "click …" and "type …" and executed them itself, so "open desmos" became an address-bar guess and "open something" became a Google query for the word. That layer is gone: every sentence goes to the model, which picks the page and drives it with its own tool. A search-results address is refused unless you actually asked to search, and the named-site table that guessed `.com` destinations has been removed.

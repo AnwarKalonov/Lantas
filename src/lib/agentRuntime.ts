@@ -252,8 +252,19 @@ export function parseToolCalls(
 function asBrowserCall(name: string): string | null {
   const squash = name.toLowerCase().replace(/[^a-z]/g, "");
   if (!squash.startsWith("browser")) return null;
-  const action = squash.slice("browser".length);
-  return action && BROWSER_ACTIONS.has(action) ? action : null;
+  const tail = squash.slice("browser".length);
+  if (!tail) return null;
+  if (BROWSER_ACTIONS.has(tail)) return tail;
+  // Models build the name out of parts: `browsertypesteps`, `browserclickat`,
+  // `browser_steps`. An exact match above was the only thing recognised, so a
+  // batch written that way was not a call at all and the task did nothing.
+  if (tail.includes("steps")) return "steps";
+  let best = "";
+  for (const action of BROWSER_ACTIONS) {
+    const flat = action.replace(/[^a-z]/g, "");
+    if (flat.length > best.length && tail.includes(flat)) best = action;
+  }
+  return best || null;
 }
 
 /** The actions the browser tool understands, used to recognise a bare call. */

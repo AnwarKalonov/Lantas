@@ -1030,3 +1030,63 @@
 [data-theme="light"] .home-head .home-lockup {
   filter: invert(1) brightness(0.88);
 }
+
+/* ============================================================
+   motion: durations, easings and the press
+   ============================================================ */
+
+:root {
+  --dur-press: 110ms;   /* feedback: 100-150 */
+  --dur-fast: 150ms;    /* hover, small state changes */
+  --dur-base: 240ms;    /* most transitions */
+  --dur-panel: 360ms;   /* sheets, dialogs, large moves */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-move: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* controls answer on press, not on release */
+button, [role="button"], [role="menuitem"], summary, a {
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+
+button:active:not(:disabled),
+[role="button"]:active,
+[role="menuitem"]:active {
+  transform: scale(0.985) scaleY(0.97);
+  transition-duration: var(--dur-press);
+}
+
+/* things grow from what opened them */
+[role="menu"], [role="listbox"], [role="dialog"], [data-radix-popper-content-wrapper] {
+  transform-origin:
+    var(--radix-popover-content-transform-origin, var(--radix-dropdown-menu-content-transform-origin, center));
+  animation-duration: var(--dur-base);
+  animation-timing-function: var(--ease-out);
+}
+[data-state="closed"] {
+  animation-duration: calc(var(--dur-base) * 0.45);
+  animation-timing-function: var(--ease-in);
+}
+
+/* the composer and messages settle instead of snapping */
+textarea { transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-base) var(--ease-out); }
+
+/* Fitts: every icon-only control keeps a 44pt hit area */
+button[aria-label], [role="button"][aria-label] { min-width: 32px; min-height: 32px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  button:active, [role="button"]:active { transform: none; }
+}

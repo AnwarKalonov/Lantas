@@ -8465,3 +8465,22 @@ header.is-stuck, .nav.is-stuck, .site-head.is-stuck, .bar.is-stuck {
 }
 header.is-stuck a, .nav.is-stuck a { color: var(--ink-2) !important; }
 header.is-stuck a:hover, .nav.is-stuck a:hover { color: var(--ink) !important; }
+
+/* motion pass 2: exits faster than entries, presses land, lists cascade */
+:root {
+  --dur-press: 110ms;
+  --dur-fast: 150ms;
+  --dur-base: 240ms;
+  --dur-panel: 360ms;
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+.macs-copy { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+.mac { transition: box-shadow var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out); }
+
+.sec li, .sec .fact, .faq details {
+  animation: rise-soft 260ms var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+.sec li:nth-child(1) { --i: 0; } .sec li:nth-child(2) { --i: 1; } .sec li:nth-child(3) { --i: 2; }
+.sec li:nth-child(4) { --i: 3; } .sec li:nth-child(5) { --i: 4; } .sec li:nth-child(n+6) { --i: 5; }

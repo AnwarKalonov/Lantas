@@ -128,6 +128,11 @@ export interface Session {
   agent: AgentId;
   provider: ProviderId;
   model: string;
+  /**
+   * Which surface owns this thread. Chat, browser and code keep separate
+   * histories, so a browser task never overwrites the chat you were writing.
+   */
+  surface?: Mode;
   /** Message snapshots for /undo and /redo. */
   past?: Message[][];
   future?: Message[][];

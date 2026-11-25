@@ -101,6 +101,7 @@ function normalizeSession(raw: any): Session {
     ...raw,
     provider: (raw.provider as ProviderId) ?? (raw.model === "gpt" ? "openai" : "anthropic"),
     model: legacy[model] ?? model,
+    surface: raw.surface === "browser" || raw.surface === "code" ? raw.surface : "chat",
   } as Session;
 }
 
@@ -393,11 +394,15 @@ export function LantasProvider({ children }: { children: ReactNode }) {
   }, [notify]);
 
   const createSession = useCallback<Store["createSession"]>((agent, provider, model) => {
+    const surface = stateRef.current.mode;
     // “New thread” on an untouched thread should focus that thread rather than
     // stacking empty ones in the sidebar every time the plus is pressed.
-    const active = stateRef.current.sessions.find((session) => session.id === stateRef.current.activeId);
+    const active = stateRef.current.sessions.find(
+      (session) =>
+        session.id === stateRef.current.activeId && (session.surface ?? "chat") === surface,
+    );
     if (active && active.messages.length === 0) {
-      setState((prev) => ({ ...prev, activeId: active.id, view: "chats" }));
+      setState((prev) => ({ ...prev, activeId: active.id }));
       return active.id;
     }
     const id = uid("ses");
@@ -421,14 +426,19 @@ export function LantasProvider({ children }: { children: ReactNode }) {
         agent: agent ?? prev.settings.defaultAgent,
         provider: nextProvider,
         model: nextModel,
+        surface,
       };
-      return { ...prev, sessions: [session, ...prev.sessions], activeId: id, view: "chats" };
+      return { ...prev, sessions: [session, ...prev.sessions], activeId: id };
     });
     return id;
   }, []);
 
   const selectSession = useCallback<Store["selectSession"]>((id) => {
-    setState((prev) => ({ ...prev, activeId: id, view: id ? "chats" : prev.view }));
+    setState((prev) => {
+      const session = prev.sessions.find((item) => item.id === id);
+      const surface = session?.surface ?? "chat";
+      return { ...prev, activeId: id, mode: id ? surface : prev.mode, view: id ? "chats" : prev.view };
+    });
   }, []);
 
   const deleteSession = useCallback<Store["deleteSession"]>((id) => {
@@ -546,7 +556,16 @@ export function LantasProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setMode = useCallback<Store["setMode"]>((mode) => {
-    setState((prev) => ({ ...prev, mode }));
+    setState((prev) => {
+      const current = prev.sessions.find((session) => session.id === prev.activeId);
+      if (current && (current.surface ?? "chat") === mode) return { ...prev, mode };
+      // Each surface reopens the thread you last used there instead of dragging
+      // the chat conversation into the browser or the editor.
+      const next = prev.sessions
+        .filter((session) => (session.surface ?? "chat") === mode)
+        .sort((a, b) => b.updated - a.updated)[0];
+      return { ...prev, mode, activeId: next?.id ?? null };
+    });
   }, []);
 
   const setBrowserUrl = useCallback<Store["setBrowserUrl"]>((browserUrl) => {

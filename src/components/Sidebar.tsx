@@ -48,9 +48,16 @@ export function Sidebar({
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const menuRef = useRef<HTMLDivElement | null>(null);
 
+  // Chat, browser and code keep separate thread lists; the sidebar shows the
+  // ones that belong to the surface you are in.
+  const surfaceSessions = useMemo(
+    () => state.sessions.filter((session) => (session.surface ?? "chat") === state.mode),
+    [state.sessions, state.mode],
+  );
+
   const projects = useMemo(() => {
     const map = new Map<string, Session[]>();
-    state.sessions.forEach((session) => {
+    surfaceSessions.forEach((session) => {
       const key = session.cwd || "~/dev/lantas";
       map.set(key, [...(map.get(key) ?? []), session]);
     });
@@ -61,7 +68,7 @@ export function Sidebar({
         items: [...items].sort((a, b) => b.updated - a.updated),
       }))
       .sort((a, b) => (b.items[0]?.updated ?? 0) - (a.items[0]?.updated ?? 0));
-  }, [state.sessions]);
+  }, [surfaceSessions]);
 
   useEffect(() => {
     if (!menu) return;
@@ -284,9 +291,15 @@ export function Sidebar({
             );
           })}
 
-          {state.sessions.length === 0 && (
+          {surfaceSessions.length === 0 && (
             <div className="nav-empty">
-              <p>No threads yet</p>
+              <p>
+                {state.mode === "browser"
+                  ? "No browser threads yet"
+                  : state.mode === "code"
+                    ? "No code threads yet"
+                    : "No threads yet"}
+              </p>
               <button className="text-button" onClick={() => createSession()} type="button">
                 Start one
               </button>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 /** Brand mark: vector logo, then the site favicon, then a letter. */
 export function AppLogo({
@@ -15,6 +15,16 @@ export function AppLogo({
   domain?: string;
 }) {
   const [stage, setStage] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+
+  // Some hosts return a 404 that never reaches onError. Fall back to the letter
+  // instead of leaving a broken image in the page chrome.
+  useEffect(() => {
+    if (stage >= 2 || loaded) return;
+    const timer = window.setTimeout(() => setStage(2), 1800);
+    return () => window.clearTimeout(timer);
+  }, [stage, loaded]);
+
   if (stage >= 2) {
     return (
       <span
@@ -38,7 +48,11 @@ export function AppLogo({
       height={size}
       alt=""
       loading={eager ? "eager" : "lazy"}
-      onError={() => setStage((value) => value + 1)}
+      onLoad={() => setLoaded(true)}
+      onError={() => {
+        setLoaded(false);
+        setStage((value) => value + 1);
+      }}
     />
   );
 }

@@ -958,6 +958,306 @@
   background: #242424;
 }
 
+/* ── browser assistant rail (the template's assistant side panel) ──────── */
+
+.el .el-ai {
+  flex: 0 0 360px;
+  border-left: 1px solid #2c2c2c;
+  background: #1b1b1b;
+}
+
+.el .el-ai-head {
+  flex: 0 0 56px;
+  gap: 8px;
+  padding: 0 12px 0 18px;
+  border-bottom: 1px solid #2c2c2c;
+  background: #1b1b1b;
+}
+
+.el .el-ai-title {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: #ececec;
+}
+
+.el .el-ai-who small {
+  max-width: 224px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  color: #6d6d6d;
+}
+
+.el .el-ai-head .el-round {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #9a9a9a;
+}
+
+.el .el-ai-head .el-round:hover {
+  background: #2a2a2a;
+  color: #ececec;
+}
+
+.el .el-ai-log {
+  gap: 16px;
+  padding: 18px 20px 14px;
+  background: #1b1b1b;
+}
+
+.el .el-ai-empty {
+  padding: 2px 0 0;
+}
+
+.el .el-ai-empty .el-ai-eyebrow {
+  margin: 0 0 8px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #6d6d6d;
+}
+
+.el .el-ai-empty .el-ai-lead {
+  margin: 0;
+  max-width: none;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: #ececec;
+}
+
+.el .el-ai-copy {
+  margin: 7px 0 0;
+  max-width: none;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #9a9a9a;
+}
+
+.el .el-ai-prompts {
+  margin: 20px 0 0;
+  border-top: 1px solid #2c2c2c;
+}
+
+.el .el-ai-prompts button {
+  padding: 8px 2px;
+  border-bottom: 1px solid #242424;
+  border-radius: 0;
+  color: #a8a8a8;
+  font-size: 12px;
+}
+
+.el .el-ai-prompts button:hover {
+  padding-left: 2px;
+  background: transparent;
+  color: #ececec;
+}
+
+.el .el-ai-arrow {
+  color: #6d6d6d;
+}
+
+.el .el-ai-log .transcript-inner {
+  padding: 0;
+  gap: 0;
+}
+
+.el-ai-log .msg {
+  margin: 0 0 16px;
+}
+
+.el-ai-log .msg-user {
+  justify-content: flex-end;
+}
+
+.el-ai-log .user-card {
+  max-width: 90%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: #242424;
+}
+
+.el-ai-log .user-card p {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #ececec;
+}
+
+.el-ai-log .assistant-block {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #ececec;
+}
+
+.el-ai-log .md p,
+.el-ai-log .md li {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #ececec;
+}
+
+.el-ai-log .md ul {
+  padding-left: 0;
+  list-style: none;
+}
+
+.el-ai-log .md li {
+  position: relative;
+  padding-left: 16px;
+}
+
+.el-ai-log .md li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #c9c9c9;
+}
+
+.el-ai-log .md code {
+  padding: 0;
+  background: none;
+  color: #d4d4d4;
+  font-size: 11px;
+}
+
+.el-ai-log .md-code {
+  border-color: #2c2c2c;
+  border-radius: 8px;
+  background: #0e0e0e;
+}
+
+.el-ai-log .md-code-head {
+  height: 26px;
+  background: #141414;
+  border-bottom-color: #2c2c2c;
+}
+
+.el-ai-log .md-code pre {
+  padding: 8px 9px;
+}
+
+.el-ai-log .tool-row {
+  padding: 2px 5px;
+  font-size: 10.5px;
+}
+
+.el .el-ai-form {
+  margin: 0 14px;
+  padding: 10px 12px 8px;
+  border: 1px solid #3a3a3a;
+  border-radius: 10px;
+  background: #161616;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.045);
+}
+
+.el .el-ai-form:focus-within {
+  border-color: rgba(207, 207, 207, 0.4);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.07);
+}
+
+.el .el-ai-form textarea {
+  min-height: 40px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  color: #ececec;
+}
+
+.el .el-ai-form textarea::placeholder {
+  color: #8a8a8a;
+}
+
+.el .el-ai-tools {
+  gap: 4px;
+}
+
+.el .el-ai-modes {
+  gap: 1px;
+  padding: 1px;
+  border-radius: 6px;
+  background: #242424;
+}
+
+.el .el-ai-modes button {
+  height: 21px;
+  padding: 0 7px;
+  border-radius: 5px;
+  color: #9a9a9a;
+  font-size: 10.5px;
+}
+
+.el .el-ai-modes button.is-on {
+  background: #3a3a3a;
+  color: #ececec;
+  box-shadow: none;
+}
+
+.el .el-ai-model .mp-trigger {
+  height: 23px;
+  padding: 0 5px;
+  color: #c9c9c9;
+  font-size: 11px;
+}
+
+.el .el-ai-attach {
+  width: 24px;
+  height: 24px;
+  color: #a8a8a8;
+}
+
+.el .el-ai-attach:hover {
+  background: #242424;
+  color: #ececec;
+}
+
+.el .el-ai-send {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 50%;
+  background: #ededed;
+  color: #111111;
+}
+
+.el .el-ai-send:disabled {
+  background: #2a2a2a;
+  color: #555555;
+  opacity: 1;
+}
+
+.el .el-ai-foot {
+  flex: 0 0 34px;
+  padding: 0 16px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #6d6d6d;
+}
+
+.el .el-ai-hint {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  color: #6d6d6d;
+}
+
+@media (max-width: 1180px) {
+  .el .el-ai {
+    flex-basis: 320px;
+  }
+}
+
 /* ── compare models ────────────────────────────────────────────────────── */
 
 .compare-overlay {
@@ -1346,6 +1646,250 @@
   max-width: 360px;
   color: #8a8a8a;
   font-size: 11.5px;
+}
+
+/* ── light theme ─────────────────────────────────────────────────────────
+   The template is dark-first, but the app still has a light switch. These
+   restore the light ramp on the surfaces this pass recoloured, instead of
+   leaving a dark chat inside a light window. */
+
+[data-theme="light"] .titlebar {
+  background: var(--bg);
+  border-bottom-color: var(--line);
+}
+
+[data-theme="light"] .titlebar .crumb-current {
+  color: var(--text-2);
+}
+
+[data-theme="light"] .mode-tabs {
+  border-color: var(--line);
+  background: var(--raised-2);
+}
+
+[data-theme="light"] .mode-tab {
+  color: var(--text-3);
+}
+
+[data-theme="light"] .mode-tab.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+[data-theme="light"] .session.chat .md a {
+  color: var(--text);
+  text-decoration-color: var(--line-strong);
+}
+
+[data-theme="light"] .sidebar.shell-nav {
+  background: var(--surface);
+  border-right-color: var(--line);
+}
+
+[data-theme="light"] .rail {
+  background: var(--raised-2);
+  border-right-color: var(--line);
+}
+
+[data-theme="light"] .rail-button {
+  color: var(--text-3);
+}
+
+[data-theme="light"] .rail-button:hover,
+[data-theme="light"] .rail-button.is-active {
+  background: var(--raised);
+  color: var(--text);
+}
+
+[data-theme="light"] .nav-heading-label,
+[data-theme="light"] .project-name,
+[data-theme="light"] .thread-row.is-active .thread-title {
+  color: var(--text);
+}
+
+[data-theme="light"] .nav-search {
+  border-color: var(--line);
+  background: var(--bg);
+  color: var(--text-4);
+}
+
+[data-theme="light"] .thread-row {
+  color: var(--text-2);
+}
+
+[data-theme="light"] .thread-row:hover,
+[data-theme="light"] .thread-row.is-active {
+  background: var(--raised-2);
+}
+
+[data-theme="light"] .nav-panel-foot {
+  border-top-color: var(--line);
+}
+
+[data-theme="light"] .home,
+[data-theme="light"] .session.chat,
+[data-theme="light"] .session.chat .transcript,
+[data-theme="light"] .session.chat .composer-dock {
+  background: var(--bg);
+}
+
+[data-theme="light"] .home-title,
+[data-theme="light"] .assistant-name,
+[data-theme="light"] .md strong,
+[data-theme="light"] .md h1,
+[data-theme="light"] .md h2,
+[data-theme="light"] .md h3,
+[data-theme="light"] .md h4 {
+  color: var(--text);
+}
+
+[data-theme="light"] .home-line,
+[data-theme="light"] .assistant-block,
+[data-theme="light"] .md p,
+[data-theme="light"] .md li,
+[data-theme="light"] .user-card p,
+[data-theme="light"] .session.chat .assistant-block,
+[data-theme="light"] .session.chat .md p,
+[data-theme="light"] .session.chat .md li,
+[data-theme="light"] .session.chat .user-card p {
+  color: var(--text-2);
+}
+
+[data-theme="light"] .session.chat .user-card p,
+[data-theme="light"] .session.chat .md strong,
+[data-theme="light"] .session.chat .md h1,
+[data-theme="light"] .session.chat .md h2,
+[data-theme="light"] .session.chat .md h3,
+[data-theme="light"] .session.chat .md h4,
+[data-theme="light"] .session.chat .assistant-name {
+  color: var(--text);
+}
+
+[data-theme="light"] .session.chat .assistant-time,
+[data-theme="light"] .session.chat .assistant-sep,
+[data-theme="light"] .session.chat .assistant-foot {
+  color: var(--text-4);
+}
+
+[data-theme="light"] .home-kicker,
+[data-theme="light"] .home-try,
+[data-theme="light"] .home-foot,
+[data-theme="light"] .assistant-time,
+[data-theme="light"] .assistant-sep,
+[data-theme="light"] .assistant-foot,
+[data-theme="light"] .msg-sources-label {
+  color: var(--text-4);
+}
+
+[data-theme="light"] .suggestion {
+  border-bottom-color: var(--line);
+}
+
+[data-theme="light"] .suggestion:hover {
+  background: var(--raised);
+}
+
+[data-theme="light"] .suggestion-title {
+  color: var(--text-2);
+}
+
+[data-theme="light"] .suggestion:hover .suggestion-title {
+  color: var(--text);
+}
+
+[data-theme="light"] .session.chat .user-card {
+  background: var(--raised-2);
+}
+
+[data-theme="light"] .md li::before {
+  background: var(--text-3);
+}
+
+[data-theme="light"] .md code {
+  color: var(--text);
+}
+
+[data-theme="light"] .session.chat .md-code {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+[data-theme="light"] .session.chat .md-code-head {
+  border-bottom-color: var(--line);
+  background: var(--raised-2);
+  color: var(--text-3);
+}
+
+[data-theme="light"] .session.chat .md-code code {
+  color: var(--text-2);
+}
+
+[data-theme="light"] .session.chat .run-head {
+  color: var(--text-3);
+}
+
+[data-theme="light"] .session.chat .run-body {
+  border-left-color: var(--line);
+}
+
+[data-theme="light"] .session.chat .source-chip {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--text-2);
+}
+
+[data-theme="light"] .session.chat .source-fav {
+  background: var(--raised-2);
+  color: var(--text-3);
+}
+
+[data-theme="light"] .home .composer,
+[data-theme="light"] .session.chat .composer {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+
+[data-theme="light"] .home .composer-input,
+[data-theme="light"] .session.chat .composer-input {
+  color: var(--text);
+}
+
+[data-theme="light"] .home .bar-icon,
+[data-theme="light"] .session.chat .bar-icon,
+[data-theme="light"] .home .bar-pill,
+[data-theme="light"] .session.chat .bar-pill {
+  color: var(--text-2);
+}
+
+[data-theme="light"] .home .bar-icon:hover,
+[data-theme="light"] .session.chat .bar-icon:hover,
+[data-theme="light"] .home .bar-pill:hover,
+[data-theme="light"] .session.chat .bar-pill:hover {
+  background: var(--raised-2);
+  color: var(--text);
+}
+
+[data-theme="light"] .home .send-button,
+[data-theme="light"] .session.chat .send-button {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+[data-theme="light"] .home .composer-note,
+[data-theme="light"] .session.chat .composer-note {
+  color: var(--text-3);
+}
+
+[data-theme="light"] .slash-menu,
+[data-theme="light"] .popover {
+  border-color: var(--line-strong);
+  background: var(--overlay);
+}
+
+[data-theme="light"] .slash-row.is-active,
+[data-theme="light"] .popover-row:hover {
+  background: var(--raised-2);
 }
 
 @media (max-width: 900px) {

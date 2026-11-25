@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { motion } from "motion/react";
+import { EASE, timing, useStill } from "../lib/motion";
 import type { Message, Part, Session } from "../lib/types";
 import { AGENTS } from "../lib/data";
 import { clock, cx, formatDuration, formatTokens } from "../lib/util";
@@ -716,6 +718,21 @@ function AssistantMessage({
   );
 }
 
+
+/** A message lands as it arrives: 30ms of stagger, capped at six. */
+function Row({ index, children }: { index: number; children: React.ReactNode }) {
+  const still = useStill();
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 7 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...timing(0.24, still), delay: still ? 0 : Math.min(index, 6) * 0.03 }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 export function Transcript({
   session,
   messages,
@@ -748,18 +765,19 @@ export function Transcript({
       <div className="transcript-inner">
         {list.length === 0
           ? empty
-          : list.map((message) =>
-              message.role === "user" ? (
-                <UserMessage key={message.id} message={message} compact={compact} />
-              ) : (
-                <AssistantMessage
-                  key={message.id}
-                  message={message}
-                  compact={compact}
-                  onOpenFile={onOpenFile}
-                />
-              ),
-            )}
+          : list.map((message, index) => (
+              <Row key={message.id} index={index}>
+                {message.role === "user" ? (
+                  <UserMessage message={message} compact={compact} />
+                ) : (
+                  <AssistantMessage
+                    message={message}
+                    compact={compact}
+                    onOpenFile={onOpenFile}
+                  />
+                )}
+              </Row>
+            ))}
         <div className="transcript-tail" />
       </div>
     </div>

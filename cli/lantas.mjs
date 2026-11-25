@@ -516,7 +516,9 @@ function renderTui() {
   if (!tuiOn) return;
   eraseTui();
   const width = Math.max(40, Math.min(COLUMNS || 80, 86));
-  const inner = width - 4;
+  // "│ " + "> " + text + " │": six columns of chrome inside the frame, so the
+  // input row's border lands on the same column as the corners.
+  const inner = width - 6;
   const label = tuiLine?.label || "";
   const typed = tuiLine?.mask
     ? "•".repeat(Array.from(tuiLine?.text || "").length)

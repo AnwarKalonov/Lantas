@@ -16,7 +16,7 @@ import { spawn, spawnSync } from "node:child_process";
 import readline from "node:readline";
 import { LOGO_ROWS } from "./logo.mjs";
 
-let VERSION = "1.1.2";
+let VERSION = "1.1.3";
 try {
   const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   VERSION = pkg.version || VERSION;
@@ -93,7 +93,7 @@ function blend(level) {
 }
 
 function logo(columns = 72) {
-  if (!COLOR || columns < 76) return null;
+  if (!COLOR || columns < 84) return null;
   return LOGO_ROWS.map((row) => {
     let line = "  ";
     for (const cell of row) {
@@ -142,7 +142,7 @@ function printBrand({ compact = false } = {}) {
     return;
   }
   const columns = COLUMNS;
-  if (compact || columns < 76) {
+  if (compact || columns < 84) {
     console.log();
     console.log(wordmark());
     console.log(`  ${paint("a coding agent for this folder", C.faint)}`);

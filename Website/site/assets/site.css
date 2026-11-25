@@ -8366,3 +8366,44 @@ img { transition: opacity 500ms var(--ease-out), filter 500ms var(--ease-out); }
 
 /* the macs stage owns its own transform and opacity — never animate it twice */
 .macs h1, .macs h2, .macs p, .macs figure, .macs img { animation: none; }
+
+/* the player is a frame: nothing inside it may leave the frame */
+.player {
+  overflow: hidden;
+  isolation: isolate;
+  padding-bottom: 0;
+}
+.player-stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px 12px 0 0;
+  background: #0b0b0a;
+}
+.player-stage .mac,
+.player-stage .mac-lid,
+.player-stage .mac-screen { max-width: 100%; }
+.player-stage .mac-glow { pointer-events: none; }
+.demo { overflow: clip; position: relative; z-index: 1; }
+
+/* the stage owns the frame size; the laptop fills it */
+.player-stage {
+  aspect-ratio: 16 / 10.5;
+  height: auto;
+  display: block;
+}
+.player-stage .mac {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.player-stage .mac-lid {
+  height: 100%;
+  container-type: normal;
+}
+.player-stage .mac-screen {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  border-radius: 4px;
+}

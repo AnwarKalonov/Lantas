@@ -3,6 +3,7 @@ import { inTauri } from "../lib/native";
 import {
   onTerminalExit,
   onTerminalOutput,
+  openExternalTerminal,
   stripAnsi,
   terminalCli,
   terminalShell,
@@ -62,6 +63,9 @@ export function TerminalPanel({
     const cleanups: Array<() => void> = [];
     void onTerminalOutput((event) => {
       if (!alive) return;
+      // The assistant's own commands emit on the same channel. Showing them
+      // here made this panel look like it was printing someone else's session.
+      if (!idsRef.current.has(event.id)) return;
       append(event.stream === "stderr" ? "err" : "out", event.line);
     }).then((unlisten) => {
       if (alive) cleanups.push(unlisten);
@@ -184,6 +188,33 @@ export function TerminalPanel({
     try {
       await terminalWrite(id, `${command}\n`);
     } catch (error) {
+      // A shell that was closed behind the panel reports as "no longer
+      // running". Start a fresh one and send the command once, rather than
+      // leaving the user typing into a dead session.
+      append("err", error instanceof Error ? error.message : String(error));
+      idsRef.current.delete(id);
+      shellIdRef.current = null;
+      setShellReady(false);
+      const retry = await startShell();
+      if (!retry) return;
+      try {
+        await terminalWrite(retry, `${command}\n`);
+        append("meta", "Shell restarted.");
+      } catch (again) {
+        append("err", again instanceof Error ? again.message : String(again));
+      }
+    }
+  };
+
+  const openInTerminalApp = async () => {
+    if (!native) {
+      append("err", "Opening Terminal.app needs the desktop app.");
+      return;
+    }
+    try {
+      await openExternalTerminal(cwd);
+      append("meta", `Opened Terminal in ${cwd || "your home folder"}.`);
+    } catch (error) {
       append("err", error instanceof Error ? error.message : String(error));
     }
   };
@@ -251,6 +282,16 @@ export function TerminalPanel({
           </button>
         </div>
         <div className="ide-terminal-actions">
+          {native && (
+            <button
+              type="button"
+              className="ide-terminal-action"
+              onClick={() => void openInTerminalApp()}
+              title="Open this folder in the real Terminal.app"
+            >
+              Open in Terminal
+            </button>
+          )}
           {!shellReady && tab === "shell" && (
             <button
               type="button"

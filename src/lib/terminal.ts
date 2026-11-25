@@ -29,6 +29,11 @@ export async function terminalCli(id: string, cwd: string) {
   await invoke("terminal_cli", { id, cwd });
 }
 
+/** Opens the user's own Terminal.app in this folder. */
+export async function openExternalTerminal(cwd: string) {
+  await invoke("open_external_terminal", { cwd });
+}
+
 export async function terminalWrite(id: string, data: string) {
   await invoke("terminal_write", { id, data });
 }

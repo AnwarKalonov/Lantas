@@ -575,6 +575,7 @@ const FREE_GOOGLE = new Set([
 /** Free today: OpenRouter's :free variants and Google's free-tier rows. */
 export function isFreeModel(provider: ProviderId, model: string): boolean {
   if (model.includes(":free")) return true;
+  if (provider === "opencode") return /-free$/.test(model) || model === "big-pickle";
   if (provider === "google") return FREE_GOOGLE.has(model);
   return false;
 }

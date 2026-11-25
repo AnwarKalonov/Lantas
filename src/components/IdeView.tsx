@@ -1247,15 +1247,44 @@ export function IdeView({
             <div className="ide-welcome">
               <div className="ide-welcome-card">
                 <p className="ide-welcome-kicker">Code workspace</p>
-                <h1>Open a folder to start</h1>
+                <h1>
+                  {state.workspaceRoot
+                    ? `${state.workspaceName || "This folder"} is open`
+                    : "Open a folder to start"}
+                </h1>
                 <p>
-                  The editor is VS Code's Monaco, running locally. Files are read from the folder you
-                  pick, edits save back to it, and Lantas can read the same workspace when you ask.
+                  {state.workspaceRoot
+                    ? "Nothing is open in the editor yet. Create a file here and it is written to the folder on disk, or pick one from the explorer."
+                    : "The editor is VS Code's Monaco, running locally. Files are read from the folder you pick, edits save back to it, and Lantas can read the same workspace when you ask."}
                 </p>
                 <div className="ide-welcome-actions">
-                  <button type="button" className="button-primary" onClick={onOpenFolder}>
+                  {state.workspaceRoot && (
+                    <>
+                      <button
+                        type="button"
+                        className="button-primary"
+                        onClick={() => startEntry("file")}
+                      >
+                        <Icon name="filePlus" size={14} />
+                        New file
+                      </button>
+                      <button
+                        type="button"
+                        className="button-quiet"
+                        onClick={() => startEntry("folder")}
+                      >
+                        <Icon name="folderPlus" size={14} />
+                        New folder
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    className={cx("button-quiet", !state.workspaceRoot && "button-primary")}
+                    onClick={onOpenFolder}
+                  >
                     <Icon name="folder" size={14} />
-                    Open folder
+                    {state.workspaceRoot ? "Open another folder" : "Open folder"}
                   </button>
                   {files.length > 0 && (
                     <button type="button" className="button-quiet" onClick={() => setQuick("")}>

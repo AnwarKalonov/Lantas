@@ -22,7 +22,7 @@ import {
   agentScroll,
   agentSelect,
   agentSnapshot,
-  agentType,
+  agentTypeResult,
   agentWaitForText,
   describeSnapshot,
   parseBrowserAddress,
@@ -35,6 +35,7 @@ import { openInChrome } from "./chrome";
 import { aiDriving, getElContext } from "./el";
 import { runTerminalCommand } from "./terminal";
 import {
+  gmailQuery,
   activeToolkits,
   executeTool,
   fetchInbox,
@@ -1025,22 +1026,27 @@ async function runBrowserTool(
     case "fill": {
       const text = String(args.text ?? args.value ?? "");
       if (!text && !args.clear) return fail("Text is required.");
-      const ok = await agentType(
+      const typed = await agentTypeResult(
         text,
         typeof args.selector === "string" ? args.selector : undefined,
         Boolean(args.submit),
       );
-      if (ok && args.submit) {
+      if (typed.ok && args.submit) {
         await waitForNavigation("", 6_000, beforePage?.url ?? "");
       }
-      return ok
+      return typed.ok
         ? {
             ok: true,
             summary: args.submit ? "Typed and submitted" : "Typed into the page",
-            content: await afterAction("Typed into the page."),
+            content: await afterAction(
+              typed.value ? `Typed into the page. The field now reads: ${typed.value}` : "Typed into the page.",
+            ),
             resource,
           }
-        : fail("No editable field was found. Click the field or expression row first, then type.");
+        : fail(
+            typed.error ||
+              "No editable field was found. Click the field or expression row first, then type.",
+          );
     }
 
     case "press": {
@@ -1260,20 +1266,30 @@ async function runIntegrationTool(args: Record<string, unknown>): Promise<ToolOu
       }
 
       case "search_email": {
-        const query = String(args.query ?? "");
-        const limit = Math.min(300, Math.max(1, Number(args.limit ?? 40) || 40));
-        const items = await searchEmails(query, limit);
+        const raw = String(args.query ?? "").trim();
+        const query = gmailQuery(raw);
+        const limit = Math.min(300, Math.max(1, Number(args.limit ?? 100) || 100));
+        let items = await searchEmails(query, limit);
+        let widened = false;
+        // A name search can be narrower than the mail actually is (display name
+        // vs. address). Looking once more with the words alone finds the rest
+        // instead of reporting an empty mailbox.
+        if (!items.length && query !== raw) {
+          items = await searchEmails(raw, limit);
+          widened = true;
+        }
         return {
           ok: true,
-          summary: `${items.length} message${items.length === 1 ? "" : "s"} for ${query}`,
+          summary: `${items.length} message${items.length === 1 ? "" : "s"} for ${raw || query}`,
           content: items.length
-            ? items
+            ? `Query: ${query}${widened ? ` (widened to ${raw})` : ""}\n\n` +
+              items
                 .map(
                   (item, index) =>
                     `${index + 1}. ${item.subject}\n   from: ${item.from || "unknown"}\n   date: ${item.date || "unknown"}\n   id: ${item.id}\n   ${item.snippet}`,
                 )
                 .join("\n\n")
-            : `No messages matched “${query}”.`,
+            : `No messages matched “${raw}” (Gmail query: ${query}). Try inbox with {"query":"in:anywhere ${raw}"} before telling the user there is nothing there.`,
           resource,
         };
       }
@@ -1364,6 +1380,7 @@ export const TOOL_MANUAL = [
   BROWSER_GUIDE,
   '- integrations {"action",...} — apps, tools {"toolkit"}, inbox {"limit","query"}, search_email {"query","limit"}, run {"slug","arguments"}.',
   "- inbox reads up to 300 messages by paging Composio's cursor, and search_email the same. When the user asks what is in their mail, ask for enough: limit 50 to 100 covers a normal day, 200 when they say everything or a whole week. Never summarize from a single page of 10 if the question is about what needs attention; read broadly, then group the results.",
+  '- Finding mail from one person: call search_email with just their name or address, limit 100. The app builds from:/to: itself. If that returns nothing, call inbox with {"query":"in:anywhere <their name>","limit":200} before saying there is no mail; search only the inbox and you will miss archived threads, which is the most common false negative.',
   '- deliver {"name","format?","content?","files?"} — build a file the user can download: txt, md, csv, json, html, svg, pdf, or zip (pass files: [{"name","content"}] for a zip). The format is inferred from the name when omitted. Use it for any "make me a …", "export", "write a report" or "bundle these files" request instead of pasting the whole thing into chat.',
   "",
   "Rules:",

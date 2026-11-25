@@ -1,5 +1,5 @@
 import { httpFetch } from "./providers";
-import { siteForName, stripOpenCommand } from "./sites";
+import { guessDomain, siteForName, stripOpenCommand } from "./sites";
 
 const KEY = "lantas.el.v1";
 export const EL_HOME = "el://home";
@@ -130,7 +130,14 @@ export function normalizeUrl(raw: string): string {
   const named = siteForName(value);
   if (named) return named;
 
-  if (commanded) return EL_HOME;
+  // "open desmos" is still a destination, not a query. A single product word
+  // becomes that product's .com; a sentence the table does not know stays a
+  // search only when the user actually asked to search.
+  if (commanded) {
+    const guessed = guessDomain(value);
+    if (guessed) return guessed;
+    return EL_HOME;
+  }
   return `https://www.google.com/search?q=${encodeURIComponent(value)}`;
 }
 

@@ -168,13 +168,10 @@ export function BrowserView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  // The browser opens on its own home page every launch; bookmarks and history stay.
+  // Tabs (and the active one) survive leaving the tab and quitting the app:
+  // loadEl restores them, so this only clears a stale hand-off URL. Resetting
+  // the tab strip on mount was why every return from Code lost your pages.
   useEffect(() => {
-    setData((current) => {
-      if (current.tabs.length === 1 && current.tabs[0].url === EL_HOME) return current;
-      const id = uid("tab");
-      return { ...current, tabs: [{ id, url: EL_HOME, title: "New tab" }], active: id };
-    });
     setBrowserUrl("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

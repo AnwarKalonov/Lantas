@@ -1,3 +1,19 @@
+Lantas 1.0.9
+
+- **Light mode is light again.** The polish stylesheet loaded last and put the dark neutral ramp on `:root`, which beat the light theme at the same specificity. Light now has its own background, surface, text and line ramp, verified against the rendered page.
+- **“Open desmos” opens Desmos.** Named destinations cover far more apps (Desmos, Wolfram, Excalidraw, Linear, Vercel, Outlook, Jira, Supabase and more), and a command that is one unknown word now resolves to that product's `.com` instead of a Google query. A phrase is still never welded into a domain.
+- **Typing into real editors.** MathQuill (Desmos), CodeMirror and Monaco keep their own model behind a textarea, so assigning `.value` left the page blank. Text is now inserted the way a keyboard does it, read back to confirm it landed, and a field that refuses it returns that reason to the assistant instead of “no editable field was found”. The browser guide also explains the Desmos expression row: type `2x`, not `y=2x`.
+- **The pointer stays put.** The blue agent cursor no longer fades after three seconds; it stays for the task, and it now moves for hover and key presses too, not only clicks.
+- **Your tabs survive.** Returning from Code (or relaunching) restores every browser tab and the one you were on. The tab strip used to reset to the home page whenever the browser view remounted.
+- **Empty folders are usable.** Opening a folder with no files shows the folder's welcome with New file and New folder, instead of “Open a folder to start” with no way to create anything.
+- **The terminal is a terminal.** The in-app shell runs in a real pty (`script`), so prompts, line editing and tools that check for a tty behave normally; a dead shell restarts and re-sends the command once; and the assistant's own commands no longer print into your session. A new **Open in Terminal** button opens the folder in Terminal.app.
+- **Cleaner replies.** A turn's steps collapse into one line (“Used browser ×3, terminal”) that is open while it works and can be reopened, with the answer first. Cited links are collected into a Sources strip, and only real files become file chips.
+- **Find mail from one person.** `search_email` turns a name into a quoted `from:`/`to:` Gmail query, reads 100 by default, retries the plain words when the narrow query is empty, and the tool text tells the model to widen with `in:anywhere` before claiming the mailbox is empty.
+- **Another way to run models.** OpenCode Zen is a provider (base URL, `oc_sk_…` key, model ids), OpenRouter's `:free` models are listed, and the model picker now reads a connected provider's live `/models` list the first time it opens — so a model can be switched in the IDE or chat without a trip to Settings.
+- **Smaller fixes.** The extra star button that duplicated Skills is gone; the IDE chat keeps the thread it was in and the model you picked.
+
+This build is ad-hoc signed and not notarized. macOS may ask you to approve Lantas once: open **System Settings → Privacy & Security**, click **Open Anyway**, and authenticate.
+
 Lantas 1.0.8
 
 - **“Open X” opens X.** The address bar and the browser tool strip the command word, resolve the sites people actually name through an explicit table (GitHub, YouTube, Gmail, Drive, Notion, Reddit, Figma, ChatGPT, Claude, Spotify, Stack Overflow and the rest), and never turn a command into a Google query. A destination the table does not know comes back as a question for the model, not a search. Typing a real query still searches.

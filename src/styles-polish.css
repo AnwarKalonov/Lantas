@@ -7,7 +7,18 @@
    for code, paths and figures, not for labels.
    ========================================================================== */
 
-:root,
+/*
+ * The accent lives in :root because every theme uses the same probe blue.
+ * The neutral ramp must NOT: this file loads last, so a dark ramp on :root
+ * would win over styles.css' light block at equal specificity and leave light
+ * mode on a near-black background. Dark values are dark-only.
+ */
+:root {
+  --probe: #4c8dff;
+  --probe-soft: rgba(76, 141, 255, 0.16);
+  --probe-line: rgba(76, 141, 255, 0.38);
+}
+
 [data-theme="dark"] {
   --probe: #4c8dff;
   --probe-soft: rgba(76, 141, 255, 0.16);
@@ -36,6 +47,18 @@
   --accent: #2563eb;
   --accent-ink: #ffffff;
   --accent-soft: rgba(37, 99, 235, 0.12);
+
+  /* Wash the light chrome slightly warmer so the blue reads as the only colour. */
+  --bg: #f6f5f0;
+  --surface: #fdfcf9;
+  --raised: #ffffff;
+  --raised-2: #efede5;
+  --line: rgba(28, 27, 23, 0.1);
+  --line-strong: rgba(28, 27, 23, 0.18);
+  --text: #191813;
+  --text-2: #524f47;
+  --text-3: #7a776d;
+  --text-4: #a09d93;
 }
 
 /* ------------------------------------------------------------------ type */
@@ -433,6 +456,119 @@
 .browser-dock-live {
   text-transform: none;
   letter-spacing: 0;
+}
+
+/* ------------------------------------------------------------ agent runs */
+
+.run-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.run-head {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  max-width: 100%;
+  height: 24px;
+  margin-left: -6px;
+  padding: 0 8px 0 6px;
+  border-radius: 6px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.run-head:hover {
+  background: var(--raised);
+  color: var(--text-2);
+}
+
+.run-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.run-block.is-running .run-head {
+  color: var(--probe);
+}
+
+.run-caret {
+  flex: none;
+  transition: transform 140ms ease;
+}
+
+.run-caret.is-open {
+  transform: rotate(180deg);
+}
+
+.run-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: 3px;
+  padding: 2px 0 2px 12px;
+  border-left: 1px solid var(--line);
+}
+
+.run-body .tool-row,
+.run-body .shell-block {
+  font-size: 12px;
+}
+
+/* ---------------------------------------------------------------- sources */
+
+.msg-sources {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+.msg-sources-label {
+  font-size: 11px;
+  color: var(--text-4);
+}
+
+.msg-sources-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--text-2);
+  font-size: 11.5px;
+  text-decoration: none;
+}
+
+.source-chip:hover {
+  background: var(--raised);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.source-fav {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--probe-soft);
+  color: var(--probe);
+  font-size: 9.5px;
+  font-weight: 600;
 }
 
 /* Focus is the same colour everywhere, so keyboard use is obvious. */

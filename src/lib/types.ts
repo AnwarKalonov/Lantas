@@ -2,6 +2,7 @@ export type ProviderId =
   | "anthropic"
   | "openai"
   | "openrouter"
+  | "opencode"
   | "groq"
   | "google"
   | "nvidia"

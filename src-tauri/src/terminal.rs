@@ -153,8 +153,22 @@ pub fn terminal_shell(
         PathBuf::from(cwd)
     };
 
-    let mut child = Command::new("/bin/zsh")
-        .args(["-il"])
+    // A shell on a pipe is not a terminal: no prompt, no line editing, and
+    // anything that checks isatty (sudo, most REPLs, interactive installers)
+    // refuses to run. macOS ships `script`, which allocates a real pty and runs
+    // the shell inside it, so the panel gets a working terminal instead of a
+    // command runner. Fall back to the pipe where `script` is missing.
+    let mut command = if std::path::Path::new("/usr/bin/script").exists() {
+        let mut command = Command::new("/usr/bin/script");
+        command.args(["-q", "/dev/null", "/bin/zsh", "-il"]);
+        command
+    } else {
+        let mut command = Command::new("/bin/zsh");
+        command.args(["-il"]);
+        command
+    };
+
+    let mut child = command
         .current_dir(directory)
         .env("TERM", "xterm-256color")
         .env("LANTAS_IN_APP_TERMINAL", "1")
@@ -166,7 +180,11 @@ pub fn terminal_shell(
 
     let stdout = child.stdout.take().ok_or("Could not read terminal output.")?;
     let stderr = child.stderr.take().ok_or("Could not read terminal errors.")?;
-    let stdin = child.stdin.take().ok_or("Could not open terminal input.")?;
+    let mut stdin = child.stdin.take().ok_or("Could not open terminal input.")?;
+    // The panel prints the command it sent, so the pty's own echo and prompt
+    // would double every line. Quiet both; output and exit codes still arrive.
+    let _ = stdin.write_all(b"stty -echo 2>/dev/null; PROMPT=''; RPROMPT=''; PS1=''; unsetopt prompt_cr prompt_sp 2>/dev/null\n");
+    let _ = stdin.flush();
     let pid = child.id();
 
     state
@@ -234,6 +252,43 @@ pub fn terminal_cli(
         shell_quote(&cli.to_string_lossy())
     );
     spawn(app, &state, id, cwd, command)
+}
+
+/// Opens the user's own Terminal.app in a folder. The in-app terminal is a
+/// pty now, but some work still belongs in the real thing: long sessions,
+/// tmux, or anything the user wants to keep after Lantas closes.
+#[tauri::command]
+pub fn open_external_terminal(cwd: String) -> Result<(), String> {
+    let directory = if cwd.trim().is_empty() {
+        std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::current_dir().ok())
+            .ok_or("Could not find a folder to open.".to_string())?
+    } else {
+        PathBuf::from(cwd)
+    };
+
+    #[cfg(target_os = "macos")]
+    let opened = Command::new("/usr/bin/open")
+        .args(["-a", "Terminal"])
+        .arg(&directory)
+        .status()
+        .map_err(|error| format!("Could not open Terminal: {error}"))
+        .and_then(|status| {
+            if status.success() {
+                Ok(())
+            } else {
+                Err("Terminal did not open. Open it from the Dock and cd to this folder.".to_string())
+            }
+        });
+
+    #[cfg(not(target_os = "macos"))]
+    let opened = {
+        let _ = &directory;
+        Err("Opening an external terminal is supported on macOS in this build.".to_string())
+    };
+
+    opened
 }
 
 #[tauri::command]

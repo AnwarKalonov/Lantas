@@ -491,6 +491,39 @@ export async function fetchInbox(
   return items.slice(0, wanted);
 }
 
+/**
+ * Turn what a person actually says into a Gmail query.
+ *
+ * "Do I have an email from Dana Lee?" used to become the search `dana lee`,
+ * or worse `from Dana Lee` with a space, and Gmail found nothing while the
+ * mail was sitting in the inbox. A bare name becomes a quoted sender/recipient
+ * search, an address becomes from/to, and anything that already uses Gmail
+ * operators is passed through untouched.
+ */
+export function gmailQuery(raw: string): string {
+  const clean = String(raw ?? "")
+    .trim()
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .replace(/\s+/g, " ");
+  if (!clean) return "is:unread";
+
+  const operator = /(^|\s)(from|to|cc|bcc|subject|in|is|has|after|before|newer_than|older_than|filename|label|category|list|deliveredto):/i;
+  if (operator.test(clean)) return clean;
+
+  const saysFrom = /\b(?:from|by|sent by|written by)\s+(.+)$/i.exec(clean);
+  const subject = (saysFrom ? saysFrom[1] : clean).trim();
+
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(subject)) {
+    return `from:${subject} OR to:${subject}`;
+  }
+  // A name keeps its quotes so the words stay together; Gmail otherwise ANDs
+  // them across the whole message and misses "Dana Lee" written as a pair.
+  if (/^[\p{L}.'’-]+(?:\s+[\p{L}.'’-]+){1,3}$/u.test(subject)) {
+    return `from:"${subject}" OR to:"${subject}" OR "${subject}"`;
+  }
+  return subject;
+}
+
 /** Gmail search with the same pagination contract. */
 export async function searchEmails(query: string, limit = 25): Promise<InboxItem[]> {
   const clean = query.trim();

@@ -273,9 +273,11 @@ export function pointerScript(x: number, y: number, kind: string): string {
       const ring = root.querySelector(".ring");
       if (ring) { ring.classList.remove("on"); void ring.offsetWidth; ring.classList.add("on"); }
     }
+    // The pointer stays for the whole task. A three-second fade made it look
+    // like the agent had stopped working whenever it paused to think.
     clearTimeout(window.__lantasPointerTimer);
-    window.__lantasPointerTimer = setTimeout(() => { if (node) node.style.opacity = "0"; }, 3000);
-    return { ok: true };
+    window.__lantasPointerTimer = setTimeout(() => { if (node) node.style.opacity = "0"; }, 60000);
+    return { ok: true, x: px, y: py };
   `;
 }
 
@@ -329,7 +331,12 @@ export function hoverScript(target: string): string {
     fire(el, "mouseover", point);
     fire(el, "pointermove", point);
     fire(el, "mousemove", point);
-    return { ok: true, detail: labelOf(el) };
+    return {
+      ok: true,
+      detail: labelOf(el),
+      x: Math.round(point.x),
+      y: Math.round(point.y),
+    };
   `;
 }
 
@@ -339,6 +346,14 @@ export function typeScript(text: string, selector: string | undefined, submit: b
     const value = ${quote(text)};
     const wanted = ${quote(selector ?? "")};
     let el = wanted ? resolve(wanted) : null;
+    if (el && !isEditable(el)) {
+      // A label often points at the frame around a math or code editor. Reach
+      // for the field inside it before rejecting the label the model chose.
+      const inner = el.querySelector(
+        'textarea,input:not([type="hidden"]),[contenteditable="true"],[contenteditable=""],[role="textbox"],[role="searchbox"]',
+      );
+      if (inner) el = inner;
+    }
     if (wanted && !isEditable(el)) {
       return { ok: false, error: "\\"" + wanted + "\\" is not an editable field. Take a fresh snapshot." };
     }
@@ -360,19 +375,60 @@ export function typeScript(text: string, selector: string | undefined, submit: b
     el.scrollIntoView({ block: "center", inline: "center" });
     try { el.focus({ preventScroll: true }); } catch (_) {}
 
+    const readBack = () =>
+      el.tagName === "INPUT" || el.tagName === "TEXTAREA"
+        ? String(el.value || "")
+        : String(el.innerText || el.textContent || "");
+    const squash = (input) => String(input || "").replace(/\\s+/g, " ").trim();
+
+    // Select what is already there, the way clicking a field and typing would.
     if (el.isContentEditable) {
       const selection = window.getSelection();
       const range = document.createRange();
       range.selectNodeContents(el);
       if (selection) { selection.removeAllRanges(); selection.addRange(range); }
-      let inserted = false;
-      try { inserted = document.execCommand("insertText", false, value); } catch (_) {}
-      if (!inserted) {
-        el.textContent = value;
-        el.dispatchEvent(new InputEvent("input", { bubbles: true, data: value, inputType: "insertText" }));
+    } else if (typeof el.setSelectionRange === "function") {
+      try { el.setSelectionRange(0, String(el.value || "").length); } catch (_) {}
+    }
+
+    // MathQuill (Desmos), CodeMirror and Monaco keep their own model behind a
+    // textarea. Assigning .value leaves that model empty, so the page renders
+    // nothing even though the field looks filled. Inserting text the way a
+    // keyboard does updates the model and the DOM together.
+    let inserted = false;
+    if (value.length <= 500) {
+      try { inserted = document.execCommand("insertText", false, value); } catch (_) { inserted = false; }
+      if (!inserted || !squash(readBack())) {
+        try {
+          let typed = "";
+          for (const character of value) {
+            if (!document.execCommand("insertText", false, character)) { typed = ""; break; }
+            typed += character;
+          }
+          if (typed) inserted = true;
+        } catch (_) { inserted = false; }
       }
-    } else {
-      setValue(el, value);
+    }
+
+    // Only the assignment fallback needs a synthetic input event: the insert
+    // path already fired the real one, and a second event makes editors that
+    // read the event data insert the text twice.
+    if (!inserted || !squash(readBack())) {
+      if (el.isContentEditable) {
+        el.textContent = value;
+      } else {
+        setValue(el, value);
+      }
+      el.dispatchEvent(new InputEvent("input", { bubbles: true, data: value, inputType: "insertText" }));
+    }
+
+    const accepted = squash(readBack());
+    if (!accepted) {
+      return {
+        ok: false,
+        error:
+          "The field is focused but stayed empty; this page renders its text from a script editor that needs a click inside it first. Click the editor area, then type again.",
+      };
     }
 
     if (${submit ? "true" : "false"}) {
@@ -389,6 +445,7 @@ export function typeScript(text: string, selector: string | undefined, submit: b
     return {
       ok: true,
       detail: labelOf(el),
+      value: accepted.slice(0, 160),
       x: Math.round(box.left + box.width / 2),
       y: Math.round(box.top + box.height / 2),
     };
@@ -581,7 +638,15 @@ export function pressScript(key: string): string {
       }
     }
 
-    return { ok: true, detail: key };
+    const box = target.getBoundingClientRect
+      ? target.getBoundingClientRect()
+      : { left: 0, top: 0, width: 0, height: 0 };
+    return {
+      ok: true,
+      detail: key,
+      x: Math.round(box.left + box.width / 2),
+      y: Math.round(box.top + box.height / 2),
+    };
   `;
 }
 

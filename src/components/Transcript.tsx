@@ -21,6 +21,182 @@ const TOOL_ICONS: Record<string, IconName> = {
 // Paths come from lib/paths so URLs are never mistaken for files. A row saying
 // "Opened …/calculator" used to grow a file chip that jumped to the editor.
 
+/**
+ * Execution is shown as one line, not twenty.
+ *
+ * A turn that browses, runs a command and edits a file used to print a row for
+ * every step before the answer. The work is still here — one line says what ran
+ * and stays open while it runs — but the reply starts with the reply.
+ */
+const STEP_NAMES: Record<string, string> = {
+  browser: "browser",
+  web: "web",
+  terminal: "terminal",
+  read: "read",
+  grep: "search",
+  edit: "edit",
+  write: "edit",
+  plan: "plan",
+  skill: "skill",
+  deliver: "file",
+  artifact: "file",
+  edit_file: "edit",
+  read_file: "read",
+  find: "search",
+};
+
+function stepName(part: Part): string | null {
+  if (part.kind === "tool") return STEP_NAMES[part.tool] ?? part.tool;
+  if (part.kind === "shell") return "terminal";
+  if (part.kind === "diff") return "edit";
+  if (part.kind === "artifact") return "file";
+  return null;
+}
+
+function isStep(part: Part): boolean {
+  return stepName(part) !== null;
+}
+
+type Block = { kind: "text"; part: Part } | { kind: "run"; parts: Part[] };
+
+function groupParts(parts: Part[]): Block[] {
+  const blocks: Block[] = [];
+  for (const part of parts) {
+    if (isStep(part)) {
+      const last = blocks.at(-1);
+      if (last?.kind === "run") last.parts.push(part);
+      else blocks.push({ kind: "run", parts: [part] });
+    } else {
+      blocks.push({ kind: "text", part });
+    }
+  }
+  return blocks;
+}
+
+function runSummary(parts: Part[]): string {
+  const counts = new Map<string, number>();
+  for (const part of parts) {
+    const name = stepName(part);
+    if (!name) continue;
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([name, count]) => (count > 1 ? `${name} ×${count}` : name))
+    .join(", ");
+}
+
+function partRunning(part: Part): boolean {
+  return (part as { state?: string }).state === "run";
+}
+
+interface Source {
+  url: string;
+  label: string;
+}
+
+/** Links the reply actually cites, once each, for the Sources strip. */
+function sourcesOf(parts: Part[]): Source[] {
+  const seen = new Map<string, Source>();
+  const pattern = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|\bhttps?:\/\/[^\s)<>"']+/g;
+  for (const part of parts) {
+    if (part.kind !== "text") continue;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(part.text))) {
+      const url = (match[2] ?? match[0]).replace(/[.,;:]+$/, "");
+      if (!/^https?:\/\//i.test(url)) continue;
+      if (seen.has(url)) continue;
+      let label = match[1] ?? "";
+      try {
+        const host = new URL(url).hostname.replace(/^www\./, "");
+        label = label && !/^https?:/i.test(label) ? label : host;
+      } catch {
+        label = label || url;
+      }
+      seen.set(url, { url, label });
+    }
+  }
+  return Array.from(seen.values()).slice(0, 8);
+}
+
+function RunBlock({
+  parts,
+  onOpenFile,
+}: {
+  parts: Part[];
+  onOpenFile?: (path: string, line?: number) => void;
+}) {
+  const running = parts.some(partRunning);
+  const [open, setOpen] = useState(running);
+
+  useEffect(() => {
+    if (running) setOpen(true);
+  }, [running]);
+
+  return (
+    <div className={cx("run-block", running && "is-running")}>
+      <button
+        type="button"
+        className="run-head"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        {running ? (
+          <Icon name="loader" size={12} className="spin" />
+        ) : (
+          <Icon name="check" size={12} />
+        )}
+        <span className="run-title">
+          {running ? "Working · " : "Used "}
+          {runSummary(parts)}
+        </span>
+        <Icon name="chevronDown" size={11} className={cx("run-caret", open && "is-open")} />
+      </button>
+      {open && (
+        <div className="run-body">
+          {parts.map((part) => (
+            <AssistantPart key={part.id} part={part} onOpenFile={onOpenFile} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SourceStrip({ parts }: { parts: Part[] }) {
+  const sources = sourcesOf(parts);
+  if (!sources.length) return null;
+  return (
+    <div className="msg-sources">
+      <span className="msg-sources-label">Sources</span>
+      <div className="msg-sources-list">
+        {sources.map((source) => {
+          let host = source.label;
+          try {
+            host = new URL(source.url).hostname.replace(/^www\./, "");
+          } catch {
+            /* keep the label */
+          }
+          return (
+            <a
+              key={source.url}
+              className="source-chip"
+              href={source.url}
+              target="_blank"
+              rel="noreferrer"
+              title={source.url}
+            >
+              <span className="source-fav" aria-hidden="true">
+                {host.charAt(0).toUpperCase()}
+              </span>
+              <span className="source-host">{host}</span>
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function FileButton({
   path,
   line,
@@ -471,6 +647,8 @@ function AssistantMessage({
     window.setTimeout(() => setCopied(false), 1400);
   };
 
+  const blocks = groupParts(visibleParts);
+
   if (compact) {
     return (
       <div className="msg msg-assistant is-compact">
@@ -478,9 +656,13 @@ function AssistantMessage({
           <MarkGlyph size={11} />
         </div>
         <div className="assistant-block">
-          {visibleParts.map((part) => (
-            <AssistantPart key={part.id} part={part} onOpenFile={onOpenFile} />
-          ))}
+          {blocks.map((block, index) =>
+            block.kind === "run" ? (
+              <RunBlock key={`run-${index}`} parts={block.parts} onOpenFile={onOpenFile} />
+            ) : (
+              <AssistantPart key={block.part.id} part={block.part} onOpenFile={onOpenFile} />
+            ),
+          )}
           {message.streaming && <span className="stream-caret" aria-hidden="true" />}
         </div>
       </div>
@@ -498,11 +680,17 @@ function AssistantMessage({
       </div>
 
       <div className="assistant-block">
-        {visibleParts.map((part) => (
-          <AssistantPart key={part.id} part={part} onOpenFile={onOpenFile} />
-        ))}
+        {blocks.map((block, index) =>
+          block.kind === "run" ? (
+            <RunBlock key={`run-${index}`} parts={block.parts} onOpenFile={onOpenFile} />
+          ) : (
+            <AssistantPart key={block.part.id} part={block.part} onOpenFile={onOpenFile} />
+          ),
+        )}
         {message.streaming && <span className="stream-caret" aria-hidden="true" />}
       </div>
+
+      {!message.streaming && <SourceStrip parts={visibleParts} />}
 
       {!message.streaming && hasParts && (
         <div className="assistant-foot">

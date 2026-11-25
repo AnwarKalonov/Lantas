@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PROVIDERS } from "../lib/data";
-import { isConfigured, isFreeModel, prettyModel } from "../lib/providers";
+import { isConfigured, isFreeModel, listModels, prettyModel } from "../lib/providers";
 import { useStore } from "../lib/store";
 import type { ProviderId } from "../lib/types";
 import { cx } from "../lib/util";
@@ -26,10 +26,62 @@ export function ModelPicker({
   className?: string;
   align?: "left" | "right";
 }) {
-  const { state } = useStore();
+  const { state, setSettings } = useStore();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [discovering, setDiscovering] = useState(false);
+  const asked = useRef<Set<string>>(new Set());
   const root = useRef<HTMLDivElement>(null);
+
+  // A provider can be connected but still show an empty list until its
+  // "Test connection" has run. Asking its /models endpoint when the picker
+  // opens is what lets a model be chosen from the IDE or the chat without a
+  // detour through Settings.
+  useEffect(() => {
+    if (!open) return;
+    const missing = PROVIDERS.filter((meta) => {
+      const config = state.settings.providers[meta.id];
+      return (
+        isConfigured(meta.id, config) &&
+        config.models.length === 0 &&
+        !asked.current.has(meta.id)
+      );
+    });
+    if (!missing.length) return;
+    let alive = true;
+    setDiscovering(true);
+    void Promise.all(
+      missing.map(async (meta) => {
+        asked.current.add(meta.id);
+        const config = state.settings.providers[meta.id];
+        try {
+          const result = await listModels(meta.id, config);
+          if (!alive || !result.ok || !result.models?.length) return null;
+          return { id: meta.id, models: result.models, config };
+        } catch {
+          return null;
+        }
+      }),
+    ).then((found) => {
+      if (!alive) return;
+      setDiscovering(false);
+      const updates = found.filter(Boolean) as Array<{
+        id: ProviderId;
+        models: string[];
+        config: (typeof state.settings.providers)[ProviderId];
+      }>;
+      if (!updates.length) return;
+      const providers = { ...state.settings.providers };
+      for (const update of updates) {
+        providers[update.id] = { ...update.config, models: update.models };
+      }
+      setSettings({ providers });
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, state.settings.providers]);
 
   useEffect(() => {
     if (!open) return;
@@ -127,7 +179,9 @@ export function ModelPicker({
               <p className="mp-empty">
                 {term
                   ? "No connected model matches that filter."
-                  : "No provider connected yet. Add a key once and it appears here."}
+                  : discovering
+                    ? "Reading this provider's model list…"
+                    : "No provider connected yet. Add a key once and it appears here."}
               </p>
             )}
           </div>

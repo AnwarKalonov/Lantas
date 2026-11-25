@@ -45,8 +45,33 @@ export const PROVIDERS: ProviderMeta[] = [
       "openai/gpt-5.1",
       "google/gemini-3-pro",
       "qwen/qwen3-coder",
+      // Free rows: OpenRouter's `:free` models need a key but cost nothing.
+      // The picker's Test connection replaces this list with the live one.
+      "deepseek/deepseek-r1:free",
+      "qwen/qwen3-coder:free",
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "mistralai/mistral-small-3.2-24b-instruct:free",
     ],
     docs: "openrouter.ai/keys",
+  },
+  {
+    id: "opencode",
+    name: "OpenCode Zen",
+    description: "The opencode.ai gateway · free models need the OpenCode app",
+    kind: "openai",
+    baseUrl: "https://opencode.ai/inference/openai/v1",
+    needsKey: true,
+    local: false,
+    // Model ids as published by the Zen catalog. Free-tier ids are listed so
+    // they are visible; OpenCode's policy answers 403 for them outside its own
+    // client, so the paid and Go rows are the ones that work here.
+    models: [
+      "big-pickle",
+      "deepseek-v4.1-flash-free",
+      "mimo-v2.6-flash-free",
+      "nemotron-3.5-lightning-free",
+    ],
+    docs: "opencode.ai/console · personal API key (oc_sk_…)",
   },
   {
     id: "groq",

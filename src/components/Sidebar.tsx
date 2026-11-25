@@ -153,18 +153,6 @@ export function Sidebar({
         <button
           type="button"
           className="rail-button"
-          onClick={() => {
-            setMode("chat");
-            setView("skills");
-          }}
-          title="Skills"
-          aria-label="Skills"
-        >
-          <Icon name="sparkle" size={16} />
-        </button>
-        <button
-          type="button"
-          className="rail-button"
           onClick={onOpenSettings}
           title="Settings (⌘,)"
           aria-label="Settings"

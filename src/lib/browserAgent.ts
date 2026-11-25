@@ -8,7 +8,7 @@ import {
   type ChromeTab,
 } from "./chrome";
 import { getElContext, loadEl, setElContext, type ElPage } from "./el";
-import { siteForName, stripOpenCommand } from "./sites";
+import { guessDomain, siteForName, stripOpenCommand } from "./sites";
 import {
   checkedStateScript,
   clickAtScript,
@@ -86,6 +86,14 @@ export function parseBrowserAddress(raw: string): BrowserAddress {
   const named = siteForName(value);
   if (named) return { ok: true, url: named };
 
+  // The model may only have a product name. A command that names one word is
+  // that product's .com far more often than it is a search, and the table
+  // above already covers the common ones.
+  if (commanded && !/\s/.test(value)) {
+    const guessed = guessDomain(value);
+    if (guessed) return { ok: true, url: guessed };
+  }
+
   if (/\s/.test(value)) {
     return {
       ok: false,
@@ -131,6 +139,7 @@ export const BROWSER_GUIDE = [
   "- Confirm before irreversible actions: submitting a payment, deleting data, changing account settings or closing something the user may need. Respect a denial instead of finding another way to do the same thing.",
   "- If the task names a page inside a site (for example a calculator, a settings page or a specific tool), open the site, snapshot, then click the matching navigation control. Do not stop after the homepage.",
   "- Canvas and math editors often ignore a value assignment. Click into the editor first, then type or press keys. If the page exposes a documented API, `evaluate` may call it, but read the expression back to verify it.",
+  "- Desmos specifically: the expression row is a MathQuill field, not a text box. Click the first row's input, then type only the right-hand side (`2x` — the row already holds `y=`), press Enter, and read the expression list back. A `Hide: Expression 1` control or one curve in the list is the proof it worked.",
   "- `click_at` and `evaluate` exist for canvas apps and site APIs. Use them only for the user's task, not to read private storage or change unrelated settings.",
   "- If a page does not open, try its canonical address once (github.com, then https://www.github.com). If you need a search, navigate to the search URL yourself. Do not repeat an identical failing call.",
   "- Page snapshots pierce open shadow roots and same-origin iframes. If a control is still missing, evaluate `(() => document.querySelector('my-app')?.shadowRoot?.querySelector('button')?.outerHTML)()` to inspect it; never guess a selector.",
@@ -305,32 +314,57 @@ export async function agentClickRef(index: number): Promise<boolean> {
   return true;
 }
 
-export async function agentType(
+export interface TypeResult {
+  ok: boolean;
+  error?: string;
+  /** What the field actually contains afterwards, read back from the page. */
+  value?: string;
+}
+
+/**
+ * Type into the page and report *why* it failed.
+ *
+ * A bare boolean turned "the editor is focused but its model is empty" into
+ * "no editable field was found", which sent the agent looking for another
+ * field instead of clicking into the one in front of it. The page's own error
+ * is more useful than a guess.
+ */
+export async function agentTypeResult(
   text: string,
   selector?: string,
   submit = false,
-): Promise<boolean> {
+): Promise<TypeResult> {
   if (activeEngine() === "chrome") {
     try {
       await chromeCommand("act", { action: "type", text, selector, submit });
-      return true;
-    } catch {
-      return false;
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 
-  const result = await runInPage<{ ok: boolean; error?: string; x?: number; y?: number }>(
+  const result = await runInPage<{ ok: boolean; error?: string; value?: string; x?: number; y?: number }>(
     typeScript(text, selector, submit),
   );
-  if (!result?.ok) return false;
+  if (!result?.ok) return { ok: false, error: result?.error };
   const point = await pointerAt(
     typeof result.x === "number" && typeof result.y === "number"
       ? { x: result.x, y: result.y }
       : undefined,
   );
   drawPointer(point.x, point.y, "type");
-  await sleep(250);
-  return true;
+  // Some editors commit on the next frame; a snapshot taken immediately would
+  // report the old page and make a good fill look ignored.
+  await sleep(220);
+  return { ok: true, value: result.value };
+}
+
+export async function agentType(
+  text: string,
+  selector?: string,
+  submit = false,
+): Promise<boolean> {
+  return (await agentTypeResult(text, selector, submit)).ok;
 }
 
 export async function agentEnter(): Promise<boolean> {
@@ -347,8 +381,13 @@ export async function agentPress(key: string): Promise<boolean> {
     }
   }
 
-  const result = await runInPage<{ ok: boolean; error?: string }>(pressScript(key));
+  const result = await runInPage<{ ok: boolean; error?: string; x?: number; y?: number }>(
+    pressScript(key),
+  );
   if (!result?.ok) return false;
+  if (typeof result.x === "number" && typeof result.y === "number" && result.x > 0) {
+    drawPointer(result.x, result.y, "click");
+  }
   await sleep(200);
   return true;
 }
@@ -615,8 +654,16 @@ export async function agentHover(target: string): Promise<boolean> {
     }
   }
 
-  const result = await runInPage<{ ok: boolean; error?: string }>(hoverScript(target));
+  const result = await runInPage<{ ok: boolean; error?: string; x?: number; y?: number }>(
+    hoverScript(target),
+  );
   if (!result?.ok) return false;
+  const point = await pointerAt(
+    typeof result.x === "number" && typeof result.y === "number"
+      ? { x: result.x, y: result.y }
+      : undefined,
+  );
+  drawPointer(point.x, point.y, "move");
   await sleep(250);
   return true;
 }

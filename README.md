@@ -194,6 +194,8 @@ The extension is version `0.6.1`. Reload it after changing extension files.
 
 ### Terminal app
 
+![The lantas CLI](docs/screenshots/cli.png)
+
 The same agent also runs without a window. One command installs it and makes `lantas` available everywhere:
 
 ```bash

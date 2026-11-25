@@ -481,6 +481,11 @@
         <div class="k">the switch</div><div class="v">“Let Lantas act” off means the extension refuses every action</div>
       </div>
       <p>The extension asks for <code>tabs</code>, <code>scripting</code>, <code>storage</code> and <code>sidePanel</code>. It reads a page only when a question or an action needs it; it does not run in the background on every site you visit.</p>
+
+      <h3>Lantas asks before it acts</h3>
+      <p>On first launch Lantas shows a permission sheet instead of assuming consent. Each capability is a separate grant — <b>files</b>, <b>commands</b>, <b>screen</b> and <b>computer control</b> — and every tool checks its grant before it runs, so a denied capability returns a plain “not allowed” answer instead of reaching your disk, a shell or the screen.</p>
+      <p>Change any grant in <b>Settings → Permissions</b>, or reopen the sheet with <b>Review permissions</b>. Choosing a folder also counts as consent to read that folder. Screen Recording and Accessibility are granted by macOS itself; the sheet opens the right System Settings pane, but only you can flip the switch.</p>
+      <p>The exact data flows are on the <a href="privacy.html">privacy page</a>; the terms and licence are on the <a href="terms.html">terms page</a>.</p>
     </section>
 
     <section class="doc-sec" id="shortcuts">
@@ -552,7 +557,9 @@
         <a href="versions.html">Versions</a>
         <a href="https://github.com/AnwarKalonov/Lantas-download">GitHub</a>
         <a href="docs.html#extension">Chrome extension</a>
-        <a href="https://github.com/AnwarKalonov/Lantas-download/issues">Contact</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+        <a href="https://github.com/AnwarKalonov">Contact</a>
       </div>
     </div>
     <div class="foot-bottom">

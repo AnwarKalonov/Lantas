@@ -8159,3 +8159,122 @@ span.nav-wordmark {
   margin: 0.35em 0 1.15em 0.25em;
   opacity: 0.94;
 }
+
+/* ============================================================
+   macs: three screens spin in from the clouds as you scroll
+   ============================================================ */
+
+.macs {
+  position: relative;
+  height: 240vh;
+  background: linear-gradient(180deg, var(--paper) 0%, var(--paper-2) 55%, var(--paper) 100%);
+  overflow: clip;
+}
+
+.macs-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  display: grid;
+  place-items: center;
+  perspective: 1400px;
+  perspective-origin: 50% 42%;
+  --p: 0;
+}
+
+.macs-sky {
+  position: absolute;
+  inset: -10% -10%;
+  background:
+    radial-gradient(46% 30% at 22% 32%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(38% 26% at 76% 62%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 72%),
+    radial-gradient(50% 34% at 50% 96%, rgba(233, 221, 200, 0.9), rgba(233, 221, 200, 0) 72%);
+  transform: translate3d(0, calc(var(--p) * -6%), 0);
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+.mac {
+  position: absolute;
+  width: clamp(300px, 46vw, 640px);
+  margin: 0;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--line-2);
+  box-shadow: var(--sh-lg);
+  overflow: hidden;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+}
+
+.mac img { display: block; width: 100%; height: auto; }
+
+.mac-bar {
+  display: flex;
+  gap: 6px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-2);
+}
+.mac-bar i {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--line-2);
+}
+
+/* each card travels on its own vector, then squares up into a loose stack */
+.mac--a {
+  transform:
+    translate3d(calc((1 - var(--p)) * -78%), calc((1 - var(--p)) * -34%), calc(var(--p) * -120px))
+    rotateY(calc(var(--p) * 26deg - 26deg)) rotateZ(calc(var(--p) * 5deg - 9deg));
+  opacity: calc(0.15 + var(--p) * 0.85);
+}
+.mac--b {
+  transform:
+    translate3d(calc((1 - var(--p)) * 74%), calc((1 - var(--p)) * 26%), calc(var(--p) * 60px))
+    rotateY(calc(var(--p) * -24deg + 24deg)) rotateZ(calc(var(--p) * -3deg + 7deg));
+  opacity: calc(0.15 + var(--p) * 0.85);
+  z-index: 2;
+}
+.mac--c {
+  transform:
+    translate3d(calc((1 - var(--p)) * 6%), calc((1 - var(--p)) * 92%), calc(var(--p) * 200px))
+    rotateX(calc(var(--p) * -12deg + 16deg)) rotateZ(calc(var(--p) * 2deg - 4deg)) scale(calc(0.86 + var(--p) * 0.2));
+  opacity: calc(0.1 + var(--p) * 0.9);
+  z-index: 3;
+}
+
+.macs-copy {
+  position: absolute;
+  bottom: clamp(24px, 6vh, 72px);
+  width: min(90%, 560px);
+  padding: 22px 26px;
+  border-radius: var(--r-md);
+  background: rgba(255, 253, 248, 0.82);
+  border: 1px solid var(--line);
+  box-shadow: var(--sh-sm);
+  backdrop-filter: blur(8px);
+  transform: translate3d(0, calc((1 - var(--p)) * 30px), 0);
+  opacity: calc(0.2 + var(--p) * 0.8);
+}
+.macs-copy h2 {
+  margin: 0 0 8px;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(26px, 3vw, 40px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.macs-copy h2 em { font-style: italic; color: var(--green); }
+.macs-copy p { margin: 0; font-size: 14.5px; line-height: 1.65; color: var(--ink-2); }
+
+[data-theme="dark"] .macs { background: linear-gradient(180deg, var(--paper), var(--paper-2) 55%, var(--paper)); }
+[data-theme="dark"] .macs-copy { background: rgba(24, 26, 32, 0.82); }
+
+@media (prefers-reduced-motion: reduce) {
+  .macs { height: auto; }
+  .macs-stage { position: static; height: auto; padding: 90px 0 40px; gap: 18px; }
+  .mac { position: relative; width: min(92%, 620px); transform: none !important; opacity: 1; }
+  .mac--a, .mac--b, .mac--c { display: block; margin: 0 auto; }
+  .mac--b, .mac--c { margin-top: 18px; }
+  .macs-copy { position: static; margin: 26px auto 0; transform: none; opacity: 1; }
+}

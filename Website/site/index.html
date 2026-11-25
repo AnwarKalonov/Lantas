@@ -535,6 +535,29 @@ dist/index.html   4.1 kB</pre>
 </section>
 
 <!-- the actual app -->
+<!-- macs: three screens spin in behind the clouds -->
+<section class="macs" id="macs" aria-labelledby="macs-title">
+  <div class="macs-stage">
+    <div class="macs-sky" aria-hidden="true"></div>
+    <figure class="mac mac--a">
+      <span class="mac-bar"><i></i><i></i><i></i></span>
+      <img src="assets/img/app-home.webp" alt="Lantas home: one thread for the folder, the screen and the page" width="880" height="560">
+    </figure>
+    <figure class="mac mac--b">
+      <span class="mac-bar"><i></i><i></i><i></i></span>
+      <img src="assets/img/app-code.webp" alt="Lantas code workspace with a diff and a passing check" width="880" height="560">
+    </figure>
+    <figure class="mac mac--c">
+      <span class="mac-bar"><i></i><i></i><i></i></span>
+      <img src="assets/img/app-browser.webp" alt="Lantas browser with a page read and a pointer on the control" width="880" height="560">
+    </figure>
+    <div class="macs-copy">
+      <h2 id="macs-title">Three surfaces, <em>one window.</em></h2>
+      <p>Chat, the editor and the page it is driving, stacked in the same frame. Bring a task in from any of them and the agent keeps the thread.</p>
+    </div>
+  </div>
+</section>
+
 <section class="sec" id="app">
   <div class="wrap">
     <header class="sec-head sec-head--wide">
@@ -1177,6 +1200,7 @@ dist/index.html   4.1 kB</pre>
         <img class="lockup lockup-light" src="assets/img/lockup-light.png" alt="" aria-hidden="true" width="284" height="140">
       </div>
       <div class="foot-links">
+        <a href="intro/index.html">Intro</a>
         <a href="docs.html">Docs</a>
         <a href="download.html">Download</a>
         <a href="versions.html">Versions</a>
@@ -1199,5 +1223,30 @@ dist/index.html   4.1 kB</pre>
 </div>
 
 <script src="assets/site.js"></script>
+<script>
+/* Drive the macs section from scroll position: --p runs 0 to 1 across the
+   sticky stage, and the cards interpolate in CSS from their own vectors. */
+(() => {
+  const section = document.getElementById("macs");
+  if (!section || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const stage = section.querySelector(".macs-stage");
+  let queued = false;
+  const update = () => {
+    queued = false;
+    const rect = section.getBoundingClientRect();
+    const travel = Math.max(1, rect.height - innerHeight);
+    const p = Math.min(1, Math.max(0, -rect.top / travel));
+    stage.style.setProperty("--p", p.toFixed(3));
+  };
+  const queue = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(update);
+  };
+  addEventListener("scroll", queue, { passive: true });
+  addEventListener("resize", queue, { passive: true });
+  update();
+})();
+</script>
 </body>
 </html>

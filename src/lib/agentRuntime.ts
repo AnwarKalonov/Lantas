@@ -25,6 +25,10 @@ import { uid } from "./util";
 
 const OPEN = "<tool_call>";
 const CLOSE = "</tool_call>";
+/** A browser call written without tags: `browsertype {`, `browsesteps {`. */
+const CALL = /(?<![A-Za-z0-9_.])brows(?:er|e)?[a-z0-9_.]{0,20}[ \t]*\{/i;
+/** The same name at the end of the text, still waiting for its `{`. */
+const PARTIAL = /(?<![A-Za-z0-9_.])brows(?:er|e)?[a-z0-9_.]{0,20}[ \t]*$/i;
 
 export interface ToolLoopOptions {
   provider: ProviderId;
@@ -206,13 +210,25 @@ export function parseToolCalls(
   // A model can also put the tool name straight against its JSON with no tags
   // at all: `browsertype {"text":"2x+4"}`. That reads as prose to every rule
   // above, which is what made a browser command vanish.
-  if (!calls.length) {
-    const glued = /(^|\n)[ \t]*([a-zA-Z][\w.]{2,26})[ \t]*(\{)/g;
+  //
+  // This runs even when tagged calls were found, and it does not require a
+  // line break before the name: models write two calls back to back on one
+  // line (`browsernavigate {…}browsesteps {…}`), and the old line-anchored scan
+  // saw only the first one, so the batch never ran.
+  {
+    const glued = /(brows[a-z0-9_.]{0,26})[ \t]*(\{)/gi;
     let hit: RegExpExecArray | null;
     while ((hit = glued.exec(raw))) {
-      const action = asBrowserCall(hit[2]);
+      const nameStart = hit.index;
+      // Not the tail of a longer word or identifier.
+      const before = raw[nameStart - 1] ?? "";
+      if (before && /[A-Za-z0-9_.]/.test(before)) continue;
+      const taken = blocks.some(([start, end]) => nameStart >= start && nameStart < end);
+      if (taken) continue;
+      const action = asBrowserCall(hit[1]);
       if (!action) continue;
-      const read = readJson(raw, hit.index + hit[0].length - 1);
+      const braceAt = hit.index + hit[0].length - 1;
+      const read = readJson(raw, braceAt);
       if (!read || !read.value || typeof read.value !== "object" || Array.isArray(read.value)) {
         continue;
       }
@@ -220,7 +236,9 @@ export function parseToolCalls(
         name: "browser",
         args: { ...(read.value as Record<string, unknown>), action },
       });
-      blocks.push([hit.index + (hit[1] ? hit[1].length : 0), read.end]);
+      blocks.push([nameStart, read.end]);
+      // Continue after this JSON so a second call on the same line is found.
+      glued.lastIndex = Math.max(hit.index + hit[0].length, read.end);
     }
   }
 
@@ -251,8 +269,11 @@ export function parseToolCalls(
  */
 function asBrowserCall(name: string): string | null {
   const squash = name.toLowerCase().replace(/[^a-z]/g, "");
-  if (!squash.startsWith("browser")) return null;
-  const tail = squash.slice("browser".length);
+  // Models shorten the tool as well as glue the action on: `browsesteps` is
+  // "browse" + "steps", `browsernavigate` is "browser" + "navigate".
+  const head = /^brows(?:er|e)?(.*)$/.exec(squash);
+  if (!head) return null;
+  const tail = head[1];
   if (!tail) return null;
   if (BROWSER_ACTIONS.has(tail)) return tail;
   // Models build the name out of parts: `browsertypesteps`, `browserclickat`,
@@ -328,62 +349,127 @@ function safeJson(value: string): Record<string, unknown> {
  * half-written ` <tool_call>` never flashes on screen. Complete blocks are
  * removed from the visible stream and collected for execution.
  */
-class ToolStream {
+/**
+ * Streams the model's prose into the transcript while hiding tool calls.
+ *
+ * Tagged blocks were already hidden; a call written without tags was not, so
+ * `browsernavigate {…}` and the batch behind it showed up in the reply as JSON
+ * even when the first one had run. Anything shaped like a browser call is held
+ * back until its JSON closes, then dropped.
+ */
+export class ToolStream {
   private buffer = "";
+  /** Inside a call's JSON. */
+  private inside = false;
+  private depth = 0;
+  private inString = false;
+  private escaped = false;
+  private seen = 0;
 
   constructor(private readonly emit: (text: string) => void) {}
 
   push(chunk: string) {
     this.buffer += chunk;
-    this.drain();
+    this.drain(false);
   }
 
   end() {
-    // A block whose closing tag never arrived still has to run, not appear.
-    // Flushing this buffer is what printed raw JSON in the transcript.
-    const start = this.buffer.indexOf(OPEN);
-    if (start >= 0) {
-      if (start > 0) this.emit(this.buffer.slice(0, start));
-      this.buffer = "";
-      return;
-    }
     this.drain(true);
-    if (this.buffer) {
-      this.emit(this.buffer);
-      this.buffer = "";
-    }
   }
 
-  private drain(final = false) {
-    while (true) {
-      const start = this.buffer.indexOf(OPEN);
-      if (start === -1) {
-        if (final) return;
-        // Hold back a suffix that could still become the opening tag.
-        let keep = 0;
-        const max = Math.min(OPEN.length - 1, this.buffer.length);
-        for (let size = max; size > 0; size -= 1) {
-          if (this.buffer.endsWith(OPEN.slice(0, size))) {
-            keep = size;
-            break;
-          }
+  /** Index of the `}`/`]` that closes the JSON we are inside, or -1. */
+  private closeAt(): number {
+    for (let index = this.seen; index < this.buffer.length; index += 1) {
+      const ch = this.buffer[index];
+      if (this.inString) {
+        if (this.escaped) this.escaped = false;
+        else if (ch === "\\") this.escaped = true;
+        else if (ch === '"') this.inString = false;
+        continue;
+      }
+      if (ch === '"') {
+        this.inString = true;
+        continue;
+      }
+      if (ch === "{" || ch === "[") this.depth += 1;
+      else if (ch === "}" || ch === "]") {
+        this.depth -= 1;
+        if (this.depth === 0) return index;
+      }
+    }
+    this.seen = this.buffer.length;
+    return -1;
+  }
+
+  private drain(final: boolean) {
+    while (this.buffer) {
+      if (this.inside) {
+        const close = this.closeAt();
+        if (close < 0) {
+          // Wait for the rest of the JSON. An unterminated call at the end of a
+          // reply is still a call, so the final pass drops it either way.
+          if (!final) return;
+          this.buffer = "";
+          this.inside = false;
+          return;
         }
-        const cut = this.buffer.length - keep;
-        if (cut > 0) {
-          this.emit(this.buffer.slice(0, cut));
-          this.buffer = this.buffer.slice(cut);
+        this.buffer = this.buffer.slice(close + 1);
+        this.seen = 0;
+        this.depth = 0;
+        this.inString = false;
+        this.escaped = false;
+        this.inside = false;
+        continue;
+      }
+
+      const call = CALL.exec(this.buffer);
+      const tag = this.buffer.indexOf(OPEN);
+
+      if (call && (tag < 0 || call.index < tag)) {
+        if (call.index > 0) this.emit(this.buffer.slice(0, call.index));
+        this.buffer = this.buffer.slice(call.index + call[0].length - 1);
+        this.inside = true;
+        this.seen = 0;
+        this.depth = 0;
+        this.inString = false;
+        this.escaped = false;
+        continue;
+      }
+
+      if (tag >= 0) {
+        if (tag > 0) this.emit(this.buffer.slice(0, tag));
+        const close = this.buffer.indexOf(CLOSE, tag);
+        if (close < 0) {
+          this.buffer = this.buffer.slice(tag);
+          return;
         }
+        this.buffer = this.buffer.slice(close + CLOSE.length);
+        continue;
+      }
+
+      if (final) {
+        this.emit(this.buffer);
+        this.buffer = "";
         return;
       }
 
-      if (start > 0) {
-        this.emit(this.buffer.slice(0, start));
-        this.buffer = this.buffer.slice(start);
+      // Hold back a suffix that could still turn into a tag or a call name.
+      let keep = 0;
+      const partial = PARTIAL.exec(this.buffer);
+      if (partial) keep = this.buffer.length - partial.index;
+      const max = Math.min(OPEN.length - 1, this.buffer.length);
+      for (let size = max; size > 0; size -= 1) {
+        if (this.buffer.endsWith(OPEN.slice(0, size))) {
+          keep = Math.max(keep, size);
+          break;
+        }
       }
-
-      const end = this.buffer.indexOf(CLOSE);
-      if (end === -1) return;
-      this.buffer = this.buffer.slice(end + CLOSE.length);
+      const cut = this.buffer.length - keep;
+      if (cut > 0) {
+        this.emit(this.buffer.slice(0, cut));
+        this.buffer = this.buffer.slice(cut);
+      }
+      return;
     }
   }
 }

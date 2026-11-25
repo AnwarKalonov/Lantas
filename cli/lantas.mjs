@@ -16,7 +16,7 @@ import { spawn, spawnSync } from "node:child_process";
 import readline from "node:readline";
 import { LOGO_ROWS } from "./logo.mjs";
 
-let VERSION = "1.1.1";
+let VERSION = "1.1.2";
 try {
   const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   VERSION = pkg.version || VERSION;
@@ -412,12 +412,19 @@ function takeLine() {
 }
 
 function promptLine(question) {
+  // In the boxed prompt every question is a label above the input, so the
+  // caller's decoration is only used for the plain readline fallback.
+  if (tuiOn) return tuiAsk(question);
   if (!rl && !closed) startInput();
   process.stdout.write(question);
   return takeLine();
 }
 
 async function readSecret(question) {
+  if (tuiOn) {
+    const value = await tuiAsk(question, { mask: true });
+    return value || "";
+  }
   process.stdout.write(question);
   if (!process.stdin.isTTY) {
     const line = await takeLine();
@@ -458,6 +465,242 @@ function spinner(label) {
       if (printed) process.stdout.write(`\r\x1b[K${C.reset}\x1b[?25h`);
     },
   };
+}
+
+/* --------------------------------------------------------------------- tui */
+
+/**
+ * A boxed prompt with a footer, in the shape of a modern agent CLI.
+ *
+ * readline can only give a bare `› ` on a line of its own. This draws the box,
+ * redraws it under the cursor as you type, and reads keys in raw mode so Tab,
+ * Ctrl+P and the history keys work. Output from a turn prints above the box,
+ * which is erased first and drawn again when the next line is asked for.
+ */
+let tuiOn = false;
+let tuiLine = null;
+let tuiHistory = [];
+let tuiHistoryAt = -1;
+let tuiDrawn = 0;
+let tuiTextRow = 0;
+let tuiCtx = null;
+
+const plain = (text) => String(text ?? "").replace(/\x1b\[[0-9;]*m/g, "");
+const clip = (text, width) => {
+  const flat = plain(text);
+  if (flat.length <= width) return text;
+  return flat.slice(0, Math.max(0, width - 1)) + "…";
+};
+const padTo = (text, width) => text + " ".repeat(Math.max(0, width - plain(text).length));
+
+function tuiModeLabel() {
+  const mode = tuiCtx?.ctx.mode || "build";
+  return mode === "plan" ? paint("Plan", C.yellow) : paint("Build", C.green);
+}
+
+function tuiFocus() {
+  const config = tuiCtx?.config;
+  if (!config) return "";
+  const meta = PROVIDERS[config.provider];
+  return `${tuiModeLabel()} ${paint("·", C.faint)} ${paint(meta?.name || config.provider, C.soft)} ${paint(prettyModel(config.model), C.soft)}`;
+}
+
+function eraseTui() {
+  if (!tuiOn || !tuiDrawn) return;
+  // The cursor sits on the input row; the block starts tuiTextRow lines above.
+  process.stdout.write(`\x1b[${tuiTextRow}A\r\x1b[0J`);
+  tuiDrawn = 0;
+}
+
+function renderTui() {
+  if (!tuiOn) return;
+  eraseTui();
+  const width = Math.max(40, Math.min(COLUMNS || 80, 86));
+  const inner = width - 4;
+  const label = tuiLine?.label || "";
+  const typed = tuiLine?.mask
+    ? "•".repeat(Array.from(tuiLine?.text || "").length)
+    : tuiLine?.text || "";
+  const placeholder =
+    !typed && !label
+      ? `${paint("Ask anything…", C.faint)}  ${paint('"What is the tech stack of this project?"', C.faint)}`
+      : "";
+  const shown = typed ? clip(typed, inner) : placeholder;
+  const top = paint("╭" + "─".repeat(width - 2) + "╮", C.faint);
+  const bottom = paint("╰" + "─".repeat(width - 2) + "╯", C.faint);
+  const lines = [];
+  if (label) lines.push(`  ${paint(clip(label, width - 2), C.soft)}`);
+  lines.push(top);
+  lines.push(
+    `${paint("│", C.faint)} ${paint(">", tuiCtx?.ctx.mode === "plan" ? C.yellow : C.green)} ${padTo(shown, inner)} ${paint("│", C.faint)}`,
+  );
+  lines.push(bottom);
+  const hints = "tab agents   ctrl+p commands";
+  const left = `  ${tuiFocus()}`;
+  const gap = Math.max(2, width - plain(left).length - hints.length);
+  lines.push(`${left}${" ".repeat(gap)}${paint(hints, C.faint)}`);
+  lines.push(`  ${paint("⏺", C.faint)} ${paint("Tip", C.soft)} ${paint("Type a task. /help lists commands, /exit leaves.", C.faint)}`);
+  tuiTextRow = label ? 2 : 1;
+  tuiDrawn = lines.length;
+  process.stdout.write(lines.join("\n"));
+  const up = lines.length - 1 - tuiTextRow;
+  const col = 4 + plain(shown).length + 1;
+  process.stdout.write(`${up > 0 ? `\x1b[${up}A` : ""}\r\x1b[${col}G`);
+}
+
+function startTui() {
+  if (tuiOn) return;
+  tuiOn = true;
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdin.setEncoding("utf8");
+  process.stdin.on("data", feedTui);
+}
+
+function stopTui() {
+  if (!tuiOn) return;
+  eraseTui();
+  process.stdin.removeListener("data", feedTui);
+  try {
+    process.stdin.setRawMode(false);
+  } catch {
+    // Not a tty any more; nothing to restore.
+  }
+  process.stdin.pause();
+  tuiOn = false;
+}
+
+function tuiAsk(label = "", options = {}) {
+  return new Promise((resolve) => {
+    tuiLine = {
+      text: "",
+      label: plain(label).trim(),
+      mask: Boolean(options.mask),
+      resolve,
+    };
+    tuiHistoryAt = -1;
+    renderTui();
+  });
+}
+
+function finishTui(value) {
+  const line = tuiLine;
+  if (!line) return;
+  tuiLine = null;
+  eraseTui();
+  if (value === null) {
+    process.stdout.write(`\n  ${paint("canceled", C.faint)}\n\n`);
+    line.resolve(null);
+    return;
+  }
+  if (!line.mask && value.trim()) {
+    tuiHistory.push(value);
+    if (tuiHistory.length > 200) tuiHistory.shift();
+    process.stdout.write(`  ${paint("›", C.faint)} ${value}\n\n`);
+  } else {
+    process.stdout.write("\n");
+  }
+  line.resolve(value);
+}
+
+function toggleTuiMode() {
+  if (!tuiCtx) return;
+  tuiCtx.ctx.mode = tuiCtx.ctx.mode === "plan" ? "build" : "plan";
+  tuiCtx.config.mode = tuiCtx.ctx.mode;
+  void saveConfig(tuiCtx.config).catch(() => {});
+  renderTui();
+}
+
+function historyStep(direction) {
+  if (!tuiHistory.length) return;
+  if (tuiHistoryAt === -1) tuiHistoryAt = tuiHistory.length;
+  tuiHistoryAt = Math.min(tuiHistory.length, Math.max(0, tuiHistoryAt + direction));
+  tuiLine.text = tuiHistoryAt >= tuiHistory.length ? "" : tuiHistory[tuiHistoryAt];
+  renderTui();
+}
+
+/**
+ * Splits what arrives on stdin into single keys.
+ *
+ * A keypress is one character, but a paste — or anything typed before the app
+ * was ready — arrives as one string. Feeding that whole string to the key
+ * handler meant `/exit\r` was treated as the word "/exit" with the Return
+ * removed: the box filled in and Enter did nothing.
+ */
+function feedTui(input) {
+  let index = 0;
+  while (index < input.length) {
+    if (input[index] === "\u001b") {
+      const rest = input.slice(index);
+      const sequence = /^\u001b\[[0-9;]*[A-Za-z~]/.exec(rest) || /^\u001bO[A-Za-z]/.exec(rest);
+      if (sequence) {
+        onTuiKey(sequence[0]);
+        index += sequence[0].length;
+        continue;
+      }
+      onTuiKey("\u001b");
+      index += 1;
+      continue;
+    }
+    onTuiKey(input[index]);
+    index += 1;
+  }
+}
+
+function onTuiKey(chunk) {
+  if (!tuiLine) {
+    if (chunk === "\u0003" && interruptHandler) interruptHandler();
+    return;
+  }
+  if (chunk === "\u0003") {
+    finishTui(null);
+    return;
+  }
+  if (chunk === "\r" || chunk === "\n") {
+    finishTui(tuiLine.text);
+    return;
+  }
+  if (chunk === "\u007f" || chunk === "\b") {
+    tuiLine.text = tuiLine.text.slice(0, -1);
+    renderTui();
+    return;
+  }
+  if (chunk === "\u0015") {
+    tuiLine.text = "";
+    renderTui();
+    return;
+  }
+  if (chunk === "\u0017") {
+    tuiLine.text = tuiLine.text.replace(/\s*\S+\s*$/, "");
+    renderTui();
+    return;
+  }
+  if (chunk === "\t" && !tuiLine.label) {
+    toggleTuiMode();
+    return;
+  }
+  if (chunk === "\u0010") {
+    eraseTui();
+    console.log(
+      `  ${paint("/model  /provider  /plan  /build  /auto  /clear  /setup  /help  /exit", C.faint)}`,
+    );
+    console.log();
+    renderTui();
+    return;
+  }
+  if (chunk === "\u001b[A") {
+    historyStep(-1);
+    return;
+  }
+  if (chunk === "\u001b[B") {
+    historyStep(1);
+    return;
+  }
+  if (chunk.startsWith("\u001b")) return;
+  const text = chunk.replace(/[\u0000-\u001f\u007f]/g, "");
+  if (!text) return;
+  tuiLine.text += text;
+  renderTui();
 }
 
 /* --------------------------------------------------------------- streaming */
@@ -557,17 +800,36 @@ async function streamChat({ config, provider, model, system, messages, signal, o
     };
   }
 
+  // A provider that never answers used to leave the spinner turning forever,
+  // which looks exactly like a frozen app. The timer only covers reaching the
+  // provider: once headers arrive the stream keeps its own signal and a long
+  // answer is never cut short.
+  const headerTimeout = Number(process.env.LANTAS_TIMEOUT_MS) || 45_000;
   let response;
+  let headerTimer;
   try {
-    response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-      signal,
-    });
+    response = await Promise.race([
+      fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        signal,
+      }),
+      new Promise((_, reject) => {
+        headerTimer = setTimeout(() => {
+          const error = new Error(
+            `No answer from ${meta.name} after ${Math.round(headerTimeout / 1000)}s. Check the connection${base ? ` or ${base}` : ""}.`,
+          );
+          error.name = "TimeoutError";
+          reject(error);
+        }, headerTimeout);
+      }),
+    ]);
   } catch (error) {
-    if (error?.name === "AbortError") throw error;
+    if (error?.name === "AbortError" || error?.name === "TimeoutError") throw error;
     throw new Error(`Could not reach ${meta.name} at ${base}. ${error?.message || ""}`.trim());
+  } finally {
+    clearTimeout(headerTimer);
   }
 
   if (!response.ok) {
@@ -1194,19 +1456,25 @@ async function runAgent(question, ctx) {
       process.stdout.write(sanitize(chunk));
     });
 
-    await streamChat({
-      config: ctx.config,
-      provider: ctx.config.provider,
-      model: ctx.config.model,
-      system,
-      messages,
-      signal: ctx.signal,
-      onDelta: (chunk) => {
-        raw += chunk;
-        streamer.push(chunk);
-      },
-    });
-    spin.stop();
+    try {
+      await streamChat({
+        config: ctx.config,
+        provider: ctx.config.provider,
+        model: ctx.config.model,
+        system,
+        messages,
+        signal: ctx.signal,
+        onDelta: (chunk) => {
+          raw += chunk;
+          streamer.push(chunk);
+        },
+      });
+    } finally {
+      // A rejected key or an unreachable provider throws out of streamChat. The
+      // spinner's interval used to survive that: "Thinking" kept turning under
+      // the error and the interval kept the process alive after /exit.
+      spin.stop();
+    }
     streamer.end();
 
     const parsed = parseToolCalls(raw);
@@ -1436,12 +1704,12 @@ async function interactive(config, options) {
 
   printBrand();
   printHeader(config, ctx.cwd, ctx.mode);
-  console.log(`  ${paint("Type a task. /help for commands, /exit to leave.", C.faint)}`);
-  console.log();
 
   let abortController = null;
   let exiting = false;
-  startInput();
+  tuiCtx = { ctx, config };
+  if (IS_TTY) startTui();
+  else startInput();
   interruptHandler = () => {
     if (abortController) {
       abortController.abort();
@@ -1454,14 +1722,18 @@ async function interactive(config, options) {
       }
       return;
     }
-    if (exiting) process.exit(0);
+    if (exiting) {
+      stopTui();
+      process.exit(0);
+    }
     exiting = true;
+    stopTui();
     process.stdout.write(`\n  ${paint("bye", C.faint)}\n`);
     setTimeout(() => process.exit(0), 60);
   };
 
   while (!closed) {
-    const line = await promptLine(`  ${paint("›", ctx.mode === "plan" ? C.faint : C.green)} `);
+    const line = await promptLine("");
     if (line === null) break;
     const text = line.trim();
     if (!text) continue;
@@ -1536,8 +1808,12 @@ async function interactive(config, options) {
     }
   }
 
+  stopTui();
   if (rl) rl.close();
   console.log(`  ${paint("bye", C.faint)}\n`);
+  // Provider sockets and timers can keep the loop alive for seconds after the
+  // last line; leaving on the user's keystroke should be immediate.
+  process.exit(0);
 }
 
 async function oneShot(config, options, prompt) {

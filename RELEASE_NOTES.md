@@ -1,3 +1,13 @@
+Lantas 1.1.2
+
+- **A batch written on one line now runs.** Gemini wrote `browsernavigate {…}browsesteps {…}` — two calls glued together with no line break, and the second was named `browsesteps` ("browse" + "steps"), which matched nothing. The scan required a call to start a line and only looked when no other call was found, so the navigate ran and the three steps did not. Every browser call in the text is found now, back to back, with either spelling.
+- **Tool JSON never shows up in the reply again.** The transcript streamed everything the model wrote and only hid `<tool_call>` blocks, so the raw `browsernavigate {…}` line appeared under your message. A call written without tags is held back until its JSON closes and then dropped; the prose around it still streams.
+- **The CLI is an agent CLI, not a prompt.** A boxed input with the LANTAS mark above it, `Build · provider model` and `tab agents  ctrl+p commands` under the box, a tip line, in-line redraw as you type, history with ↑/↓, Tab to switch Plan/Build, Ctrl+P for the command list, Ctrl+C to stop a turn. Questions the agent asks (apply an edit, run a command) come up in the same box; keys for `lantas setup` are masked there too.
+- **It exits when you say so.** A failed request left the "Thinking" spinner running and its timer kept the process alive, so `/exit` printed "bye" and the window stayed open. The spinner stops on failure, a provider that never answers gives up after 45 seconds with a message instead of spinning forever, and leaving is immediate.
+- **`lantas` opens its own window.** The launcher from 1.1.1 is unchanged: the app's **Install lantas** button writes it to `~/.local/bin`, `lantas` opens a Terminal window in the current folder, `lantas --here` stays put, and a first run asks for the provider in that window.
+
+This build is ad-hoc signed and not notarized. macOS may ask you to approve Lantas once: open **System Settings → Privacy & Security**, click **Open Anyway**, and authenticate.
+
 Lantas 1.1.1
 
 - **The terminal is a terminal again.** The shell was started through macOS `script`, which inspects its own stdin before it allocates anything; the app gives it a pipe, so it exited immediately and the panel said "Shell ready" over a dead session. The pty is opened by the app now (`portable-pty`), so typing works, `sudo` and REPLs get a real tty, and both the Terminal and the CLI tabs run on the same pty.

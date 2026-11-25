@@ -576,3 +576,462 @@
   outline: 2px solid var(--probe-line);
   outline-offset: 2px;
 }
+
+/* ==========================================================================
+   Threads panel
+   --------------------------------------------------------------------------
+   The panel is a list of threads, not a second home page. No wordmark, no
+   duplicated new-thread button: a surface label, a search field, the threads,
+   and the folder/model you are working with at the bottom. The only colour is
+   a 2px probe tick beside the open thread.
+   ========================================================================== */
+
+.sidebar.shell-nav {
+  flex: 0 0 284px;
+  width: 284px;
+}
+
+.rail {
+  flex: 0 0 54px;
+  width: 54px;
+  gap: 2px;
+  padding: 12px 0;
+}
+
+.rail-group {
+  margin-top: 8px;
+  padding-top: 8px;
+  gap: 2px;
+}
+
+.nav-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 14px 10px;
+}
+
+.nav-panel-title {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.nav-panel-eyebrow {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-4);
+}
+
+.nav-heading-label {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
+  color: var(--text);
+}
+
+.nav-new {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--text-3);
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.nav-new:hover {
+  border-color: var(--line-strong);
+  background: var(--raised);
+  color: var(--text);
+}
+
+.nav-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  margin: 0 12px 10px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-4);
+}
+
+.nav-search:focus-within {
+  border-color: var(--line-strong);
+  color: var(--text-3);
+}
+
+.nav-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  outline: none;
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.nav-search input::placeholder {
+  color: var(--text-4);
+}
+
+.nav-search kbd {
+  flex: none;
+  padding: 1px 4px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-4);
+}
+
+.nav-search-clear {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  color: var(--text-4);
+}
+
+.nav-search-clear:hover {
+  background: var(--raised-2);
+  color: var(--text);
+}
+
+.nav-scroll {
+  padding: 2px 8px 12px;
+}
+
+.project {
+  margin-bottom: 6px;
+}
+
+.project-head {
+  height: 30px;
+  padding: 0 8px 0 6px;
+  gap: 6px;
+  border-radius: 6px;
+}
+
+.project-caret {
+  flex: none;
+  color: var(--text-4);
+}
+
+.project-name {
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  color: var(--text-3);
+}
+
+.project-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-4);
+}
+
+.project-body {
+  margin-top: 1px;
+}
+
+.nav-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px 0 6px;
+  font-size: 11.5px;
+  color: var(--text-4);
+}
+
+.nav-pinned {
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.thread-row {
+  position: relative;
+  height: 32px;
+  padding: 0 6px 0 10px;
+  gap: 8px;
+  border-radius: 6px;
+  color: var(--text-2);
+}
+
+.thread-row::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.thread-row:hover {
+  background: var(--raised);
+}
+
+.thread-row.is-active {
+  background: var(--raised);
+  box-shadow: none;
+}
+
+.thread-row.is-active::before {
+  background: var(--probe);
+}
+
+.thread-title {
+  font-size: 12.5px;
+}
+
+.thread-row.is-active .thread-title {
+  color: var(--text);
+}
+
+.thread-time {
+  flex: none;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-4);
+}
+
+.thread-menu {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+}
+
+.thread-row:hover .thread-time,
+.thread-row.is-active .thread-time {
+  display: none;
+}
+
+.thread-row:hover .thread-menu,
+.thread-row.is-active .thread-menu {
+  opacity: 1;
+}
+
+.nav-panel-foot {
+  padding: 8px;
+}
+
+.nav-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: 8px;
+  text-align: left;
+  transition: background 140ms ease;
+}
+
+.nav-status:hover {
+  background: var(--raised);
+}
+
+.nav-status-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.nav-status-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.nav-status-sub {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 10.5px;
+  color: var(--text-4);
+}
+
+.nav-status > svg {
+  flex: none;
+  color: var(--text-4);
+}
+
+/* ------------------------------------------------------------ chat header */
+
+.chat-head {
+  min-height: 48px;
+  padding: 7px 16px;
+}
+
+.chat-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.chat-sub {
+  padding-left: 6px;
+  font-size: 11px;
+  color: var(--text-4);
+}
+
+/* ------------------------------------------------------------------- home */
+
+.home-head {
+  margin: 0 0 22px;
+}
+
+.home-kicker {
+  margin: 0 0 6px;
+  font-size: 11.5px;
+  color: var(--text-4);
+}
+
+.home-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.018em;
+  color: var(--text);
+}
+
+.home-line {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+
+/* ------------------------------------------------------------- IDE chrome */
+
+.ide-assistant-head {
+  padding-left: 12px;
+}
+
+.ide-assistant-title {
+  font-size: 12.5px;
+}
+
+.ide-header-left {
+  gap: 10px;
+}
+
+/* Message meta reads as one line: who answered, then when. */
+.assistant-head {
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.assistant-time {
+  margin-left: 0;
+}
+
+/* A note is context, not an announcement: a quiet rule, no icon. */
+.note-row {
+  display: block;
+  padding: 2px 0 2px 10px;
+  border: 0;
+  border-left: 2px solid var(--line-strong);
+  border-radius: 0;
+  background: none;
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+/* ------------------------------------------------------------ transcript */
+
+.md-code-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.md-code.is-clamped pre {
+  max-height: 220px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+}
+
+/* Attachments in the side panels use the composer's chips. */
+.el-ai-form .attach-row,
+.ide-assistant-composer .attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 0 6px;
+}
+
+.el-ai-attach {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: none;
+  color: var(--text-3);
+}
+
+.el-ai-attach:hover {
+  color: var(--text-1);
+  border-color: var(--line-strong);
+}
+
+/* Attachments sit above the browser panel's single input row. */
+.el .el-ai-form {
+  flex-wrap: wrap;
+}
+
+.el .el-ai-form .attach-row {
+  flex: 1 0 100%;
+  order: -1;
+  padding: 0 2px 4px;
+}
+
+.ide-assistant-actions {
+  gap: 6px;
+}
+
+.ide-assistant-hint {
+  margin-left: auto;
+}
+
+/* The brand lockup belongs on the default chat screen, large and quiet.
+   Only the small corner marks were meant to go. */
+.home-head .home-lockup {
+  display: block;
+  width: 208px;
+  max-width: 70%;
+  height: auto;
+  margin: 0 0 22px;
+  filter: none;
+}
+
+[data-theme="light"] .home-head .home-lockup {
+  filter: invert(1) brightness(0.88);
+}

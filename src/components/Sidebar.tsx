@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../lib/store";
-import { isConfigured } from "../lib/providers";
+import { PROVIDERS } from "../lib/data";
+import { isConfigured, prettyModel } from "../lib/providers";
 import type { Session } from "../lib/types";
 import { cx, timeAgo } from "../lib/util";
-import { MarkGlyph, Wordmark } from "./Brand";
 import { Icon, type IconName } from "./Icons";
 
 interface RowMenu {
@@ -17,6 +17,13 @@ const NAV: Array<{ id: "chats" | "skills" | "integrations"; label: string; icon:
   { id: "skills", label: "Skills", icon: "book" },
   { id: "integrations", label: "Integrations", icon: "plug" },
 ];
+
+/** The surface whose threads are on screen, in the panel's own words. */
+const SURFACES: Record<string, string> = {
+  chat: "Chat",
+  browser: "Browser",
+  code: "Code",
+};
 
 function projectName(cwd: string) {
   const parts = cwd.split("/").filter((part) => part && part !== "~" && part !== ".");
@@ -37,6 +44,7 @@ export function Sidebar({
     selectSession,
     deleteSession,
     renameSession,
+    updateSession,
     setView,
     setMode,
     notify,
@@ -45,8 +53,10 @@ export function Sidebar({
   const [menu, setMenu] = useState<RowMenu | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
 
   // Chat, browser and code keep separate thread lists; the sidebar shows the
   // ones that belong to the surface you are in.
@@ -55,12 +65,32 @@ export function Sidebar({
     [state.sessions, state.mode],
   );
 
+  const wanted = query.trim().toLowerCase();
+  const matched = useMemo(
+    () =>
+      wanted
+        ? surfaceSessions.filter(
+            (session) =>
+              session.title.toLowerCase().includes(wanted) ||
+              (session.cwd ?? "").toLowerCase().includes(wanted),
+          )
+        : surfaceSessions,
+    [surfaceSessions, wanted],
+  );
+
+  const pinned = useMemo(
+    () => matched.filter((session) => session.pinned).sort((a, b) => b.updated - a.updated),
+    [matched],
+  );
+
   const projects = useMemo(() => {
     const map = new Map<string, Session[]>();
-    surfaceSessions.forEach((session) => {
-      const key = session.cwd || "~/dev/lantas";
-      map.set(key, [...(map.get(key) ?? []), session]);
-    });
+    matched
+      .filter((session) => !session.pinned)
+      .forEach((session) => {
+        const key = session.cwd || "~/dev/lantas";
+        map.set(key, [...(map.get(key) ?? []), session]);
+      });
     return Array.from(map.entries())
       .map(([cwd, items]) => ({
         cwd,
@@ -68,7 +98,11 @@ export function Sidebar({
         items: [...items].sort((a, b) => b.updated - a.updated),
       }))
       .sort((a, b) => (b.items[0]?.updated ?? 0) - (a.items[0]?.updated ?? 0));
-  }, [surfaceSessions]);
+  }, [matched]);
+
+  const provider = state.settings.defaultProvider;
+  const providerMeta = PROVIDERS.find((item) => item.id === provider);
+  const connected = isConfigured(provider, state.settings.providers[provider]);
 
   useEffect(() => {
     if (!menu) return;
@@ -85,6 +119,20 @@ export function Sidebar({
       document.removeEventListener("keydown", escape);
     };
   }, [menu]);
+
+  // ⌘F inside the thread view focuses this field instead of the browser's
+  // find bar, which cannot search threads.
+  useEffect(() => {
+    if (historyCollapsed) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "f") return;
+      event.preventDefault();
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [historyCollapsed]);
 
   const startRename = (id: string) => {
     const session = state.sessions.find((item) => item.id === id);
@@ -107,6 +155,75 @@ export function Sidebar({
     selectSession(id);
   };
 
+  const togglePin = (id: string) => {
+    const session = state.sessions.find((item) => item.id === id);
+    const next = !session?.pinned;
+    updateSession(id, (current) => ({ ...current, pinned: next }));
+    notify(next ? "Thread pinned" : "Thread unpinned");
+    setMenu(null);
+  };
+
+  const renderRow = (session: Session) => {
+    const available = isConfigured(session.provider, state.settings.providers[session.provider]);
+    const active = session.id === state.activeId && state.view === "chats";
+    return (
+      <div
+        key={session.id}
+        className={cx(
+          "thread-row",
+          active && "is-active",
+          renaming === session.id && "is-editing",
+        )}
+        onClick={() => openSession(session.id)}
+        onDoubleClick={() => startRename(session.id)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") openSession(session.id);
+        }}
+      >
+        {renaming === session.id ? (
+          <input
+            className="thread-rename"
+            value={draft}
+            autoFocus
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") commitRename();
+              if (event.key === "Escape") setRenaming(null);
+            }}
+            onClick={(event) => event.stopPropagation()}
+          />
+        ) : (
+          <>
+            <span className="thread-title" title={session.title}>
+              {session.title}
+            </span>
+            {!available && <span className="thread-dot" title="Provider not connected" />}
+            <span className="thread-time">{timeAgo(session.updated)}</span>
+            <button
+              type="button"
+              className="thread-menu"
+              aria-label={`Actions for ${session.title}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                const rect = event.currentTarget.getBoundingClientRect();
+                setMenu({
+                  sessionId: session.id,
+                  x: rect.right,
+                  y: rect.bottom + 6,
+                });
+              }}
+            >
+              <Icon name="more" size={14} />
+            </button>
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <aside className={cx("sidebar shell-nav", historyCollapsed && "is-collapsed")}>
       <div className="rail">
@@ -127,7 +244,7 @@ export function Sidebar({
           title="New thread (⌘N)"
           aria-label="New thread"
         >
-          <Icon name="plus" size={17} />
+          <Icon name="plus" size={16} />
         </button>
 
         <div className="rail-group">
@@ -143,7 +260,7 @@ export function Sidebar({
               title={item.label}
               aria-label={item.label}
             >
-              <Icon name={item.icon} size={17} />
+              <Icon name={item.icon} size={16} />
             </button>
           ))}
         </div>
@@ -157,7 +274,7 @@ export function Sidebar({
           title="Settings (⌘,)"
           aria-label="Settings"
         >
-          <Icon name="settings" size={17} />
+          <Icon name="settings" size={16} />
         </button>
       </div>
 
@@ -167,14 +284,60 @@ export function Sidebar({
         aria-hidden={historyCollapsed}
       >
         <div className="nav-panel-head">
-          <div className="nav-panel-brand">
-            <MarkGlyph size={17} className="nav-panel-mark" />
-            <Wordmark cell={3} className="nav-wordmark" />
+          <div className="nav-panel-title">
+            <span className="nav-panel-eyebrow">{SURFACES[state.mode] ?? "Chat"}</span>
+            <h1 className="nav-heading-label">Threads</h1>
           </div>
-          <h1 className="nav-heading-label">Threads</h1>
+          <button
+            type="button"
+            className="nav-new"
+            onClick={() => createSession()}
+            title="New thread (⌘N)"
+            aria-label="New thread"
+          >
+            <Icon name="plus" size={14} />
+          </button>
         </div>
 
+        <label className="nav-search">
+          <Icon name="search" size={14} />
+          <input
+            ref={searchRef}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setQuery("");
+            }}
+            placeholder="Search threads"
+            aria-label="Search threads"
+            spellCheck={false}
+          />
+          {query ? (
+            <button
+              type="button"
+              className="nav-search-clear"
+              onClick={() => setQuery("")}
+              aria-label="Clear search"
+            >
+              <Icon name="close" size={12} />
+            </button>
+          ) : (
+            <kbd>⌘F</kbd>
+          )}
+        </label>
+
         <div className="nav-scroll">
+          {pinned.length > 0 && (
+            <section className="project nav-pinned">
+              <div className="nav-section-label">
+                <Icon name="pin" size={14} />
+                <span>Pinned</span>
+                <span className="project-count">{pinned.length}</span>
+              </div>
+              <div className="thread-rows">{pinned.map(renderRow)}</div>
+            </section>
+          )}
+
           {projects.map((project) => {
             const open = !collapsed[project.cwd];
             return (
@@ -185,121 +348,61 @@ export function Sidebar({
                   onClick={() =>
                     setCollapsed((prev) => ({ ...prev, [project.cwd]: open }))
                   }
+                  aria-expanded={open}
                 >
-                  <Icon name="folder" size={14} />
-                  <span className="project-name">{project.label}</span>
                   <Icon
                     name="chevronDown"
-                    size={13}
+                    size={12}
                     className={cx("project-caret", !open && "is-closed")}
                   />
+                  <span className="project-name">{project.label}</span>
+                  <span className="project-count">{project.items.length}</span>
                 </button>
 
                 {open && (
                   <div className="project-body">
-                    <button
-                      type="button"
-                      className="new-thread"
-                      onClick={() => createSession()}
-                    >
-                      <Icon name="plus" size={13} />
-                      New thread
-                    </button>
-
-                    <div className="thread-rows">
-                      {project.items.map((session) => {
-                        const available = isConfigured(
-                          session.provider,
-                          state.settings.providers[session.provider],
-                        );
-                        const active =
-                          session.id === state.activeId && state.view === "chats";
-                        return (
-                          <div
-                            key={session.id}
-                            className={cx(
-                              "thread-row",
-                              active && "is-active",
-                              renaming === session.id && "is-editing",
-                            )}
-                            onClick={() => openSession(session.id)}
-                            onDoubleClick={() => startRename(session.id)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") openSession(session.id);
-                            }}
-                          >
-                            <span className="thread-mark" aria-hidden="true">
-                              <Icon name="message" size={13} />
-                            </span>
-                            {renaming === session.id ? (
-                              <input
-                                className="thread-rename"
-                                value={draft}
-                                autoFocus
-                                onChange={(event) => setDraft(event.target.value)}
-                                onBlur={commitRename}
-                                onKeyDown={(event) => {
-                                  if (event.key === "Enter") commitRename();
-                                  if (event.key === "Escape") setRenaming(null);
-                                }}
-                                onClick={(event) => event.stopPropagation()}
-                              />
-                            ) : (
-                              <>
-                                <span className="thread-title">{session.title}</span>
-                                {!available && <span className="thread-dot" title="Provider not connected" />}
-                                <span className="thread-time">{timeAgo(session.updated)}</span>
-                                <button
-                                  type="button"
-                                  className="thread-menu"
-                                  aria-label="Thread actions"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    const rect = event.currentTarget.getBoundingClientRect();
-                                    setMenu({
-                                      sessionId: session.id,
-                                      x: rect.right,
-                                      y: rect.bottom + 6,
-                                    });
-                                  }}
-                                >
-                                  <Icon name="more" size={14} />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <div className="thread-rows">{project.items.map(renderRow)}</div>
                   </div>
                 )}
               </section>
             );
           })}
 
-          {surfaceSessions.length === 0 && (
+          {matched.length === 0 && (
             <div className="nav-empty">
-              <p>
-                {state.mode === "browser"
-                  ? "No browser threads yet"
-                  : state.mode === "code"
-                    ? "No code threads yet"
-                    : "No threads yet"}
-              </p>
-              <button className="text-button" onClick={() => createSession()} type="button">
-                Start one
-              </button>
+              {wanted ? (
+                <p>No thread matches “{query.trim()}”</p>
+              ) : (
+                <>
+                  <p>
+                    {state.mode === "browser"
+                      ? "No browser threads yet"
+                      : state.mode === "code"
+                        ? "No code threads yet"
+                        : "No threads yet"}
+                  </p>
+                  <button className="text-button" onClick={() => createSession()} type="button">
+                    Start one
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
 
         <div className="nav-panel-foot">
-          <button className="nav-foot-row" type="button" onClick={onOpenSettings}>
-            <Icon name="settings" size={15} />
-            <span>Settings</span>
-            <kbd>⌘,</kbd>
+          <button type="button" className="nav-status" onClick={onOpenSettings}>
+            <span className={cx("status-dot", connected ? "is-ok" : "is-idle")} aria-hidden="true" />
+            <span className="nav-status-text">
+              <span className="nav-status-title">
+                {state.workspaceName || "No folder open"}
+              </span>
+              <span className="nav-status-sub">
+                {connected
+                  ? `${providerMeta?.name ?? "Model"} · ${prettyModel(state.settings.defaultModel)}`
+                  : "No provider connected"}
+              </span>
+            </span>
           </button>
         </div>
       </div>
@@ -318,6 +421,12 @@ export function Sidebar({
             }}
           >
             <Icon name="message" size={14} /> Open
+          </button>
+          <button type="button" onClick={() => togglePin(menu.sessionId)}>
+            <Icon name="pin" size={14} />
+            {state.sessions.find((item) => item.id === menu.sessionId)?.pinned
+              ? "Unpin"
+              : "Pin"}
           </button>
           <button type="button" onClick={() => startRename(menu.sessionId)}>
             <Icon name="file" size={14} /> Rename

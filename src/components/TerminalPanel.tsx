@@ -24,6 +24,24 @@ const WELCOME = [
   "Runs in the open workspace. The assistant uses the same shell with its terminal tool.",
 ];
 
+/**
+ * The shell is a real pty, so it echoes the panel's own setup line and its
+ * bare prompt marker. Those are noise, not output: the panel already prints
+ * the command it sends.
+ */
+const isPromptNoise = (text: string) => {
+  const value = text.trim();
+  if (!value) return true;
+  if (/^[%$#]\s*$/.test(value)) return true;
+  // The pty echoes the setup line as it arrives, sometimes after the prompt.
+  if (/stty -echo|unsetopt prompt_cr|RPROMPT=|PS1=''/.test(value)) return true;
+  // A prompt-only line from a theme: `user@host dir %`, `➜  dir git:(main)`.
+  // Real output that happens to end in % stays; these shapes carry no command.
+  if (/^[\w.-]+@[\w.-]+\s+\S.*[%$#]\s*$/.test(value)) return true;
+  if (/^[➜❯»→]\s+\S.*$/.test(value)) return true;
+  return false;
+};
+
 export function TerminalPanel({
   cwd,
   onClose,
@@ -51,10 +69,11 @@ export function TerminalPanel({
   const native = inTauri();
 
   const append = useCallback((tone: Line["tone"], text: string) => {
-    if (!text.trim()) return;
+    const clean = stripAnsi(text);
+    if (isPromptNoise(clean)) return;
     setLines((current) => [
       ...current.slice(-500),
-      { id: uid("line"), tone, text: stripAnsi(text) },
+      { id: uid("line"), tone, text: clean },
     ]);
   }, []);
 
@@ -75,9 +94,19 @@ export function TerminalPanel({
       if (!alive) return;
       idsRef.current.delete(event.id);
       if (event.id === cliIdRef.current) {
-        append("meta", `CLI exited${event.code === null ? "" : ` with code ${event.code}`}.`);
+        const code = event.code;
+        append("meta", `CLI exited${code === null ? "" : ` with code ${code}`}.`);
         cliIdRef.current = null;
         setCliId(null);
+        // Stay on this tab: switching tabs under someone who is typing is
+        // worse than a stopped process. The input stays live and typing starts
+        // the CLI again.
+        if (code !== 0) {
+          append(
+            "meta",
+            "It needs a model: connect one in Settings → Providers, or run `lantas setup` here and type a task again.",
+          );
+        }
       }
       if (event.id === shellIdRef.current) {
         shellIdRef.current = null;
@@ -152,7 +181,7 @@ export function TerminalPanel({
     idsRef.current.add(id);
     setCliId(id);
     setCliStarted(true);
-    append("meta", "Starting the bundled Lantas CLI…");
+    append("meta", "Starting the Lantas CLI…");
     append(
       "meta",
       "If it exits immediately, install Node.js 18 or newer. The desktop terminal works without it.",
@@ -225,29 +254,41 @@ export function TerminalPanel({
       return;
     }
     const value = input;
-    if (!value.trim() || !cliIdRef.current) return;
+    if (!value.trim()) return;
     append("meta", `› ${value}`);
     setInput("");
+    // Typing into the CLI tab starts it if it is not running, instead of
+    // leaving the field dead.
+    if (!cliIdRef.current) await startCli();
+    const id = cliIdRef.current;
+    if (!id) {
+      append("err", "The CLI could not start. Use the Terminal tab to run commands instead.");
+      return;
+    }
     try {
-      await terminalWrite(cliIdRef.current, `${value}\n`);
+      await terminalWrite(id, `${value}\n`);
     } catch (error) {
       append("err", error instanceof Error ? error.message : String(error));
     }
   };
 
   const stop = async () => {
-    const id = cliIdRef.current ?? shellIdRef.current;
-    if (id) {
-      await terminalStop(id).catch(() => {});
-      idsRef.current.delete(id);
-      if (id === cliIdRef.current) {
-        cliIdRef.current = null;
-        setCliId(null);
-      }
-      if (id === shellIdRef.current) {
-        shellIdRef.current = null;
-        setShellReady(false);
-      }
+    // Stop only what this tab runs. Stopping the shell from the CLI tab looked
+    // like the CLI had taken the terminal down with it.
+    const id = tab === "cli" ? cliIdRef.current : shellIdRef.current;
+    if (!id) {
+      append("meta", tab === "cli" ? "The CLI is not running." : "The shell is not running.");
+      return;
+    }
+    await terminalStop(id).catch(() => {});
+    idsRef.current.delete(id);
+    if (id === cliIdRef.current) {
+      cliIdRef.current = null;
+      setCliId(null);
+    }
+    if (id === shellIdRef.current) {
+      shellIdRef.current = null;
+      setShellReady(false);
     }
     append("meta", "Stopped.");
   };
@@ -357,13 +398,12 @@ export function TerminalPanel({
             tab === "cli"
               ? cliId
                 ? "Type a task or a CLI command"
-                : "Start the CLI to begin"
+                : "Type a task to start the CLI"
               : shellReady
                 ? "Run a command in this folder"
                 : "Starting the shell…"
           }
           spellCheck={false}
-          disabled={tab === "cli" && !cliId}
           autoComplete="off"
         />
         <button type="submit" className="ide-terminal-send" disabled={!input.trim()}>

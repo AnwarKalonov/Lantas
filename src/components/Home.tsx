@@ -28,9 +28,15 @@ export function Home({ onSend, onOpenSettings, onScreenToggle }: HomeProps) {
   return (
     <div className="home">
       <div className="home-inner">
-        <div className="hero">
-          <Lockup className="hero-lockup" />
-          <p className="hero-line">Work across your repo, your screen and your machine</p>
+        <div className="home-head">
+          <Lockup className="home-lockup" />
+          <p className="home-kicker">
+            {state.workspaceName ? `Working in ${state.workspaceName}` : "Chat"}
+          </p>
+          <h1 className="home-title">Ask, build or browse</h1>
+          <p className="home-line">
+            One thread for the folder, the screen and the page in front of you.
+          </p>
         </div>
 
         <Composer

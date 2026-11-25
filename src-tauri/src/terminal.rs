@@ -160,7 +160,27 @@ pub fn terminal_shell(
     // command runner. Fall back to the pipe where `script` is missing.
     let mut command = if std::path::Path::new("/usr/bin/script").exists() {
         let mut command = Command::new("/usr/bin/script");
-        command.args(["-q", "/dev/null", "/bin/zsh", "-il"]);
+        // Echo is turned off *before* zsh draws anything. Sending `stty -echo`
+        // through stdin, as this used to, meant the pty echoed that setup line
+        // back to the panel as if it were command output, and the user watched
+        // their own shell print `stty -echo ...` and a `%` before their first
+        // command.
+        //
+        // ZLE goes off for the same reason: it redraws every line it reads, so
+        // each command the panel sent appeared twice. Both options are probed
+        // first, so a shell that rejects them still starts.
+        command.args([
+            "-q",
+            "/dev/null",
+            "/bin/sh",
+            "-c",
+            "stty -echo 2>/dev/null; \
+             if /bin/zsh -o nozle -o nopromptcr -o nopromptsp -c true 2>/dev/null; then \
+               exec /bin/zsh -il -o nozle -o nopromptcr -o nopromptsp; \
+             else \
+               exec /bin/zsh -il; \
+             fi",
+        ]);
         command
     } else {
         let mut command = Command::new("/bin/zsh");
@@ -172,6 +192,14 @@ pub fn terminal_shell(
         .current_dir(directory)
         .env("TERM", "xterm-256color")
         .env("LANTAS_IN_APP_TERMINAL", "1")
+        // Quiet prompts from the start. A theme that rewrites PROMPT in its
+        // precmd hook still wins; the line sent below clears it again, and
+        // nothing echoes it now.
+        .env("PROMPT", "")
+        .env("PS1", "")
+        .env("PROMPT2", "")
+        .env("RPROMPT", "")
+        .env("PROMPT_EOL_MARK", "")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -181,9 +209,9 @@ pub fn terminal_shell(
     let stdout = child.stdout.take().ok_or("Could not read terminal output.")?;
     let stderr = child.stderr.take().ok_or("Could not read terminal errors.")?;
     let mut stdin = child.stdin.take().ok_or("Could not open terminal input.")?;
-    // The panel prints the command it sent, so the pty's own echo and prompt
-    // would double every line. Quiet both; output and exit codes still arrive.
-    let _ = stdin.write_all(b"stty -echo 2>/dev/null; PROMPT=''; RPROMPT=''; PS1=''; unsetopt prompt_cr prompt_sp 2>/dev/null\n");
+    // Echo is already off and ZLE is disabled, so this line never reaches the
+    // panel. It only clears a prompt a theme installed while starting up.
+    let _ = stdin.write_all(b"PROMPT=''; RPROMPT=''; PS1=''; PROMPT2=''\n");
     let _ = stdin.flush();
     let pid = child.id();
 

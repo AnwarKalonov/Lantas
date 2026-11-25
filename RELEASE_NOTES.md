@@ -1,3 +1,17 @@
+Lantas 1.1.0
+
+- **The browser never acts on its own.** The browser panel had a local command layer that read "open …", "click …" and "type …" and executed them itself, so "open desmos" became an address-bar guess and "open something" became a Google query for the word. That layer is gone: every sentence goes to the model, which picks the page and drives it with its own tool. A search-results address is refused unless you actually asked to search, and the named-site table that guessed `.com` destinations has been removed.
+- **A browser command now runs instead of vanishing.** Models write calls like `browsertype {"text":"2x+4"}` with no tags, glued to the tool name. The parser only understood tags, so the call was read as prose and nothing happened — the "it opened the site but never typed" case. Glued, dotted and underscored names are recognised, and a browser call with no action is inferred from its arguments.
+- **Stable element refs.** A snapshot's refs were positions, renumbered every time, so a stale ref could click whatever moved into that slot. Each ref now comes from the element's own identity and stays with it; a ref that left the page fails instead of clicking its neighbour. Control refs also drive the click, so a page re-render no longer changes what a number means.
+- **Batched browser steps.** `browser {"action":"steps","steps":[…]}` runs up to twelve actions in one call — click the field, type the expression, press Enter — and returns one fresh snapshot, so a task keeps its thread instead of spending a round trip per click.
+- **The Code assistant writes files.** Its turns run as Build now; before, a thread started in Chat or Plan denied every write, so the model pasted the whole file into the reply. Code blocks longer than sixteen lines also collapse with a line count.
+- **Attach files in the side panels.** The Code assistant and the browser assistant both take files and images from a picker or a paste, with the same limits as the main composer, and the browser's attachments ride along with the turn.
+- **The sidebar is rebuilt.** Threads searchable with ⌘F, pinned threads in their own section, project groups with counts that collapse, rename on double-click, a row menu with pin, copy ID and delete, and a footer that shows the folder, provider and model. The small logo marks are gone from the chrome; the big lockup is back on the default chat screen.
+- **Settings by asking.** "Change to light mode", "turn off notifications", "switch to the plan agent" and "open appearance" apply immediately instead of opening a panel and waiting.
+- **The terminal stops echoing itself.** The shell now has echo off before zsh draws anything, and ZLE off, so its own setup line and each command are no longer printed back at you. Prompt lines and the stray `%` are filtered. On the CLI tab the input stays live after the CLI exits — typing starts it again — Stop only affects the tab you are on, and a failed start says which provider step is missing instead of leaving a dead pane.
+
+This build is ad-hoc signed and not notarized. macOS may ask you to approve Lantas once: open **System Settings → Privacy & Security**, click **Open Anyway**, and authenticate.
+
 Lantas 1.0.9
 
 - **Light mode is light again.** The polish stylesheet loaded last and put the dark neutral ramp on `:root`, which beat the light theme at the same specificity. Light now has its own background, surface, text and line ramp, verified against the rendered page.

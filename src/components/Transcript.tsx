@@ -4,7 +4,6 @@ import { AGENTS } from "../lib/data";
 import { clock, cx, formatDuration, formatTokens } from "../lib/util";
 import { PATH_RE, looksLikePath, maskUrls, pathFrom } from "../lib/paths";
 import { formatBytes, saveArtifact } from "../lib/artifacts";
-import { MarkGlyph } from "./Brand";
 import { DiffViewer } from "./DiffViewer";
 import { Icon, type IconName } from "./Icons";
 
@@ -301,22 +300,39 @@ function Inline({
 
 function CodeBlock({ language, code }: { language: string; code: string }) {
   const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const body = code.replace(/\n$/, "");
+  const lines = body ? body.split("\n").length : 0;
+  // A pasted file is not a reply. Long blocks stay readable at a glance and
+  // open in place when the user wants the whole thing.
+  const long = lines > 16;
   const copy = () => {
     navigator.clipboard?.writeText(code).catch(() => {});
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1400);
   };
   return (
-    <div className="md-code">
+    <div className={cx("md-code", long && !expanded && "is-clamped")}>
       <div className="md-code-head">
         <span>{language || "text"}</span>
-        <button type="button" onClick={copy} className="md-code-copy">
-          <Icon name={copied ? "check" : "copy"} size={11} />
-          {copied ? "Copied" : "Copy"}
-        </button>
+        <div className="md-code-actions">
+          {long && (
+            <button
+              type="button"
+              onClick={() => setExpanded((open) => !open)}
+              className="md-code-copy"
+            >
+              {expanded ? "Collapse" : `${lines} lines`}
+            </button>
+          )}
+          <button type="button" onClick={copy} className="md-code-copy">
+            <Icon name={copied ? "check" : "copy"} size={11} />
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
       </div>
       <pre>
-        <code>{code.replace(/\n$/, "")}</code>
+        <code>{body}</code>
       </pre>
     </div>
   );
@@ -513,7 +529,6 @@ function AssistantPart({
     case "note":
       return (
         <div className="note-row">
-          <Icon name="sparkle" size={13} />
           <span>{part.text}</span>
         </div>
       );
@@ -652,9 +667,6 @@ function AssistantMessage({
   if (compact) {
     return (
       <div className="msg msg-assistant is-compact">
-        <div className="assistant-compact-mark" aria-hidden="true">
-          <MarkGlyph size={11} />
-        </div>
         <div className="assistant-block">
           {blocks.map((block, index) =>
             block.kind === "run" ? (
@@ -672,9 +684,6 @@ function AssistantMessage({
   return (
     <div className="msg msg-assistant">
       <div className="assistant-head">
-        <span className="assistant-compact-mark" aria-hidden="true">
-          <MarkGlyph size={11} />
-        </span>
         <span>{agent.name}</span>
         <span className="assistant-time">{clock(message.created)}</span>
       </div>

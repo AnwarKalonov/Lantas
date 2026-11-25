@@ -18,6 +18,7 @@ export function buildSystemPrompt(
   workspace: WorkspaceFile[] = [],
   gitContext = "",
   runningSummary = "",
+  hasFolder = workspace.length > 0,
 ): string {
   const enabled = skills.filter((skill) => skill.enabled);
   const dormant = skills.filter((skill) => !skill.enabled);
@@ -42,6 +43,11 @@ export function buildSystemPrompt(
         .join("\n")}${omitted ? `\n… ${omitted} more` : ""}`
     : "";
   const gitBlock = gitContext ? `\n\nGit status:\n${gitContext}` : "";
+  // With no folder there is nowhere to write, and a model with no write path
+  // answers by pasting the file into the chat. Say it once, in the prompt.
+  const noFolderBlock = hasFolder
+    ? ""
+    : "\n\nNo workspace folder is open, so you cannot read or write files. Say that in one line and ask the user to open a folder. Do not paste file contents into the chat as a substitute.";
   const summaryBlock = runningSummary
     ? `\n\nCondensed earlier conversation (older turns were dropped from the live history; treat it as context, not a new request):\n${runningSummary}`
     : "";
@@ -53,7 +59,13 @@ export function buildSystemPrompt(
     "Only state that an account, page or file is available when a tool result or the context below says so. If you did not check, say you did not check.",
     "Be concise and specific. Use sentence case. No emoji. Prefer short paragraphs, and use inline code for identifiers.",
     TOOL_MANUAL,
-  ].join("\n\n") + treeBlock + gitBlock + summaryBlock + skillBlock + dormantBlock;
+  ].join("\n\n") +
+    treeBlock +
+    gitBlock +
+    noFolderBlock +
+    summaryBlock +
+    skillBlock +
+    dormantBlock;
 }
 
 /**
@@ -83,6 +95,7 @@ export function buildBrowserSystemPrompt(session: Session, page: ElPage | null):
     '  click_at {"x":400,"y":300} — click a canvas coordinate',
     '  hover {"target":"File"} — open a menu or tooltip',
     '  type {"text":"y=2x+4","selector":"...","submit":false} — type into a field',
+    '  steps {"steps":[{"action":"click","ref":12},{"action":"type","text":"2x + 4"},{"action":"press","key":"Enter"}]} — up to 12 actions in one call, with one fresh snapshot at the end',
     '  fill {"target":"...","text":"..."} — alias for type',
     '  select {"target":"...","value":"..."} — choose a select option',
     '  check {"target":"...","checked":true} — set a checkbox or switch',
@@ -100,10 +113,11 @@ export function buildBrowserSystemPrompt(session: Session, page: ElPage | null):
     "How to work:",
     "1. If the user says “open X”, decide what exact page they mean and navigate once with a complete `https://` URL. Never pass the bare name or a route like `calculator`; if you do not know the page URL, open the site and click the visible control. Do not stop at the homepage when the request names a page inside it.",
     "2. After every navigation or click, read the returned URL, title and controls. The result already includes a fresh snapshot; only call snapshot when you need it again. If navigate rejects an address, choose a complete URL; do not repeat the same value.",
-    "3. Prefer the numbered ref or exact visible label. One action, then read the result before the next action.",
-    "4. Verify the outcome on the page before saying it worked. If the result is not what the user asked for, try one different supported action.",
-    "5. You cannot edit files, run commands or use integrations in this mode. Answer only about the browser and the page.",
-    "6. Write a short, human answer. Never mention the tool protocol or show raw JSON.",
+    "3. Prefer the ref from the snapshot, or an exact visible label. A ref is tied to its element while it is on the page; a stale ref fails instead of clicking a neighbour. When you already know the sequence (click the field, type the text, press Enter), send it as one `steps` call and read the single snapshot it returns.",
+    "4. Never navigate to a search-results URL to satisfy “open X”. Decide the site the user means and open it; use a site's own search box only when the user asked to search. The tool refuses a search address when the request did not ask for one.",
+    "5. Verify the outcome on the page before saying it worked. If the result is not what the user asked for, try one different supported action.",
+    "6. You cannot edit files, run commands or use integrations in this mode. Answer only about the browser and the page.",
+    "7. Write a short, human answer. Never mention the tool protocol or show raw JSON.",
     "",
     `Workspace context: ${session.cwd}. This does not give you file tools here.`,
   ].join("\n");

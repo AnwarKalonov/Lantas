@@ -132,6 +132,26 @@ export function parseToolCalls(
     let name = String(record.name ?? record.tool ?? fn?.name ?? "");
     let args =
       record.arguments ?? record.args ?? record.parameters ?? fn?.arguments ?? {};
+    if (typeof args === "string") args = safeJson(args);
+
+    // A model that writes `browsertype {…}` or `browser.type {…}` means the
+    // browser tool with the action glued to its name. The old parser dropped
+    // that call, so "type 2x+4 into the box" typed nothing and the turn ended.
+    const glued = name ? asBrowserCall(name) : null;
+    if (glued) {
+      name = "browser";
+      args = { ...(args as Record<string, unknown>), action: glued };
+    }
+
+    // A browser call with no action still names itself by its arguments.
+    if (name.toLowerCase() === "browser" && !String((args as Record<string, unknown>).action ?? "")) {
+      const keys = Object.keys(args as Record<string, unknown>);
+      if (keys.includes("steps")) (args as Record<string, unknown>).action = "steps";
+      else if (keys.includes("task")) (args as Record<string, unknown>).action = "task";
+      else if (keys.some((key) => key === "text" || key === "value")) {
+        (args as Record<string, unknown>).action = "type";
+      }
+    }
     // Small models often drop the wrapper and send only the action object.
     // In a browser-only panel that shape is unambiguous.
     if (!name && options.defaultTool && (record.action || record.type)) {
@@ -145,10 +165,7 @@ export function parseToolCalls(
       args = record;
     }
     if (!name) return;
-    calls.push({
-      name,
-      args: typeof args === "string" ? safeJson(args) : (args as Record<string, unknown>),
-    });
+    calls.push({ name, args: args as Record<string, unknown> });
   };
 
   while ((tag = opener.exec(raw))) {
@@ -186,6 +203,27 @@ export function parseToolCalls(
     }
   }
 
+  // A model can also put the tool name straight against its JSON with no tags
+  // at all: `browsertype {"text":"2x+4"}`. That reads as prose to every rule
+  // above, which is what made a browser command vanish.
+  if (!calls.length) {
+    const glued = /(^|\n)[ \t]*([a-zA-Z][\w.]{2,26})[ \t]*(\{)/g;
+    let hit: RegExpExecArray | null;
+    while ((hit = glued.exec(raw))) {
+      const action = asBrowserCall(hit[2]);
+      if (!action) continue;
+      const read = readJson(raw, hit.index + hit[0].length - 1);
+      if (!read || !read.value || typeof read.value !== "object" || Array.isArray(read.value)) {
+        continue;
+      }
+      calls.push({
+        name: "browser",
+        args: { ...(read.value as Record<string, unknown>), action },
+      });
+      blocks.push([hit.index + (hit[1] ? hit[1].length : 0), read.end]);
+    }
+  }
+
   // Remove every accepted block, tag and all, so raw JSON never reaches the
   // transcript even when the model wrote prose around it.
   let text = raw;
@@ -204,6 +242,18 @@ export function parseToolCalls(
     calls,
     text: text.replace(/<\/\s*(tool_call|tool|function_call)\s*>/gi, "").trim(),
   };
+}
+
+/**
+ * `browsertype`, `browser_type`, `browser.type`, `browserclick`: the action
+ * suffix of a tool name a model glued together. Returns the action, or null
+ * when the name is not the browser tool.
+ */
+function asBrowserCall(name: string): string | null {
+  const squash = name.toLowerCase().replace(/[^a-z]/g, "");
+  if (!squash.startsWith("browser")) return null;
+  const action = squash.slice("browser".length);
+  return action && BROWSER_ACTIONS.has(action) ? action : null;
 }
 
 /** The actions the browser tool understands, used to recognise a bare call. */
@@ -232,6 +282,9 @@ const BROWSER_ACTIONS = new Set([
   "reload",
   "evaluate",
   "open_in_chrome",
+  "steps",
+  "run",
+  "task",
 ]);
 
 /** JSON with one common model slip repaired: a trailing comma. */

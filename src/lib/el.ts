@@ -1,5 +1,4 @@
 import { httpFetch } from "./providers";
-import { guessDomain, siteForName, stripOpenCommand } from "./sites";
 
 const KEY = "lantas.el.v1";
 export const EL_HOME = "el://home";
@@ -104,41 +103,32 @@ function isHostname(value: string): boolean {
   return /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(value);
 }
 
+/**
+ * The address bar resolves addresses, nothing else.
+ *
+ * It does not recognise product names, strip a command verb, guess a `.com`
+ * or decide which page a sentence meant. Those are the assistant's decisions:
+ * the app opening a page on its own is a page the user never asked the model
+ * for. A real address is used as written; anything else is a search.
+ */
 export function normalizeUrl(raw: string): string {
   const original = raw.trim();
   if (!original) return EL_HOME;
   if (original === EL_HOME) return original;
 
-  // A command is not a search query. "Open GitHub" used to be typed into the
-  // address bar verbatim and became a Google search for the words "open
-  // github", which looked like the browser ignoring the request.
-  const { value, commanded } = stripOpenCommand(original);
-  if (!value) return EL_HOME;
-
-  if (/^https?:\/\//i.test(value)) {
+  if (/^https?:\/\//i.test(original)) {
     try {
       // Do not hand a hostless string such as `https://` to the browser: it
       // renders as an empty page and looks like a successful navigation.
-      if (new URL(value).hostname) return value;
+      if (new URL(original).hostname) return original;
     } catch {
       /* fall through */
     }
   }
-  if (isHostname(value)) return `https://${value}`;
+  if (/^localhost(?::\d+)?(?:\/\S*)?$/i.test(original)) return `http://${original}`;
+  if (isHostname(original)) return `https://${original}`;
 
-  // A named destination resolves to its real address before anything else.
-  const named = siteForName(value);
-  if (named) return named;
-
-  // "open desmos" is still a destination, not a query. A single product word
-  // becomes that product's .com; a sentence the table does not know stays a
-  // search only when the user actually asked to search.
-  if (commanded) {
-    const guessed = guessDomain(value);
-    if (guessed) return guessed;
-    return EL_HOME;
-  }
-  return `https://www.google.com/search?q=${encodeURIComponent(value)}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(original)}`;
 }
 
 export function hostOf(url: string): string {

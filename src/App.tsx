@@ -732,17 +732,19 @@ export function App() {
 
   useEffect(() => {
     if (consumeGoogleHash()) notify("Gmail connected");
+    // Side panels send the same shape as the main composer: text plus any
+    // files or images the user attached there.
     const onPrompt = (event: Event) => {
-      const detail = (event as CustomEvent<{ text?: string }>).detail;
-      if (!detail?.text) return;
+      const detail = (event as CustomEvent<{ text?: string; attachments?: Attachment[] }>).detail;
+      if (!detail?.text && !detail?.attachments?.length) return;
       setMode("chat");
       setView("chats");
-      void handleSendRef.current(detail.text);
+      void handleSendRef.current(detail?.text ?? "", detail?.attachments ?? []);
     };
     const onAsk = (event: Event) => {
-      const detail = (event as CustomEvent<{ text?: string }>).detail;
-      if (!detail?.text) return;
-      void handleSendRef.current(detail.text);
+      const detail = (event as CustomEvent<{ text?: string; attachments?: Attachment[] }>).detail;
+      if (!detail?.text && !detail?.attachments?.length) return;
+      void handleSendRef.current(detail?.text ?? "", detail?.attachments ?? []);
     };
     const onGmail = () => {
       setMode("chat");
@@ -782,9 +784,15 @@ export function App() {
     return () => window.removeEventListener("lantas:navigate", onAgentNavigate);
   }, [state.mode, setBrowserUrl, setMode]);
 
-  const handleSendRef = useRef<(text: string) => Promise<void>>(async () => {});
+  const handleSendRef = useRef<(text: string, attachments?: Attachment[]) => Promise<void>>(
+    async () => {},
+  );
   const handleSend = useCallback(
-    async (raw: string, attachments: Attachment[] = []) => {
+    async (
+      raw: string,
+      attachments: Attachment[] = [],
+      options: { agent?: AgentId } = {},
+    ) => {
       let text = raw.trim();
       if (!text && attachments.length === 0) return;
 
@@ -872,6 +880,25 @@ export function App() {
           parts: [{ id: uid("part"), kind: "text", text }],
           created: Date.now(),
         });
+        // Theme, model, agent and the quiet toggles are one keystroke to undo,
+        // so asking twice for them is friction. A permission grant still asks.
+        if (action.immediate) {
+          action.apply();
+          addMessage(sessionId, {
+            id: uid("msg"),
+            role: "assistant",
+            parts: [
+              {
+                id: uid("part"),
+                kind: "note",
+                text: `Done — ${action.message.charAt(0).toLowerCase()}${action.message.slice(1)}`,
+              },
+            ],
+            created: Date.now(),
+          });
+          notify(action.message);
+          return;
+        }
         addMessage(sessionId, {
           id: uid("msg"),
           role: "assistant",
@@ -901,7 +928,10 @@ export function App() {
       }
 
       const sessionId = existing ? existing.id : createSession();
-      const agent = existing?.agent ?? state.settings.defaultAgent;
+      // The Code assistant answers with edits, so its turns run as Build even
+      // when the thread was started in Chat or Plan; otherwise every write is
+      // denied and the model falls back to pasting the file into the reply.
+      const agent = options.agent ?? existing?.agent ?? state.settings.defaultAgent;
       const provider = existing?.provider ?? state.settings.defaultProvider;
       const model = existing?.model || state.settings.defaultModel;
       const providerConfig = state.settings.providers[provider];
@@ -1094,17 +1124,20 @@ export function App() {
               )
             : snapshot
               ? buildSystemPrompt(
-                  snapshot,
+                  { ...snapshot, agent },
                   state.skills,
                   state.workspace,
                   gitContext,
                   runningSummary,
+                  Boolean(state.workspaceRoot),
                 )
               : buildSystemPrompt(
                   { cwd: "~/dev/lantas", branch: "main", agent } as Session,
                   state.skills,
                   state.workspace,
                   gitContext,
+                  "",
+                  Boolean(state.workspaceRoot),
                 );
 
           const toolFiles: WorkspaceFile[] = [...state.workspace];
@@ -1115,6 +1148,17 @@ export function App() {
             agent,
             skills: state.skills,
             task: text,
+            settings: {
+              theme: state.settings.theme,
+              reduceMotion: state.settings.reduceMotion,
+              notifications: state.settings.notifications,
+              sendOnEnter: state.settings.sendOnEnter,
+              defaultAgent: state.settings.defaultAgent,
+              provider,
+              model,
+            },
+            updateSettings: (patch) => setSettings(patch as never),
+            openSettings: (tab) => openSettings(tab as never),
             grants: {
               files: state.settings.fileAccess,
               terminal: state.settings.terminalAccess,
@@ -1211,7 +1255,21 @@ export function App() {
             system,
             messages: history,
             ctx: toolCtx,
-            rules: defaultRules(state.settings.permissionMode, agent === "build"),
+            rules: browserMode
+              ? [
+                  ...defaultRules(state.settings.permissionMode, agent === "build"),
+                  // The browser panel has its own Ask/Act switch. Respect it
+                  // instead of the coding agent's read-only rules, so Act in a
+                  // Chat thread can still click and type.
+                  {
+                    tool: "browser",
+                    pattern: "*",
+                    effect: aiDriving() ? "allow" : "deny",
+                  },
+                  { tool: "browser", pattern: "snapshot", effect: "allow" },
+                  { tool: "browser", pattern: "extract", effect: "allow" },
+                ]
+              : defaultRules(state.settings.permissionMode, agent === "build"),
             only: browserMode ? ["browser"] : undefined,
             maxSteps: browserMode ? 10 : 6,
             signal: controller.signal,
@@ -1591,7 +1649,7 @@ export function App() {
               setMode("chat");
               setView("skills");
             }}
-            onAsk={(text) => void handleSend(text)}
+            onAsk={(text, files) => void handleSend(text, files ?? [], { agent: "build" })}
             session={activeSession}
             defaultModel={state.settings.defaultModel}
             streaming={streaming}

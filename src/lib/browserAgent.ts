@@ -8,7 +8,6 @@ import {
   type ChromeTab,
 } from "./chrome";
 import { getElContext, loadEl, setElContext, type ElPage } from "./el";
-import { guessDomain, siteForName, stripOpenCommand } from "./sites";
 import {
   checkedStateScript,
   clickAtScript,
@@ -75,42 +74,14 @@ export function parseBrowserAddress(raw: string): BrowserAddress {
     return { ok: false, error: "No address was given. Choose the exact page and call navigate with a full https:// URL." };
   }
 
-  // The user's words are not the URL. "Open GitHub" is a destination, so the
-  // verb is removed and a named site becomes its real address instead of a
-  // query string or a rejection the model may answer with a search.
-  const { value, commanded } = stripOpenCommand(original);
-  if (!value) {
-    return { ok: false, error: "That was a command with no destination. Decide the page the user means and call navigate again." };
-  }
-
-  const named = siteForName(value);
-  if (named) return { ok: true, url: named };
-
-  // The model may only have a product name. A command that names one word is
-  // that product's .com far more often than it is a search, and the table
-  // above already covers the common ones.
-  if (commanded && !/\s/.test(value)) {
-    const guessed = guessDomain(value);
-    if (guessed) return { ok: true, url: guessed };
-  }
-
-  if (/\s/.test(value)) {
-    return {
-      ok: false,
-      error: commanded
-        ? `“${original}” names something that is not in the site table. Decide its real domain yourself and call navigate with that address; do not send the sentence to a search engine.`
-        : `“${value}” is not a web address. Decide the exact page yourself and call navigate with a complete https:// URL.`,
-    };
-  }
-
   try {
-    if (/^https?:\/\//i.test(value)) {
-      const url = new URL(value);
+    if (/^https?:\/\//i.test(original)) {
+      const url = new URL(original);
       if (url.hostname && isRealHostname(url.hostname)) return { ok: true, url: url.href };
-    } else if (/^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/\S*)?$/i.test(value)) {
-      return { ok: true, url: `https://${value}` };
-    } else if (/^localhost(?::\d+)?(?:\/\S*)?$/i.test(value)) {
-      return { ok: true, url: `http://${value}` };
+    } else if (/^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/\S*)?$/i.test(original)) {
+      return { ok: true, url: `https://${original}` };
+    } else if (/^localhost(?::\d+)?(?:\/\S*)?$/i.test(original)) {
+      return { ok: true, url: `http://${original}` };
     }
   } catch {
     /* fall through to the error below */
@@ -118,7 +89,7 @@ export function parseBrowserAddress(raw: string): BrowserAddress {
 
   return {
     ok: false,
-    error: `“${value}” is not a web address. If the user named a site, give its domain (for example github.com) or the full https:// URL; do not substitute a search.`,
+    error: `“${original}” is not a web address. Decide the real site yourself and call navigate with its domain (for example example.com) or a full https:// URL; never send the user's sentence to a search engine.`,
   };
 }
 
@@ -130,16 +101,15 @@ export function parseBrowserAddress(raw: string): BrowserAddress {
  */
 export const BROWSER_GUIDE = [
   "Browser playbook (follow this instead of guessing):",
-  "- Work in one step at a time: navigate, then snapshot the live page, then click/type using the controls you actually see.",
+  "- Work in one step at a time: navigate, then snapshot the live page, then click/type using the controls you actually see. When you already know the sequence, send up to 12 of those actions at once with `browser {\"action\":\"steps\",\"steps\":[...]}`; it runs them in order and returns one fresh snapshot.",
   "- \"Open X\", \"go to X\" and \"take me to X\" mean X's real home page. Decide the address and navigate straight there (https://github.com, https://www.youtube.com, https://notion.so). Never route an open request through a search engine, and never replace it with a query, unless the user actually said search.",
   "- A bare domain is a valid address: `github.com` becomes https://github.com. Only ask for a full URL when the value is not a domain at all.",
   "- You choose every destination. The app does not know product names, infer a route, repair an address or search for you. Send a complete `https://` URL. If you only have a name, decide the real site yourself; if you only have a page name inside a site, open the site and click its visible control.",
-  "- After every action, read the returned URL, title and controls. Use a ref or an exact label from that result; never invent coordinates or selectors. A click or fill proves only that action; verify the user-visible outcome once.",
+  "- After every action, read the returned URL, title and controls. Use a ref or an exact label from that result; never invent coordinates or selectors. A ref stays tied to its element while it is on the page: if it no longer exists the click fails instead of hitting whatever moved into that slot. A click or fill proves only that action; verify the user-visible outcome once.",
   "- Tabs are part of the task: `tabs` lists them, `switch_tab` targets one by id or index, `new_tab` opens one and `close_tab` closes one. Prefer the id; after switching, snapshot the new page before acting.",
   "- Confirm before irreversible actions: submitting a payment, deleting data, changing account settings or closing something the user may need. Respect a denial instead of finding another way to do the same thing.",
   "- If the task names a page inside a site (for example a calculator, a settings page or a specific tool), open the site, snapshot, then click the matching navigation control. Do not stop after the homepage.",
-  "- Canvas and math editors often ignore a value assignment. Click into the editor first, then type or press keys. If the page exposes a documented API, `evaluate` may call it, but read the expression back to verify it.",
-  "- Desmos specifically: the expression row is a MathQuill field, not a text box. Click the first row's input, then type only the right-hand side (`2x` — the row already holds `y=`), press Enter, and read the expression list back. A `Hide: Expression 1` control or one curve in the list is the proof it worked.",
+  "- Canvas and math editors often ignore a value assignment. Click into the editor first, then type or press keys. If the page exposes a documented API, `evaluate` may call it, but read the expression back to verify it. A calculator's expression row usually already holds `y=` or the solver prompt, so type only the part that is missing, then submit with the site's own button or Enter.",
   "- `click_at` and `evaluate` exist for canvas apps and site APIs. Use them only for the user's task, not to read private storage or change unrelated settings.",
   "- If a page does not open, try its canonical address once (github.com, then https://www.github.com). If you need a search, navigate to the search URL yourself. Do not repeat an identical failing call.",
   "- Page snapshots pierce open shadow roots and same-origin iframes. If a control is still missing, evaluate `(() => document.querySelector('my-app')?.shadowRoot?.querySelector('button')?.outerHTML)()` to inspect it; never guess a selector.",
@@ -292,10 +262,16 @@ export async function agentClick(target: string): Promise<boolean> {
   return true;
 }
 
-export async function agentClickRef(index: number): Promise<boolean> {
+export async function agentClickRef(index: number | string): Promise<boolean> {
   if (activeEngine() === "chrome") {
     try {
-      await chromeCommand("act", { action: "click", index });
+      // The extension numbers its own controls; the native engine uses stable
+      // string refs, which arrive here as numbers.
+      const numeric = Number(String(index).replace(/^e/i, ""));
+      await chromeCommand("act", {
+        action: "click",
+        index: Number.isFinite(numeric) ? numeric : index,
+      });
       return true;
     } catch {
       return false;
@@ -914,7 +890,7 @@ export function describeSnapshot(snapshot: BrowserSnapshot): string {
     .filter(Boolean)
     .join("\n");
   const elements = snapshot.elements.length
-    ? `\n\nInteractive elements (use click_ref with the number):\n${snapshot.elements
+    ? `\n\nInteractive elements (click with {"ref":N} from this list; a ref that has left the page fails):\n${snapshot.elements
         .slice(0, 120)
         .map((el) => `${el.i}. [${el.kind}] ${el.label}`)
         .join("\n")}`

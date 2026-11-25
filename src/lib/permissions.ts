@@ -58,6 +58,9 @@ export function defaultRules(mode: "auto" | "ask", buildAgent: boolean): Permiss
     { tool: "grep", pattern: "*", effect: "allow" },
     { tool: "semantic_search", pattern: "*", effect: "allow" },
     { tool: "skill", pattern: "*", effect: "allow" },
+    // Settings are reversible and app-local: theme, quiet toggles, the model
+    // picker, a settings panel. Nothing outside the window changes.
+    { tool: "settings", pattern: "*", effect: "allow" },
     { tool: "todo", pattern: "*", effect: "allow" },
     { tool: "integrations", pattern: "apps", effect: "allow" },
     { tool: "integrations", pattern: "inbox", effect: "allow" },

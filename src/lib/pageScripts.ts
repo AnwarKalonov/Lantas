@@ -282,12 +282,15 @@ export function pointerScript(x: number, y: number, kind: string): string {
 }
 
 /** Click the element the latest snapshot tagged with this ref. */
-export function clickRefScript(index: number): string {
-  const ref = Math.max(0, Math.floor(Number(index) || 0));
+export function clickRefScript(index: number | string): string {
+  // Refs are stable identifiers, not positions, so the value is used as the
+  // page tagged it. `e12` and `12` are the same ref; a ref that no longer tags
+  // anything fails here instead of clicking whatever took its place.
+  const ref = quote(String(index ?? "").trim().replace(/^e/i, ""));
   return `${HELPERS}
-    const el = deepFind('[data-lantas-ref="${ref}"]');
+    const el = deepFind('[data-lantas-ref="' + ${ref} + '"]');
     if (!el) {
-      return { ok: false, error: "Element ${ref} is gone. Take a fresh snapshot and use its new refs." };
+      return { ok: false, error: "Ref " + ${ref} + " is gone from the page. Take a fresh snapshot and use a ref from it." };
     }
     const point = tap(el);
     return { ok: true, detail: labelOf(el), x: Math.round(point.x), y: Math.round(point.y) };
@@ -719,8 +722,30 @@ export function snapshotScript(): string {
     const keys = [];
     const lines = [];
     const elements = [];
-    let ref = 0;
     let budget = 700;
+
+    /**
+     * A ref is derived from the element's own identity, not its position:
+     * tag, role, name and label plus how many identical ones came before it.
+     * A re-render that moves a control keeps its ref, so a ref the model read
+     * one step earlier still lands on the same control; if the control is gone
+     * the click fails instead of hitting its neighbour.
+     */
+    const usedRefs = {};
+    const seenKeys = {};
+    const stableRef = (key) => {
+      let hash = 2166136261;
+      for (let index = 0; index < key.length; index += 1) {
+        hash ^= key.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+      }
+      let value = ((hash >>> 0) % 90000) + 1000;
+      while (usedRefs[value] && usedRefs[value] !== key) {
+        value = value >= 90999 ? 1000 : value + 1;
+      }
+      usedRefs[value] = key;
+      return value;
+    };
 
     const pad = (depth) => "  ".repeat(Math.min(depth, 10));
 
@@ -834,10 +859,13 @@ export function snapshotScript(): string {
         }
 
         if (isInteractive(el)) {
-          const index = ref;
-          ref += 1;
+          const base =
+            tag + "|" + (el.getAttribute("role") || "") + "|" + (el.name || el.id || "") +
+            "|" + labelOf(el).slice(0, 90);
+          seenKeys[base] = (seenKeys[base] || 0) + 1;
+          const key = base + "#" + seenKeys[base];
+          const index = stableRef(key);
           el.setAttribute("data-lantas-ref", String(index));
-          const key = tag + "|" + labelOf(el).slice(0, 70);
           keys.push(key);
           const isNew = prior && prior.indexOf(key) < 0 ? "*" : "";
           const label = labelOf(el);
@@ -873,10 +901,12 @@ export function snapshotScript(): string {
 
     if (document.body) walk(document.body, 0);
 
+    // Drop tags this snapshot did not assign, so a stale ref can never resolve
+    // to an element that has since left the page.
     for (const root of roots()) {
       try {
         root.querySelectorAll("[data-lantas-ref]").forEach((node) => {
-          if (Number(node.getAttribute("data-lantas-ref")) >= ref) node.removeAttribute("data-lantas-ref");
+          if (!usedRefs[node.getAttribute("data-lantas-ref")]) node.removeAttribute("data-lantas-ref");
         });
       } catch (_) {}
     }

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { AgentId, Attachment, ProviderId, Session } from "../lib/types";
 import { useStore } from "../lib/store";
+import { AGENTS } from "../lib/data";
+import { prettyModel } from "../lib/providers";
 import { Composer } from "./Composer";
 import { Icon } from "./Icons";
 import { Transcript } from "./Transcript";
@@ -33,6 +35,7 @@ export function SessionView({
   const { renameSession, deleteSession, notify } = useStore();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(session.title);
+  const agentName = AGENTS.find((item) => item.id === session.agent)?.name ?? "Agent";
   const scrollRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
 
@@ -85,6 +88,7 @@ export function SessionView({
   return (
     <section className="session chat">
       <header className="session-head chat-head">
+        <div className="chat-heading">
         <button type="button" className="chat-project" onClick={() => setEditing(true)}>
           {editing ? (
             <input
@@ -105,6 +109,10 @@ export function SessionView({
             </span>
           )}
         </button>
+        <span className="chat-sub">
+          {agentName} · {prettyModel(session.model)}
+        </span>
+        </div>
 
         <div className="session-actions chat-actions">
           <button

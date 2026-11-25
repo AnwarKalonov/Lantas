@@ -134,6 +134,8 @@ export interface Session {
    * histories, so a browser task never overwrites the chat you were writing.
    */
   surface?: Mode;
+  /** Kept at the top of the sidebar, above the project groups. */
+  pinned?: boolean;
   /** Message snapshots for /undo and /redo. */
   past?: Message[][];
   future?: Message[][];

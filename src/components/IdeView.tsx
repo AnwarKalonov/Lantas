@@ -22,7 +22,8 @@ import {
   writeWorkspacePath,
 } from "../lib/workspace";
 import { inTauri, openInVsCode } from "../lib/native";
-import type { ProviderId, Session, WorkspaceFile } from "../lib/types";
+import { readAttachments } from "../lib/attachments";
+import type { Attachment, ProviderId, Session, WorkspaceFile } from "../lib/types";
 import { cx } from "../lib/util";
 import { GitPanel } from "./GitPanel";
 import { ExtensionsPanel } from "./ExtensionsPanel";
@@ -62,7 +63,7 @@ interface IdeViewProps {
   onAddFolder: () => void;
   onOpenSettings: () => void;
   onOpenSkills: () => void;
-  onAsk: (text: string) => void;
+  onAsk: (text: string, attachments?: Attachment[]) => void;
   session: Session | null;
   defaultModel: string;
   streaming: boolean;
@@ -194,6 +195,16 @@ export function IdeView({
   const [search, setSearch] = useState("");
   const [quick, setQuick] = useState<string | null>(null);
   const [askDraft, setAskDraft] = useState("");
+  const [askFiles, setAskFiles] = useState<Attachment[]>([]);
+  const askFileInput = useRef<HTMLInputElement>(null);
+
+  /** Same attachment rules as the main composer: images the model can see,
+   *  text files as contents, everything else named. */
+  const attachToAsk = async (list: FileList | null) => {
+    const { files, rejected } = await readAttachments(list);
+    if (rejected.length) notify(rejected[0], "error");
+    if (files.length) setAskFiles((current) => [...current, ...files]);
+  };
   const [saving, setSaving] = useState(false);
   const [entryPrompt, setEntryPrompt] = useState<"file" | "folder" | "rename" | null>(null);
   const [entryName, setEntryName] = useState("");
@@ -536,10 +547,16 @@ export function IdeView({
 
   const sendAsk = () => {
     const text = askDraft.trim();
-    if (!text || streaming) return;
-    onAsk(text);
+    if ((!text && askFiles.length === 0) || streaming) return;
+    const files = askFiles;
+    onAsk(text, files.length ? files : undefined);
     setAskDraft("");
-    notify("Sent to Lantas");
+    setAskFiles([]);
+    notify(
+      files.length
+        ? `Sent to Lantas with ${files.length} file${files.length === 1 ? "" : "s"}`
+        : "Sent to Lantas",
+    );
   };
 
   const openInCode = async () => {
@@ -736,16 +753,6 @@ export function IdeView({
     >
       <header className="ide-header">
         <div className="ide-header-left">
-          <button
-            type="button"
-            className="ide-header-brand"
-            onClick={onExit}
-            title="Back to chat"
-          >
-            <span className="ide-header-mark" aria-hidden />
-            <span className="ide-header-name">Lantas</span>
-            <span className="ide-header-tag">Code</span>
-          </button>
           <nav className="ide-menus" aria-label="Editor menu">
             {menus.map((group) => (
               <div className="ide-menu-wrap" key={group.id}>
@@ -1333,7 +1340,6 @@ export function IdeView({
           <aside className="ide-assistant">
             <div className="ide-assistant-head">
               <div className="ide-assistant-id">
-                <Icon name="sparkle" size={12} />
                 <span className="ide-assistant-title">Assistant</span>
               </div>
               <div className="ide-assistant-head-actions">
@@ -1373,7 +1379,7 @@ export function IdeView({
               onOpenFile={(path, line) => open(path, line)}
               empty={
                 <div className="ide-assistant-empty">
-                  <h3>Work in this folder</h3>
+                  <h3>{state.workspaceName ? `Work in ${state.workspaceName}` : "Work in this folder"}</h3>
                   <p>
                     It reads this folder, edits real files, runs commands and links every file it
                     touches. Click a path to open it here.
@@ -1431,11 +1437,38 @@ export function IdeView({
             })()}
 
             <div className="ide-assistant-composer">
+              {askFiles.length > 0 && (
+                <div className="attach-row">
+                  {askFiles.map((file) => (
+                    <span className={cx("attach-chip", file.kind === "image" && "is-image")} key={file.id}>
+                      {file.kind === "image" ? <img src={file.body} alt="" /> : <Icon name="file" size={12} />}
+                      <span className="attach-name">{file.name}</span>
+                      <button
+                        type="button"
+                        className="attach-remove"
+                        aria-label={`Remove ${file.name}`}
+                        onClick={() =>
+                          setAskFiles((current) => current.filter((item) => item.id !== file.id))
+                        }
+                      >
+                        <Icon name="close" size={11} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <textarea
                 ref={askRef}
                 rows={3}
                 value={askDraft}
                 onChange={(event) => setAskDraft(event.target.value)}
+                onPaste={(event) => {
+                  const pasted = event.clipboardData?.files;
+                  if (pasted?.length) {
+                    event.preventDefault();
+                    void attachToAsk(pasted);
+                  }
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && (event.metaKey || !event.shiftKey)) {
                     event.preventDefault();
@@ -1446,6 +1479,25 @@ export function IdeView({
                 spellCheck={false}
               />
               <div className="ide-assistant-actions">
+                <button
+                  type="button"
+                  className="ide-context-chip"
+                  onClick={() => askFileInput.current?.click()}
+                  title="Attach a file or image"
+                >
+                  <Icon name="paperclip" size={10} />
+                  Attach
+                </button>
+                <input
+                  ref={askFileInput}
+                  type="file"
+                  multiple
+                  hidden
+                  onChange={(event) => {
+                    void attachToAsk(event.target.files);
+                    event.target.value = "";
+                  }}
+                />
                 {activeFile && (
                   <button
                     type="button"
@@ -1462,7 +1514,7 @@ export function IdeView({
                   type="button"
                   className="ide-send-button"
                   onClick={streaming ? onStop : sendAsk}
-                  disabled={!streaming && !askDraft.trim()}
+                  disabled={!streaming && !askDraft.trim() && askFiles.length === 0}
                   aria-label={streaming ? "Stop" : "Send"}
                   title={streaming ? "Stop the assistant" : "Send"}
                 >

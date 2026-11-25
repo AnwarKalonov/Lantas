@@ -31,9 +31,9 @@ import {
 import { engineHealth } from "../lib/browserSidecar";
 import { flattenBookmarks, readBrowserBookmarks } from "../lib/bookmarks";
 import { ChromeBridgePanel } from "./ChromeBridgePanel";
-import { MarkGlyph } from "./Brand";
 import { ModelPicker } from "./ModelPicker";
-import type { ProviderId } from "../lib/types";
+import { readAttachments } from "../lib/attachments";
+import type { Attachment, ProviderId } from "../lib/types";
 import {
   EL_HOME,
   aiDriving,
@@ -105,6 +105,8 @@ export function BrowserView({
     return window.innerWidth >= 1180;
   });
   const [aiDraft, setAiDraft] = useState("");
+  const [aiFiles, setAiFiles] = useState<Attachment[]>([]);
+  const aiFileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     try {
@@ -627,67 +629,32 @@ export function BrowserView({
     await agentScroll(pixels);
   };
 
-  /** Natural commands the agent (or you) can run without a round trip to a model. */
-  const agentStep = async (raw: string): Promise<boolean> => {
-    const text = raw.trim();
-    const lower = text.toLowerCase();
-    if (!text) return true;
-    if (!aiDriving()) {
-      notify("You have control — turn the agent back on first", "error");
-      return true;
-    }
-
-    const open = text.match(/^(?:open|go to|navigate to)\s+(.+)$/i);
-    if (open) {
-      navigate(open[1]);
-      return true;
-    }
-    const clickMatch = text.match(/^(?:click|tap|press)\s+(?:on\s+)?(.+)$/i);
-    if (clickMatch) {
-      await click(clickMatch[1]);
-      return true;
-    }
-    const typeMatch = text.match(/^type\s+["“]?(.+?)["”]?(?:\s+(?:into|in)\s+(.+))?$/i);
-    if (typeMatch) {
-      await typeInto(typeMatch[1], typeMatch[2]?.trim());
-      return true;
-    }
-    if (/^(enter|submit|search now)$/i.test(text)) {
-      await pressEnter();
-      return true;
-    }
-    if (/^(scroll down|page down)$/i.test(text)) {
-      await scrollPage(600);
-      return true;
-    }
-    if (/^(scroll up|page up)$/i.test(text)) {
-      await scrollPage(-600);
-      return true;
-    }
-    if (lower === "back") {
-      step("back");
-      return true;
-    }
-    if (lower === "forward") {
-      step("forward");
-      return true;
-    }
-    if (lower === "reload" || lower === "refresh") {
-      reload();
-      return true;
-    }
-    return false;
+  const attachAiFiles = async (list: FileList | null) => {
+    const { files, rejected } = await readAttachments(list);
+    if (rejected.length) notify(rejected[0], "error");
+    if (files.length) setAiFiles((current) => [...current, ...files]);
   };
 
+  /**
+   * The panel has no local command layer.
+   *
+   * "open desmos" used to be read by a regex here and sent to the address bar,
+   * which meant the app chose the page (or searched the word) without the
+   * model. Every sentence now goes to the assistant, which picks the address
+   * and drives the page through the browser tool.
+   */
   const submitAsk = async (event: FormEvent) => {
     event.preventDefault();
     const text = aiDraft.trim();
-    if (!text) return;
+    if ((!text && aiFiles.length === 0) || aiStreaming) return;
+    const files = aiFiles;
     setAiDraft("");
+    setAiFiles([]);
     openAssistant();
-    if (await agentStep(text)) return;
     await ensurePage();
-    window.dispatchEvent(new CustomEvent("lantas:ask", { detail: { text } }));
+    window.dispatchEvent(
+      new CustomEvent("lantas:ask", { detail: { text, attachments: files } }),
+    );
   };
 
   const toggleControl = () => {
@@ -783,9 +750,7 @@ export function BrowserView({
         </div>
 
         <div className="el-identity">
-          <span className="el-mini-wordmark">
-            <MarkGlyph size={12} /> Lantas Browser
-          </span>
+          <span className="el-mini-wordmark">Lantas Browser</span>
           <button
             type="button"
             className={cx("el-avatar", data.profile && "is-signed")}
@@ -1179,11 +1144,8 @@ export function BrowserView({
           <aside className="el-ai" aria-label="Lantas">
             <header className="el-ai-head">
               <div className="el-ai-id">
-                <span className="el-ai-mark" aria-hidden="true">
-                  <MarkGlyph size={16} />
-                </span>
                 <div className="el-ai-who">
-                  <span className="el-ai-title">Lantas</span>
+                  <span className="el-ai-title">Ask about this page</span>
                   <small>{page?.title || (atHome ? "Lantas Browser" : hostOf(active.url) || "This tab")}</small>
                 </div>
               </div>
@@ -1248,9 +1210,36 @@ export function BrowserView({
             </div>
 
             <form className="el-ai-form" onSubmit={submitAsk}>
+              {aiFiles.length > 0 && (
+                <div className="attach-row">
+                  {aiFiles.map((file) => (
+                    <span className={cx("attach-chip", file.kind === "image" && "is-image")} key={file.id}>
+                      {file.kind === "image" ? <img src={file.body} alt="" /> : <Icon name="file" size={12} />}
+                      <span className="attach-name">{file.name}</span>
+                      <button
+                        type="button"
+                        className="attach-remove"
+                        aria-label={`Remove ${file.name}`}
+                        onClick={() =>
+                          setAiFiles((current) => current.filter((item) => item.id !== file.id))
+                        }
+                      >
+                        <Icon name="close" size={11} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <textarea
                 value={aiDraft}
                 onChange={(event) => setAiDraft(event.target.value)}
+                onPaste={(event) => {
+                  const pasted = event.clipboardData?.files;
+                  if (pasted?.length) {
+                    event.preventDefault();
+                    void attachAiFiles(pasted);
+                  }
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
@@ -1293,9 +1282,28 @@ export function BrowserView({
                   className="el-ai-model"
                 />
                 <button
+                  type="button"
+                  className="el-ai-attach"
+                  onClick={() => aiFileInput.current?.click()}
+                  aria-label="Attach files or images"
+                  title="Attach files or images"
+                >
+                  <Icon name="paperclip" size={12} />
+                </button>
+                <input
+                  ref={aiFileInput}
+                  type="file"
+                  multiple
+                  hidden
+                  onChange={(event) => {
+                    void attachAiFiles(event.target.files);
+                    event.target.value = "";
+                  }}
+                />
+                <button
                   type="submit"
                   className="el-ai-send"
-                  disabled={!aiDraft.trim()}
+                  disabled={!aiDraft.trim() && aiFiles.length === 0}
                   aria-label="Send"
                 >
                   <Icon name="arrowUp" size={13} />

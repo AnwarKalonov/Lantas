@@ -1,5 +1,5 @@
 import { buildArtifact, stashArtifact } from "./artifacts";
-import type { AgentId, DiffLine, Skill, WorkspaceFile } from "./types";
+import type { AgentId, DiffLine, ProviderId, Skill, WorkspaceFile } from "./types";
 import { languageFor } from "./workspace";
 import { semanticSearch } from "./semantic";
 import {
@@ -69,6 +69,20 @@ export interface ToolContext {
   drive?: boolean;
   /** The user's request for this turn, used to resolve ambiguous browser targets. */
   task?: string;
+  /** The app's own settings, for the settings tool. */
+  settings?: {
+    theme: string;
+    reduceMotion: boolean;
+    notifications: boolean;
+    sendOnEnter: boolean;
+    defaultAgent: AgentId;
+    provider: ProviderId;
+    model: string;
+  };
+  /** Applies a settings change the assistant asked for. */
+  updateSettings?: (patch: Record<string, unknown>) => void;
+  /** Opens a settings panel by name. */
+  openSettings?: (tab: string) => void;
   /** What the user explicitly allowed in the permission sheet. */
   grants?: {
     files: boolean;
@@ -107,6 +121,7 @@ export const TOOL_NAMES = [
   "write",
   "edit",
   "skill",
+  "settings",
   "terminal",
   "browser",
   "integrations",
@@ -124,6 +139,7 @@ export const TOOL_LABELS: Record<string, string> = {
   write: "Write file",
   edit: "Edit file",
   skill: "Load skill",
+  settings: "Settings",
   terminal: "Terminal",
   browser: "Browser",
   integrations: "Connected apps",
@@ -637,6 +653,9 @@ export async function runTool(
         };
       }
 
+      case "settings":
+        return runSettingsTool(call.args, context);
+
       case "skill": {
         const wanted = String(call.args.name ?? "").replace(/^\//, "").toLowerCase();
         const skill = context.skills.find(
@@ -666,7 +685,7 @@ export async function runTool(
         return await runTerminalTool(call.args, context);
 
       case "browser":
-        return await runBrowserTool(call.args, context.drive);
+        return await runBrowserTool(call.args, context.drive, context.task);
 
       case "integrations":
         return await runIntegrationTool(call.args);
@@ -687,6 +706,124 @@ export async function runTool(
       resource: toolResource(call),
     };
   }
+}
+
+/**
+ * The app's own switches, so "change to light mode" works in conversation
+ * instead of the assistant telling the user to open Settings. Only settings
+ * may be automated this way: a web destination is still the model's decision
+ * and runs through the browser tool.
+ */
+function runSettingsTool(args: Record<string, unknown>, context: ToolContext): ToolOutcome {
+  const action = String(args.action ?? "get").toLowerCase();
+  const resource = `settings ${action}`;
+  const current = context.settings;
+
+  if (action === "get") {
+    if (!current) {
+      return {
+        ok: false,
+        summary: "Settings unavailable",
+        content: "App settings can only be read from the desktop chat.",
+        resource,
+      };
+    }
+    return {
+      ok: true,
+      summary: "Read app settings",
+      content: [
+        `theme=${current.theme}`,
+        `reduceMotion=${current.reduceMotion}`,
+        `notifications=${current.notifications}`,
+        `sendOnEnter=${current.sendOnEnter}`,
+        `defaultAgent=${current.defaultAgent}`,
+        `model=${current.provider}/${current.model}`,
+      ].join("\n"),
+      resource,
+    };
+  }
+
+  if (action === "open") {
+    const panel = String(args.panel ?? args.value ?? "general").toLowerCase();
+    const allowed = ["general", "providers", "models", "agents", "permissions", "appearance"];
+    if (!allowed.includes(panel)) {
+      return {
+        ok: false,
+        summary: "Unknown settings panel",
+        content: `panel must be one of ${allowed.join(", ")}.`,
+        resource,
+      };
+    }
+    context.openSettings?.(panel);
+    return {
+      ok: true,
+      summary: `Opened ${panel} settings`,
+      content: `The ${panel} settings panel is open. Do not describe settings as changed.`,
+      resource,
+    };
+  }
+
+  if (!context.updateSettings) {
+    return {
+      ok: false,
+      summary: "Settings unavailable",
+      content: "This surface cannot change app settings.",
+      resource,
+    };
+  }
+
+  if (action === "theme") {
+    const value = String(args.value ?? "").toLowerCase();
+    if (!["dark", "light", "system"].includes(value)) {
+      return {
+        ok: false,
+        summary: "Unknown theme",
+        content: 'theme value must be "dark", "light" or "system".',
+        resource,
+      };
+    }
+    context.updateSettings({ theme: value });
+    return {
+      ok: true,
+      summary: `Theme · ${value}`,
+      content: `The app theme is now ${value}. It applied immediately; confirm it in one short line and do not send the user to Settings.`,
+      resource,
+    };
+  }
+
+  if (action === "flag") {
+    const wanted = String(args.flag ?? "").toLowerCase();
+    const flags: Record<string, string> = {
+      reducemotion: "reduceMotion",
+      motion: "reduceMotion",
+      notifications: "notifications",
+      sendonenter: "sendOnEnter",
+    };
+    const key = flags[wanted];
+    if (!key) {
+      return {
+        ok: false,
+        summary: "Unknown setting",
+        content: "flag must be reduceMotion, notifications or sendOnEnter.",
+        resource,
+      };
+    }
+    const value = args.value === undefined ? true : Boolean(args.value);
+    context.updateSettings({ [key]: value });
+    return {
+      ok: true,
+      summary: `${key} · ${value ? "on" : "off"}`,
+      content: `${key} is now ${value ? "on" : "off"}. It applied immediately.`,
+      resource,
+    };
+  }
+
+  return {
+    ok: false,
+    summary: `Unknown settings action ${action}`,
+    content: "Use settings actions get, theme, flag or open.",
+    resource,
+  };
 }
 
 async function runTerminalTool(
@@ -745,9 +882,30 @@ async function runTerminalTool(
   }
 }
 
+/**
+ * A search-results address is what the app used to produce on its own: “open
+ * something” became a query for the word "something". Navigating there is only
+ * right when the user actually asked to search, so the tool refuses it
+ * otherwise and sends the model back to choose the real page.
+ */
+function isSearchResults(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (!/(^|\.)(google|bing|duckduckgo|yahoo|ecosia|brave|startpage|baidu|yandex)\.[a-z.]{2,}$/i.test(parsed.hostname)) {
+      return false;
+    }
+    return parsed.searchParams.has("q") || /\/(search|s|web|results|html)\b/i.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+}
+
 async function runBrowserTool(
   args: Record<string, unknown>,
   drive?: boolean,
+  task = "",
+  /** Part of a batched call: no state read before, no snapshot after. */
+  quiet = false,
 ): Promise<ToolOutcome> {
   const action = String(args.action ?? "").toLowerCase();
   const resource = toolResource({ name: "browser", args });
@@ -781,11 +939,11 @@ async function runBrowserTool(
     "back",
     "forward",
   ].includes(action);
-  const beforeSnapshot = compare
+  const beforeSnapshot = compare && !quiet
     ? await agentSnapshot().catch(() => null)
     : null;
   const beforePage = beforeSnapshot?.page ?? getElContext();
-  if (!readOnly) await resetDomObservation().catch(() => undefined);
+  if (!readOnly && !quiet) await resetDomObservation().catch(() => undefined);
 
   /**
    * A cheap model needs to see the page after an action, not guess. Append the
@@ -793,6 +951,7 @@ async function runBrowserTool(
    * current references without spending a second call on snapshot.
    */
   const afterAction = async (base: string): Promise<string> => {
+    if (quiet) return base;
     try {
       const domChanged = await waitForDomChange(1_800);
       const snapshot = await agentSnapshot();
@@ -924,7 +1083,7 @@ async function runBrowserTool(
 
     case "click": {
       if (typeof args.ref === "number" || typeof args.ref === "string") {
-        const ok = await agentClickRef(Number(args.ref));
+        const ok = await agentClickRef(String(args.ref));
         return ok
           ? {
               ok: true,
@@ -1130,6 +1289,11 @@ async function runBrowserTool(
     case "new_tab": {
       const address = parseBrowserAddress(String(args.url ?? ""));
       if (!address.ok) return fail(address.error);
+      if (isSearchResults(address.url) && !/\bsearch/i.test(task)) {
+        return fail(
+          "That is a search-results address. Decide the real page and open it; only search when the user actually said search.",
+        );
+      }
       const ok = await agentNewTab(address.url);
       return ok
         ? {
@@ -1160,6 +1324,56 @@ async function runBrowserTool(
      * that need a real browser (trusted input, downloads, sign-in, multi-page
      * work) rather than one synthesised click.
      */
+    case "steps":
+    case "run": {
+      const raw = Array.isArray(args.steps)
+        ? args.steps
+        : Array.isArray(args.actions)
+          ? args.actions
+          : [];
+      if (!raw.length) {
+        return fail(
+          'steps needs a non-empty array, for example {"action":"steps","steps":[{"action":"click","ref":12},{"action":"type","text":"2x + 4"},{"action":"press","key":"Enter"}]}',
+        );
+      }
+      if (raw.length > 12) return fail("A batch is limited to 12 steps. Send the rest as the next call.");
+      const log: string[] = [];
+      let stopped = "";
+      for (let index = 0; index < raw.length; index += 1) {
+        const step =
+          raw[index] && typeof raw[index] === "object"
+            ? ({ ...(raw[index] as Record<string, unknown>) } as Record<string, unknown>)
+            : {};
+        const stepAction = String(step.action ?? "").toLowerCase();
+        if (!stepAction || stepAction === "steps" || stepAction === "run" || stepAction === "task") {
+          log.push(`${index + 1}. skipped (${stepAction || "no action"})`);
+          continue;
+        }
+        const outcome = await runBrowserTool(step, drive, task, true);
+        log.push(`${index + 1}. ${stepAction}: ${outcome.summary}`);
+        if (!outcome.ok) {
+          stopped = `${stepAction} failed — ${outcome.content}`;
+          break;
+        }
+        // A tick between steps lets React and canvas editors commit before the
+        // next action looks for what the step was supposed to produce.
+        await new Promise((resolve) => setTimeout(resolve, 120));
+      }
+      const body = await afterAction(
+        [`Ran ${raw.length} step${raw.length === 1 ? "" : "s"}.`, ...log, stopped]
+          .filter(Boolean)
+          .join("\n"),
+      );
+      return {
+        ok: !stopped,
+        summary: stopped
+          ? `Batch stopped at ${stopped.split(" — ")[0]}`
+          : `Ran ${raw.length} browser step${raw.length === 1 ? "" : "s"}`,
+        content: body,
+        resource,
+      };
+    }
+
     case "task": {
       const goal = String(args.task ?? args.goal ?? args.prompt ?? "").trim();
       if (!goal) {
@@ -1191,6 +1405,11 @@ async function runBrowserTool(
       const address = parseBrowserAddress(String(args.url ?? ""));
       if (!address.ok) return fail(address.error);
       const url = address.url;
+      if (isSearchResults(url) && !/\bsearch/i.test(task)) {
+        return fail(
+          "That is a search-results address. The user asked you to open something, so decide the real page and navigate straight to it; only search when they actually said search.",
+        );
+      }
       const ok = await agentNavigate(url);
       return ok
         ? { ok: true, summary: `Opened ${url}`, content: await afterAction(`Navigated to ${url}.`), resource }
@@ -1214,7 +1433,7 @@ async function runBrowserTool(
 
     default:
       return fail(
-        `Unknown browser action ${action || "(none)"}. Use snapshot, extract, find, wait, click, click_at, hover, type, fill, select, check, evaluate, press, scroll, tabs, switch_tab, new_tab, close_tab, navigate, task, open_in_chrome, back, forward or reload.`,
+        `Unknown browser action ${action || "(none)"}. Use snapshot, extract, find, wait, click, click_at, hover, type, fill, select, check, evaluate, press, scroll, steps, tabs, switch_tab, new_tab, close_tab, navigate, task, open_in_chrome, back, forward or reload.`,
       );
   }
 }
@@ -1373,8 +1592,10 @@ export const TOOL_MANUAL = [
   '- write {"path","content"} — create or replace a whole file.',
   '- edit {"path","oldString","newString","replaceAll?"} — exact replacement; oldString must be unique.',
   '- skill {"name"} — load the full instructions of an enabled skill when the task matches it.',
+  '- settings {"action","value"?,"flag"?,"panel"?} — the app itself: get, theme {"value":"light|dark|system"}, flag {"flag":"reduceMotion|notifications|sendOnEnter","value":true|false}, open {"panel":"appearance|providers|models|agents|permissions|general"}. Use it when the user asks for a change in how Lantas looks or behaves; it applies at once, so confirm in one line instead of telling them to open Settings.',
   '- terminal {"command","timeoutMs?"} — run a command in the open workspace and return its real stdout and stderr. Use this for tests, builds, git and shell commands. Never claim a command ran without a terminal result.',
-  '- browser {"action",...} — actions: snapshot, extract, find {"query"}, wait {"text","timeoutMs?","gone?"}, click {"target"|"ref"}, click_at {"x","y"}, hover {"target"}, type/fill {"text","selector?","submit?"}, select {"target","value"}, check {"target","checked?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, tabs, switch_tab {"id"|"index"}, new_tab {"url"}, close_tab {"id"|"index"}, navigate {"url"}, task {"task","maxSteps?"}, open_in_chrome {"url"}, back, forward, reload.',
+  '- browser {"action",...} — actions: snapshot, extract, find {"query"}, wait {"text","timeoutMs?","gone?"}, click {"target"|"ref"}, click_at {"x","y"}, hover {"target"}, type/fill {"text","selector?","submit?"}, select {"target","value"}, check {"target","checked?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, steps {"steps":[...]}, tabs, switch_tab {"id"|"index"}, new_tab {"url"}, close_tab {"id"|"index"}, navigate {"url"}, task {"task","maxSteps?"}, open_in_chrome {"url"}, back, forward, reload.',
+  '- browser steps batches up to 12 actions into one call and returns one fresh snapshot at the end: {"action":"steps","steps":[{"action":"click","ref":12},{"action":"type","text":"2x + 4"},{"action":"press","key":"Enter"}]}. Use it when you already know the sequence, so a task does not lose the thread between round trips. Element refs come from a fresh snapshot and stay tied to their element; a ref that is gone fails instead of clicking whatever took its place.',
   "- browser task hands the whole job to the local browser-use engine in its own Chromium (trusted input, real downloads, saved logins). Prefer it for \"open X and do Y\" requests that span pages; use the single actions when you need to stay in the embedded tab. If it reports that no engine is running, tell the user to run bash engine/run.sh once and keep going with single actions.",
   "",
   BROWSER_GUIDE,
@@ -1389,5 +1610,7 @@ export const TOOL_MANUAL = [
   "- Keep edits minimal and in the project's existing style.",
   "- When the user asks about their mail, use integrations; ask for a search query rather than assuming the mailbox is only six messages.",
   "- You can create files: when the user asks for a document, spreadsheet, export or bundle, call deliver. Never reply that you cannot make files or downloads.",
+  "- Never paste a page's whole contents into the chat as a code block. Code the user asked for belongs on disk: call write to create it, then edit to change it, and tell them which file you wrote. A wall of code in the reply is not a saved change.",
+  "- If there is no workspace folder open, say that in one line and ask the user to open one. Do not dump the file into the chat as a substitute.",
   "- Finish with a short answer that states what you changed and what you verified. If you could not verify something, say so.",
 ].join("\n");

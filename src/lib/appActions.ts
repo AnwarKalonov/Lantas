@@ -21,6 +21,12 @@ export interface AppActionApi {
 export interface AppAction {
   message: string;
   apply: () => void;
+  /**
+   * Reversible app changes apply at once. Permission grants keep the approval
+   * card, because they widen what the agent may touch rather than change how
+   * the window looks.
+   */
+  immediate?: boolean;
 }
 
 const THEMES: ThemeMode[] = ["dark", "light", "system"];
@@ -38,7 +44,11 @@ export function runAppAction(input: string, api: AppActionApi): AppAction | null
       new RegExp(`\\b${name}\\b[^.]*\\b(theme|mode)\\b`).test(text),
   );
   if (theme && /(set|change|switch|make|use|turn|go|apply|put)/.test(text)) {
-    return { message: `Switch the theme to ${theme}.`, apply: () => api.setTheme(theme) };
+    return {
+      message: `Switch the theme to ${theme}.`,
+      apply: () => api.setTheme(theme),
+      immediate: true,
+    };
   }
 
   const flagMatch =
@@ -66,9 +76,11 @@ export function runAppAction(input: string, api: AppActionApi): AppAction | null
               ? "screenAccess"
               : "computerControl";
     const shown = flag === "reduceMotion" ? "Reduce motion" : label;
+    const permission = flag === "screenAccess" || flag === "computerControl";
     return {
       message: `Turn ${shown.toLowerCase()} ${on ? "on" : "off"}.`,
       apply: () => api.setFlag(flag, on),
+      immediate: !permission,
     };
   }
 
@@ -77,6 +89,7 @@ export function runAppAction(input: string, api: AppActionApi): AppAction | null
     return {
       message: `Use the ${agent[1]} agent by default.`,
       apply: () => api.setDefaultAgent(agent[1] as AgentId),
+      immediate: true,
     };
   }
 
@@ -87,7 +100,7 @@ export function runAppAction(input: string, api: AppActionApi): AppAction | null
       (model) => model.toLowerCase() === wanted || model.toLowerCase().includes(wanted),
     );
     if (hit) {
-      return { message: `Pin ${hit}.`, apply: () => api.toggleFavorite(hit) };
+      return { message: `Pin ${hit}.`, apply: () => api.toggleFavorite(hit), immediate: true };
     }
   }
 
@@ -105,6 +118,7 @@ export function runAppAction(input: string, api: AppActionApi): AppAction | null
       return {
         message: `Switch the model to ${hit.model}.`,
         apply: () => api.setModel(hit.provider, hit.model),
+        immediate: true,
       };
     }
   }
@@ -122,29 +136,11 @@ export function runAppAction(input: string, api: AppActionApi): AppAction | null
       else if (target === "chat") api.setMode("chat");
       else api.openSettings(target as never);
     };
-    return { message: `Open ${target}.`, apply: go };
+    return { message: `Open ${target}.`, apply: go, immediate: true };
   }
 
-
-
-
-
-
-
-  const browse = /(?:browse to|open|go to|navigate to)\s+((?:https?:\/\/)?[\w-]+(?:\.[\w-]+)+(?:\/\S*)?)$/.exec(
-    text,
-  );
-  if (browse) {
-    const raw = browse[1];
-    const url = /^https?:\/\//.test(raw) ? raw : `https://${raw}`;
-    return {
-      message: `Open ${url} in Lantas Browser.`,
-      apply: () => {
-        api.setBrowserUrl(url);
-        api.setMode("browser");
-      },
-    };
-  }
-
+  // Nothing here opens a web page. "Open desmos" is a request the assistant
+  // answers with its browser tool, so the model decides the address instead of
+  // a regex in the app opening an approximation of it.
   return null;
 }

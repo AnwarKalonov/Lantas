@@ -115,22 +115,44 @@ export function ComposioPanel() {
     void refresh();
   };
 
+  /** Opens a Composio link, and says so when no browser took it. */
+  const openLink = async (url: string) => {
+    if (!url) return;
+    const opened = await openExternal(url, "chrome");
+    if (!opened) notify("No browser opened — copy the link and paste it into one", "error");
+  };
+
   const connect = async (app: string, name: string) => {
     setBusy(app);
     setError("");
+    // A tab opened after the API round trip is treated as a popup and blocked,
+    // so claim one on the click itself and point it at the link when it lands.
+    const tab = inTauri() ? null : window.open("about:blank", "_blank");
     try {
       const url = await connectToolkit(app);
       setPendingUrl(url);
-      const opened = await openExternal(url, "chrome");
       setPending(app);
+      if (tab) {
+        tab.location.href = url;
+        notify(`Finish connecting ${name} in the tab that just opened`);
+        return;
+      }
+      const opened = await openExternal(url, "chrome");
       notify(
         opened
-          ? `Finish connecting ${name} in Chrome`
-          : `Open the connect link below to finish ${name}`,
+          ? `Finish connecting ${name} in your browser`
+          : `Your browser did not open — press “Open link” on ${name}`,
         opened ? "default" : "error",
       );
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      try {
+        tab?.close();
+      } catch {
+        /* already gone */
+      }
+      const message = caught instanceof Error ? caught.message : String(caught);
+      setError(message);
+      notify(message, "error");
     } finally {
       setBusy(null);
     }
@@ -259,7 +281,18 @@ export function ComposioPanel() {
         </div>
       </div>
 
-      {error && <p className="status-line is-error">{error}</p>}
+      {error && (
+        <p className="status-line is-error">
+          {error}{" "}
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => void openLink("https://dashboard.composio.dev")}
+          >
+            Open Composio
+          </button>
+        </p>
+      )}
       {pending && (
         <div className="market-pending">
           <span>
@@ -267,12 +300,27 @@ export function ComposioPanel() {
           </span>
           {pendingUrl && (
             <span className="market-pending-actions">
+              <a
+                className="text-button"
+                href={pendingUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => {
+                  // The desktop webview swallows target=_blank, so hand the URL
+                  // to the OS and let the click do nothing else.
+                  if (!inTauri()) return;
+                  event.preventDefault();
+                  void openLink(pendingUrl);
+                }}
+              >
+                Open connect link
+              </a>
               <button
                 type="button"
                 className="text-button"
-                onClick={() => void openExternal(pendingUrl, "chrome")}
+                onClick={() => void openLink(pendingUrl)}
               >
-                Open connect link
+                Open in Chrome
               </button>
               <button
                 type="button"
@@ -324,14 +372,24 @@ export function ComposioPanel() {
                     </button>
                   </span>
                 ) : (
-                  <button
-                    type="button"
-                    className="market-connect"
-                    disabled={!ready || working}
-                    onClick={() => void connect(app.slug, app.name)}
-                  >
-                    {working ? "Waiting…" : ready ? "Connect" : "Unavailable"}
-                  </button>
+                  pending === app.slug && pendingUrl ? (
+                    <button
+                      type="button"
+                      className="market-connect"
+                      onClick={() => void openLink(pendingUrl)}
+                    >
+                      Open link
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="market-connect"
+                      disabled={!ready || working}
+                      onClick={() => void connect(app.slug, app.name)}
+                    >
+                      {working ? "Waiting…" : ready ? "Connect" : "Unavailable"}
+                    </button>
+                  )
                 )}
               </div>
             </article>

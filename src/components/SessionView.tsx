@@ -71,6 +71,7 @@ export function SessionView({
             if (part.kind === "tool") return `[${part.tool}] ${part.label}`;
             if (part.kind === "diff") return `[diff] ${part.path} +${part.added} −${part.removed}`;
             if (part.kind === "shell") return `$ ${part.command}\n${part.output.join("\n")}`;
+            if (part.kind === "artifact") return `[file] ${part.name} (${part.format})`;
             return part.text;
           })
           .join("\n\n");

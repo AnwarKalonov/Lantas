@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type { Message, Part, Session } from "../lib/types";
 import { AGENTS } from "../lib/data";
 import { clock, cx, formatDuration, formatTokens } from "../lib/util";
+import { PATH_RE, looksLikePath, maskUrls, pathFrom } from "../lib/paths";
+import { formatBytes, saveArtifact } from "../lib/artifacts";
 import { MarkGlyph } from "./Brand";
 import { DiffViewer } from "./DiffViewer";
 import { Icon, type IconName } from "./Icons";
@@ -13,16 +15,11 @@ const TOOL_ICONS: Record<string, IconName> = {
   terminal: "terminal",
   plan: "compass",
   web: "compass",
+  deliver: "download",
 };
 
-const PATH_RE =
-  /((?:[\w@.-]+\/)+[\w@.-]+|[\w@.-]+\.(?:ts|tsx|js|jsx|mjs|cjs|json|css|scss|html|md|mdx|py|rs|go|sh|yml|yaml|toml|swift|java|kt|cs|php|rb|sql|graphql|vue|svelte|astro|lock|txt))(?::(\d+))?/g;
-
-function looksLikePath(value: string) {
-  return /^(?:[\w@.-]+\/)+[\w@.-]+$|^[\w@.-]+\.(?:ts|tsx|js|jsx|mjs|cjs|json|css|scss|html|md|mdx|py|rs|go|sh|yml|yaml|toml|swift|java|kt|cs|php|rb|sql|graphql|vue|svelte|astro|lock|txt)$/.test(
-    value.trim(),
-  );
-}
+// Paths come from lib/paths so URLs are never mistaken for files. A row saying
+// "Opened …/calculator" used to grow a file chip that jumped to the editor.
 
 function FileButton({
   path,
@@ -93,9 +90,10 @@ function Inline({
         }
         const pieces: Array<string | { path: string; line?: number }> = [];
         const paths = new RegExp(PATH_RE.source, "g");
+        const scan = maskUrls(chunk);
         let end = 0;
         let found: RegExpExecArray | null;
-        while ((found = paths.exec(chunk))) {
+        while ((found = paths.exec(scan))) {
           if (found.index > end) pieces.push(chunk.slice(end, found.index));
           pieces.push({
             path: found[1],
@@ -224,12 +222,7 @@ function Markdown({
   );
 }
 
-function pathFrom(value?: string) {
-  if (!value) return null;
-  const match = PATH_RE.exec(value);
-  PATH_RE.lastIndex = 0;
-  return match ? { path: match[1], line: match[2] ? Number(match[2]) : undefined } : null;
-}
+
 
 function ToolRow({
   part,
@@ -339,6 +332,8 @@ function AssistantPart({
       return <DiffBlock part={part} onOpenFile={onOpenFile} />;
     case "shell":
       return <ShellBlock part={part} />;
+    case "artifact":
+      return <ArtifactBlock part={part} />;
     case "note":
       return (
         <div className="note-row">
@@ -349,6 +344,65 @@ function AssistantPart({
     default:
       return null;
   }
+}
+
+function ArtifactBlock({ part }: { part: Extract<Part, { kind: "artifact" }> }) {
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "gone">("idle");
+  const icon = part.format === "zip" ? "archive" : part.format === "pdf" ? "doc" : "file";
+
+  const save = async () => {
+    setState("saving");
+    const result = await saveArtifact(part.artifactId);
+    if (result === "missing") {
+      setState("gone");
+      return;
+    }
+    if (result === "cancelled") {
+      setState("idle");
+      return;
+    }
+    setState("saved");
+    window.setTimeout(() => setState("idle"), 2200);
+  };
+
+  const label =
+    state === "gone"
+      ? "Expired"
+      : state === "saved"
+        ? "Saved"
+        : state === "saving"
+          ? "Saving…"
+          : "Download";
+
+  return (
+    <div className={cx("artifact-card", `is-${part.format}`, state === "saved" && "is-saved")}>
+      <span className="artifact-icon" aria-hidden="true">
+        <Icon name={icon} size={16} />
+      </span>
+      <span className="artifact-copy">
+        <span className="artifact-name" title={part.name}>
+          {part.name}
+        </span>
+        <span className="artifact-meta">
+          {part.format.toUpperCase()} · {formatBytes(part.bytes)}
+        </span>
+      </span>
+      <button
+        type="button"
+        className="artifact-save"
+        onClick={save}
+        disabled={state === "saving" || state === "gone"}
+        title={
+          state === "gone"
+            ? "This file was built earlier in the session. Ask again to rebuild it."
+            : `Save ${part.name}`
+        }
+      >
+        <Icon name={state === "saved" ? "check" : "download"} size={13} />
+        {label}
+      </button>
+    </div>
+  );
 }
 
 function UserMessage({ message, compact }: { message: Message; compact?: boolean }) {
@@ -391,6 +445,12 @@ function AssistantMessage({
   const agent = AGENTS.find((item) => item.id === message.agent) ?? AGENTS[0];
   const hasParts = message.parts.length > 0;
   const duration = message.durationMs ? formatDuration(message.durationMs) : null;
+  // "Deliver file" finished and the card it produced sits directly below it,
+  // so the row would say the same thing twice.
+  const hasArtifact = message.parts.some((part) => part.kind === "artifact");
+  const visibleParts = message.parts.filter(
+    (part) => !(hasArtifact && part.kind === "tool" && part.tool === "deliver" && part.state === "done"),
+  );
   const [copied, setCopied] = useState(false);
   const copy = () => {
     const text = message.parts
@@ -401,7 +461,9 @@ function AssistantMessage({
             ? `[${part.tool}] ${part.label}`
             : part.kind === "diff"
               ? `[diff] ${part.path}`
-              : `$ ${part.command}\n${part.output.join("\n")}`,
+              : part.kind === "artifact"
+                ? `[file] ${part.name}`
+                : `$ ${part.command}\n${part.output.join("\n")}`,
       )
       .join("\n\n");
     navigator.clipboard?.writeText(text).catch(() => {});
@@ -416,7 +478,7 @@ function AssistantMessage({
           <MarkGlyph size={11} />
         </div>
         <div className="assistant-block">
-          {message.parts.map((part) => (
+          {visibleParts.map((part) => (
             <AssistantPart key={part.id} part={part} onOpenFile={onOpenFile} />
           ))}
           {message.streaming && <span className="stream-caret" aria-hidden="true" />}
@@ -436,7 +498,7 @@ function AssistantMessage({
       </div>
 
       <div className="assistant-block">
-        {message.parts.map((part) => (
+        {visibleParts.map((part) => (
           <AssistantPart key={part.id} part={part} onOpenFile={onOpenFile} />
         ))}
         {message.streaming && <span className="stream-caret" aria-hidden="true" />}

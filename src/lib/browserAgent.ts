@@ -9,6 +9,20 @@ import {
 } from "./chrome";
 import { getElContext, loadEl, setElContext, type ElPage } from "./el";
 import {
+  checkedStateScript,
+  clickAtScript,
+  clickRefScript,
+  clickScript,
+  evaluateScript,
+  hoverScript,
+  pressScript,
+  scrollScript,
+  selectScript,
+  snapshotScript,
+  toggleScript,
+  typeScript,
+} from "./pageScripts";
+import {
   elClick,
   elHistory,
   elNavigate,
@@ -145,175 +159,12 @@ interface NativeRead {
   elements: ChromeElement[];
 }
 
-/**
- * The page scan used by the native engine. It tags every visible control with
- * a stable ref, reads the page in a model-friendly form, and includes the aria
- * labels that canvas-heavy apps use instead of text nodes.
- */
-const READ_SCRIPT = `
-  const cleanText = (value, max) =>
-    String(value || "").replace(/\\s+/g, " ").trim().slice(0, max || 160);
-  const visible = (el) => {
-    if (!el || el.nodeType !== 1) return false;
-    const rect = el.getBoundingClientRect();
-    if (rect.width < 2 || rect.height < 2) return false;
-    const style = getComputedStyle(el);
-    return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity) > 0.04;
-  };
-  const deepRoots = () => {
-    const roots = [document];
-    let scanned = 0;
-    for (let index = 0; index < roots.length && scanned < 5000; index += 1) {
-      let elements = [];
-      try { elements = Array.from(roots[index].querySelectorAll("*")); } catch (_) { continue; }
-      for (const node of elements) {
-        scanned += 1;
-        if (scanned >= 5000) break;
-        if (node.shadowRoot && !roots.includes(node.shadowRoot)) roots.push(node.shadowRoot);
-        if (node.tagName === "IFRAME") {
-          try {
-            if (node.contentDocument && !roots.includes(node.contentDocument)) roots.push(node.contentDocument);
-          } catch (_) {}
-        }
-      }
-    }
-    return roots;
-  };
-  const deepQuery = (selector) => {
-    const found = [];
-    for (const root of deepRoots()) {
-      try { for (const node of root.querySelectorAll(selector)) found.push(node); } catch (_) {}
-    }
-    return found;
-  };
-  const kindFor = (el) => {
-    const tag = el.tagName.toLowerCase();
-    if (el.isContentEditable) return "text";
-    if (tag === "a") return "link";
-    if (tag === "button") return "button";
-    if (tag === "input") return el.type || "input";
-    if (tag === "textarea") return "text";
-    if (tag === "select") return "select";
-    if (tag === "summary") return "button";
-    return el.getAttribute("role") || tag;
-  };
-  const labelFor = (el) => {
-    const direct =
-      el.getAttribute("aria-label") ||
-      el.getAttribute("placeholder") ||
-      el.getAttribute("title") ||
-      (el.tagName === "INPUT" || el.tagName === "TEXTAREA" ? el.value : "") ||
-      el.innerText ||
-      el.textContent;
-    const label = cleanText(direct, 120);
-    if (label) return label;
-    const by = el.getAttribute("aria-labelledby");
-    if (by) {
-      const node = document.getElementById(by);
-      if (node && node.textContent) return cleanText(node.textContent, 120);
-    }
-    return kindFor(el);
-  };
-  const selectorFor = (el) => {
-    if (el.id && /^[A-Za-z][\\w:-]*$/.test(el.id)) return "#" + CSS.escape(el.id);
-    const parts = [];
-    let node = el;
-    while (node && node.nodeType === 1 && parts.length < 5) {
-      let part = node.tagName.toLowerCase();
-      const parent = node.parentElement;
-      if (parent) {
-        const same = Array.from(parent.children).filter((child) => child.tagName === node.tagName);
-        if (same.length > 1) part += ":nth-of-type(" + (same.indexOf(node) + 1) + ")";
-      }
-      parts.unshift(part);
-      if (node === document.body) break;
-      node = parent;
-    }
-    return parts.join(" > ");
-  };
-
-  const candidates = deepQuery(
-    'a[href],button,[role="button"],input:not([type="hidden"]),textarea,select,summary,' +
-    '[contenteditable="true"],[contenteditable=""],[role="textbox"],[role="listitem"]'
-  ).filter(visible);
-
-  for (const root of deepRoots()) {
-    try {
-      root.querySelectorAll("[data-lantas-ref]").forEach((node) =>
-        node.removeAttribute("data-lantas-ref")
-      );
-    } catch (_) {}
-  }
-
-  const elements = [];
-  for (const el of candidates) {
-    if (elements.length >= 120) break;
-    const i = elements.length;
-    el.setAttribute("data-lantas-ref", String(i));
-    elements.push({
-      i,
-      tag: el.tagName.toLowerCase(),
-      kind: kindFor(el),
-      label: labelFor(el),
-      selector: selectorFor(el),
-    });
-  }
-
-  const clone = document.body ? document.body.cloneNode(true) : null;
-  if (clone) {
-    clone
-      .querySelectorAll("script,style,noscript,svg,template,iframe,canvas")
-      .forEach((node) => node.remove());
-  }
-  const bodyText = String(clone ? clone.textContent : "")
-    .replace(/[ \\t\\u00a0]+/g, " ")
-    .replace(/\\n{3,}/g, "\\n\\n")
-    .trim();
-  const aria = deepQuery("[aria-label]")
-    .map((el) => cleanText(el.getAttribute("aria-label"), 100))
-    .filter((value, index, all) => value && all.indexOf(value) === index)
-    .slice(0, 160)
-    .join(" | ");
-  const forms = deepQuery("form").slice(0, 4).map((form, index) => {
-    const fields = Array.from(form.elements || [])
-      .filter((el) => ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))
-      .map((el) => (el.getAttribute("name") || el.getAttribute("placeholder") || el.type || "field") + (el.required ? "*" : ""))
-      .slice(0, 12)
-      .join(", ");
-    return "Form " + (index + 1) + ": " + (fields || "no named fields");
-  }).join(" | ");
-  const text = [
-    bodyText,
-    aria ? "Accessible controls: " + aria : "",
-    forms ? "Forms: " + forms : "",
-  ]
-    .filter(Boolean)
-    .join("\\n\\n")
-    .slice(0, 30000);
-  const description =
-    document.querySelector("meta[name='description']")?.getAttribute("content") ||
-    document.querySelector("meta[property='og:description']")?.getAttribute("content") ||
-    "";
-
-  return {
-    ok: true,
-    page: {
-      url: location.href,
-      title: document.title || location.hostname,
-      description: cleanText(description, 300),
-      text,
-      words: text ? text.split(/\\s+/).length : 0,
-    },
-    elements,
-  };
-`;
-
 let lastNativeReadAt = 0;
 
 async function readNative(): Promise<NativeRead | null> {
   if (!inTauri()) return null;
   try {
-    const result = await runInPage<NativeRead>(READ_SCRIPT);
+    const result = await runInPage<NativeRead>(snapshotScript());
     if (!result || !result.page) return null;
     const page: ElPage = {
       url: result.page.url || "",
@@ -378,58 +229,10 @@ export async function agentClick(target: string): Promise<boolean> {
     }
   }
 
-  const result = await runInPage<{ ok: boolean; error?: string }>(`
-    const want = ${JSON.stringify(target)};
-    const cleanText = (value, max) =>
-      String(value || "").replace(/\\s+/g, " ").trim().slice(0, max || 160);
-    const visible = (el) => {
-      const rect = el.getBoundingClientRect();
-      if (rect.width < 2 || rect.height < 2) return false;
-      const style = getComputedStyle(el);
-      return style.display !== "none" && style.visibility !== "hidden";
-    };
-    const labelFor = (el) =>
-      cleanText(
-        el.getAttribute("aria-label") ||
-        el.getAttribute("placeholder") ||
-        el.getAttribute("title") ||
-        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" ? el.value : "") ||
-        el.innerText ||
-        el.textContent
-      );
-    let el = null;
-    try { el = document.querySelector(want); } catch (_) {}
-    if (!el) {
-      const options = Array.from(document.querySelectorAll(
-        'a[href],button,[role="button"],input:not([type="hidden"]),textarea,select,summary,' +
-        '[contenteditable="true"],[role="textbox"],[role="listitem"]'
-      )).filter(visible);
-      const folded = want.toLowerCase();
-      el =
-        options.find((node) => labelFor(node).toLowerCase() === folded) ||
-        options.find((node) => labelFor(node).toLowerCase().includes(folded));
-    }
-    if (!el) return { ok: false, error: "Nothing on the page matched " + want };
-    el.scrollIntoView({ block: "center", inline: "center" });
-    if (typeof el.focus === "function") el.focus();
-    const rect = el.getBoundingClientRect();
-    const x = rect.left + Math.min(120, Math.max(8, rect.width / 2));
-    const y = rect.top + Math.min(25, Math.max(8, rect.height / 2));
-    const base = {
-      bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y,
-      button: 0, pointerId: 1, pointerType: "mouse", isPrimary: true,
-    };
-    for (const type of ["pointerover", "pointerenter", "pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
-      const Ctor = type.indexOf("pointer") === 0 ? PointerEvent : MouseEvent;
-      el.dispatchEvent(new Ctor(type, { ...base, buttons: type.endsWith("down") ? 1 : 0 }));
-    }
-    return { ok: true, detail: labelFor(el) || el.tagName.toLowerCase() };
-  `);
-  if (result?.ok) {
-    await sleep(450);
-    return true;
-  }
-  return false;
+  const result = await runInPage<{ ok: boolean; error?: string }>(clickScript(target));
+  if (!result?.ok) return false;
+  await sleep(200);
+  return true;
 }
 
 export async function agentClickRef(index: number): Promise<boolean> {
@@ -441,48 +244,11 @@ export async function agentClickRef(index: number): Promise<boolean> {
       return false;
     }
   }
-  const result = await runInPage<{ ok: boolean }>(`
-    const deepFind = (selector) => {
-      const roots = [document];
-      for (let i = 0; i < roots.length && i < 300; i += 1) {
-        let hit = null;
-        try { hit = roots[i].querySelector(selector); } catch (_) {}
-        if (hit) return hit;
-        let nodes = [];
-        try { nodes = Array.from(roots[i].querySelectorAll("*")); } catch (_) {}
-        for (const node of nodes) {
-          if (node.shadowRoot && !roots.includes(node.shadowRoot)) roots.push(node.shadowRoot);
-          if (node.tagName === "IFRAME") {
-            try {
-              if (node.contentDocument && !roots.includes(node.contentDocument)) roots.push(node.contentDocument);
-            } catch (_) {}
-          }
-        }
-      }
-      return null;
-    };
-    const el = deepFind('[data-lantas-ref="${Math.max(0, Math.floor(index))}"]');
-    if (!el) return { ok: false };
-    el.scrollIntoView({ block: "center", inline: "center" });
-    if (typeof el.focus === "function") el.focus();
-    const rect = el.getBoundingClientRect();
-    const x = rect.left + Math.min(120, Math.max(8, rect.width / 2));
-    const y = rect.top + Math.min(25, Math.max(8, rect.height / 2));
-    const base = {
-      bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y,
-      button: 0, pointerId: 1, pointerType: "mouse", isPrimary: true,
-    };
-    for (const type of ["pointerover", "pointerenter", "pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
-      const Ctor = type.indexOf("pointer") === 0 ? PointerEvent : MouseEvent;
-      el.dispatchEvent(new Ctor(type, { ...base, buttons: type.endsWith("down") ? 1 : 0 }));
-    }
-    return { ok: true };
-  `);
-  if (result?.ok) {
-    await sleep(450);
-    return true;
-  }
-  return false;
+
+  const result = await runInPage<{ ok: boolean }>(clickRefScript(index));
+  if (!result?.ok) return false;
+  await sleep(200);
+  return true;
 }
 
 export async function agentType(
@@ -499,89 +265,12 @@ export async function agentType(
     }
   }
 
-  const result = await runInPage<{ ok: boolean; detail?: string; error?: string }>(`
-    const text = ${JSON.stringify(text)};
-    const wanted = ${JSON.stringify(selector ?? "")};
-
-    const visible = (el) => {
-      const rect = el.getBoundingClientRect();
-      if (rect.width < 2 || rect.height < 2) return false;
-      const style = getComputedStyle(el);
-      return style.display !== "none" && style.visibility !== "hidden";
-    };
-    const deepFind = (selector) => {
-      const roots = [document];
-      for (let i = 0; i < roots.length && i < 300; i += 1) {
-        let hit = null;
-        try { hit = roots[i].querySelector(selector); } catch (_) {}
-        if (hit) return hit;
-        let nodes = [];
-        try { nodes = Array.from(roots[i].querySelectorAll("*")); } catch (_) {}
-        for (const node of nodes) {
-          if (node.shadowRoot && !roots.includes(node.shadowRoot)) roots.push(node.shadowRoot);
-          if (node.tagName === "IFRAME") {
-            try {
-              if (node.contentDocument && !roots.includes(node.contentDocument)) roots.push(node.contentDocument);
-            } catch (_) {}
-          }
-        }
-      }
-      return null;
-    };
-    let el = wanted ? deepFind(wanted) : document.activeElement;
-    if (!el || el === document.body) {
-      el = Array.from(document.querySelectorAll(
-        'input:not([type="hidden"]), textarea, [contenteditable="true"], [contenteditable=""]'
-      )).find(visible) || null;
-    }
-    if (!el) return { ok: false, error: "No editable field was focused. Click the field first." };
-
-    el.scrollIntoView({ block: "center", inline: "center" });
-    if (typeof el.focus === "function") el.focus();
-
-    if (el.isContentEditable) {
-      const selection = window.getSelection();
-      if (selection) {
-        const range = document.createRange();
-        range.selectNodeContents(el);
-        selection.removeAllRanges();
-        selection.addRange(range);
-      }
-      let inserted = false;
-      try { inserted = document.execCommand("insertText", false, text); } catch (_) {}
-      if (!inserted) {
-        el.textContent = text;
-        el.dispatchEvent(new InputEvent("input", { bubbles: true, data: text, inputType: "insertText" }));
-      }
-    } else if (el.tagName === "TEXTAREA" || el.tagName === "INPUT" || el.tagName === "SELECT") {
-      const proto =
-        el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype :
-        el.tagName === "SELECT" ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
-      const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-      if (setter) setter.call(el, text); else el.value = text;
-      el.dispatchEvent(new InputEvent("input", { bubbles: true, data: text, inputType: "insertText" }));
-      el.dispatchEvent(new Event("change", { bubbles: true }));
-    } else {
-      el.textContent = text;
-      el.dispatchEvent(new InputEvent("input", { bubbles: true, data: text, inputType: "insertText" }));
-    }
-
-    if (${submit ? "true" : "false"}) {
-      for (const type of ["keydown", "keypress", "keyup"]) {
-        el.dispatchEvent(new KeyboardEvent(type, {
-          key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true,
-        }));
-      }
-      const form = el.form || el.closest("form");
-      if (form && typeof form.requestSubmit === "function") form.requestSubmit();
-    }
-    return { ok: true, detail: text.slice(0, 120) };
-  `);
-  if (result?.ok) {
-    await sleep(400);
-    return true;
-  }
-  return false;
+  const result = await runInPage<{ ok: boolean; error?: string }>(
+    typeScript(text, selector, submit),
+  );
+  if (!result?.ok) return false;
+  await sleep(250);
+  return true;
 }
 
 export async function agentEnter(): Promise<boolean> {
@@ -597,27 +286,11 @@ export async function agentPress(key: string): Promise<boolean> {
       return false;
     }
   }
-  const result = await runInPage<{ ok: boolean }>(`
-    const key = ${JSON.stringify(key)};
-    const el = document.activeElement || document.body;
-    if (!el) return { ok: false };
-    for (const type of ["keydown", "keypress", "keyup"]) {
-      el.dispatchEvent(new KeyboardEvent(type, {
-        key, code: key, bubbles: true, cancelable: true,
-        keyCode: key === "Enter" ? 13 : undefined,
-        which: key === "Enter" ? 13 : undefined,
-      }));
-    }
-    if (key === "Enter" && el.form && typeof el.form.requestSubmit === "function") {
-      el.form.requestSubmit();
-    }
-    return { ok: true };
-  `);
-  if (result?.ok) {
-    await sleep(350);
-    return true;
-  }
-  return false;
+
+  const result = await runInPage<{ ok: boolean; error?: string }>(pressScript(key));
+  if (!result?.ok) return false;
+  await sleep(200);
+  return true;
 }
 
 export async function agentScroll(pixels: number): Promise<boolean> {
@@ -629,10 +302,11 @@ export async function agentScroll(pixels: number): Promise<boolean> {
       return false;
     }
   }
-  const result = await runInPage<{ ok: boolean }>(`
-    window.scrollBy({ top: ${Number(pixels) || 600}, behavior: "smooth" });
-    return { ok: true };
-  `);
+
+  // The script scrolls the surface under the pointer and reports whether
+  // anything actually moved, so "scrolled" never means "asked to scroll".
+  const result = await runInPage<{ ok: boolean; moved?: number }>(scrollScript(pixels));
+  await sleep(180);
   return Boolean(result?.ok);
 }
 
@@ -783,9 +457,13 @@ export async function agentNewTab(url: string): Promise<boolean> {
       return false;
     }
   }
-  if (!sendNativeTab("new", { url })) return false;
-  await sleep(600);
-  return true;
+  if (sendNativeTab("new", { url })) {
+    await sleep(600);
+    return true;
+  }
+  // Code mode has no mounted BrowserView to own a tab strip, so open the page
+  // in the child webview directly; the Browser tab adopts it when opened.
+  return navigateNative(url);
 }
 
 /** Close a tab by id or current index. */
@@ -850,25 +528,11 @@ export async function agentClickAt(x: number, y: number): Promise<boolean> {
       return false;
     }
   }
-  const result = await runInPage<{ ok: boolean; detail?: string; error?: string }>(`
-    const el = document.elementFromPoint(${px}, ${py});
-    if (!el) return { ok: false, error: "Nothing is at those coordinates." };
-    const base = {
-      bubbles: true, cancelable: true, composed: true,
-      clientX: ${px}, clientY: ${py}, button: 0,
-      pointerId: 1, pointerType: "mouse", isPrimary: true,
-    };
-    for (const type of ["pointerover", "pointerenter", "pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
-      const Ctor = type.indexOf("pointer") === 0 ? PointerEvent : MouseEvent;
-      el.dispatchEvent(new Ctor(type, { ...base, buttons: type.endsWith("down") ? 1 : 0 }));
-    }
-    return { ok: true, detail: el.tagName.toLowerCase() };
-  `);
-  if (result?.ok) {
-    await sleep(400);
-    return true;
-  }
-  return false;
+
+  const result = await runInPage<{ ok: boolean; error?: string }>(clickAtScript(px, py));
+  if (!result?.ok) return false;
+  await sleep(250);
+  return true;
 }
 
 /** Hover a visible control so menus and tooltips open. */
@@ -885,91 +549,62 @@ export async function agentHover(target: string): Promise<boolean> {
       return false;
     }
   }
-  const result = await runInPage<{ ok: boolean }>(`
-    const want = ${JSON.stringify(target)};
-    const clean = (value) => String(value || "").replace(/\\s+/g, " ").trim().toLowerCase();
-    const visible = (el) => {
-      const rect = el.getBoundingClientRect();
-      const style = getComputedStyle(el);
-      return rect.width > 2 && rect.height > 2 && style.display !== "none" && style.visibility !== "hidden";
-    };
-    let el = null;
-    try { el = document.querySelector(want); } catch (_) {}
-    if (!el) {
-      const options = Array.from(document.querySelectorAll(
-        'a[href],button,[role="button"],input,textarea,select,summary,[role="listitem"]'
-      )).filter(visible);
-      el = options.find((node) => clean(node.getAttribute("aria-label") || node.innerText || node.textContent).includes(clean(want))) || null;
-    }
-    if (!el) return { ok: false };
-    el.scrollIntoView({ block: "center", inline: "center" });
-    const rect = el.getBoundingClientRect();
-    const base = { bubbles: true, cancelable: true, composed: true, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
-    for (const type of ["pointerover", "pointerenter", "mouseover", "mousemove"]) {
-      el.dispatchEvent(new (type.indexOf("pointer") === 0 ? PointerEvent : MouseEvent)(type, base));
-    }
-    return { ok: true };
-  `);
-  if (result?.ok) await sleep(250);
-  return Boolean(result?.ok);
+
+  const result = await runInPage<{ ok: boolean; error?: string }>(hoverScript(target));
+  if (!result?.ok) return false;
+  await sleep(250);
+  return true;
 }
 
 /** Pick an option in a real select element by visible label or value. */
 export async function agentSelect(target: string, value: string): Promise<boolean> {
   if (activeEngine() === "chrome") {
     try {
-      await chromeCommand("act", { action: "select", text: looksLikeSelector(target) ? undefined : target, selector: looksLikeSelector(target) ? target : undefined, value });
+      await chromeCommand("act", {
+        action: "select",
+        text: looksLikeSelector(target) ? undefined : target,
+        selector: looksLikeSelector(target) ? target : undefined,
+        value,
+      });
       return true;
     } catch {
       return false;
     }
   }
-  const result = await runInPage<{ ok: boolean }>(`
-    const want = ${JSON.stringify(target)};
-    const value = ${JSON.stringify(value)};
-    const clean = (v) => String(v || "").replace(/\\s+/g, " ").trim().toLowerCase();
-    let el = null;
-    try { el = document.querySelector(want); } catch (_) {}
-    if (!el || el.tagName !== "SELECT") {
-      el = Array.from(document.querySelectorAll("select")).find((node) => {
-        const label = node.getAttribute("aria-label") || node.getAttribute("name") || node.id;
-        return clean(label).includes(clean(want));
-      }) || el;
-    }
-    if (!el || el.tagName !== "SELECT") return { ok: false };
-    const option = Array.from(el.options).find((item) => clean(item.textContent) === clean(value) || clean(item.value) === clean(value));
-    if (!option) return { ok: false };
-    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
-    if (setter) setter.call(el, option.value); else el.value = option.value;
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-    el.dispatchEvent(new Event("change", { bubbles: true }));
-    return { ok: true };
-  `);
-  if (result?.ok) await sleep(250);
-  return Boolean(result?.ok);
+
+  const result = await runInPage<{ ok: boolean }>(selectScript(target, value));
+  if (!result?.ok) return false;
+  await sleep(200);
+  return true;
 }
 
 /** Set a checkbox or radio control and verify its state. */
 export async function agentCheck(target: string, checked = true): Promise<boolean> {
-  const result = await runInPage<{ ok: boolean }>(`
-    const want = ${JSON.stringify(target)};
-    const checked = ${checked ? "true" : "false"};
-    const clean = (v) => String(v || "").replace(/\\s+/g, " ").trim().toLowerCase();
-    let el = null;
-    try { el = document.querySelector(want); } catch (_) {}
-    if (!el) {
-      el = Array.from(document.querySelectorAll('input[type="checkbox"],input[type="radio"],[role="checkbox"],[role="switch"]'))
-        .find((node) => clean(node.getAttribute("aria-label") || node.getAttribute("name") || node.id || node.parentElement?.innerText).includes(clean(want))) || null;
+  // This action used to run against the native page whatever engine was
+  // active, so checking a box in Chrome silently changed nothing.
+  if (activeEngine() === "chrome") {
+    try {
+      await chromeCommand("act", {
+        action: "check",
+        text: looksLikeSelector(target) ? undefined : target,
+        selector: looksLikeSelector(target) ? target : undefined,
+        checked,
+      });
+      return true;
+    } catch {
+      return false;
     }
-    if (!el) return { ok: false };
-    const isChecked = el.getAttribute("aria-checked") === "true" || Boolean(el.checked);
-    if (isChecked !== checked) el.click();
-    await new Promise((resolve) => setTimeout(resolve, 80));
-    const after = el.getAttribute("aria-checked") === "true" || Boolean(el.checked);
-    return { ok: after === checked };
-  `);
-  if (result?.ok) await sleep(250);
-  return Boolean(result?.ok);
+  }
+
+  const result = await runInPage<{ ok: boolean; error?: string }>(toggleScript(target, checked));
+  if (!result?.ok) return false;
+  // React and other frameworks update aria-checked a tick after the click.
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const state = await runInPage<{ ok: boolean; state?: boolean }>(checkedStateScript());
+    if (state?.ok && state.state === checked) return true;
+    await sleep(80);
+  }
+  return false;
 }
 
 /** Wait for text to appear or disappear, without guessing a selector. */
@@ -1002,14 +637,12 @@ export async function agentEvaluate(
       return { ok: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
-  const result = await runInPage<{ ok: boolean; value?: unknown; error?: string }>(`
-    try {
-      const value = (0, eval)(${JSON.stringify(code)});
-      return { ok: true, value: value === undefined ? null : value };
-    } catch (error) {
-      return { ok: false, error: String(error && error.message ? error.message : error) };
-    }
-  `);
+
+  // Statements with a return are as valid as expressions here; the page
+  // script picks the right wrapper instead of failing with a syntax error.
+  const result = await runInPage<{ ok: boolean; value?: unknown; error?: string }>(
+    evaluateScript(code),
+  );
   return result ?? { ok: false, error: "The page did not answer." };
 }
 
@@ -1097,6 +730,18 @@ export async function agentSnapshot(): Promise<BrowserSnapshot> {
         supports: ["snapshot", "extract", "navigate"],
       };
     }
+  }
+
+  if (!inTauri()) {
+    // A browser tab renders a fetched, read-only copy of the page. There is no
+    // live DOM to script, but the text it already read is still worth handing
+    // back instead of claiming that nothing is open.
+    return {
+      engine,
+      page: getElContext(),
+      elements: [],
+      supports: ["snapshot", "extract", "find", "navigate"],
+    };
   }
 
   const read = await readNative();

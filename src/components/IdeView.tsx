@@ -21,7 +21,7 @@ import {
   renameWorkspacePath,
   writeWorkspacePath,
 } from "../lib/workspace";
-import { openInVsCode } from "../lib/native";
+import { inTauri, openInVsCode } from "../lib/native";
 import type { ProviderId, Session, WorkspaceFile } from "../lib/types";
 import { cx } from "../lib/util";
 import { GitPanel } from "./GitPanel";
@@ -34,6 +34,27 @@ import { Transcript } from "./Transcript";
 import { StagedDiffReview } from "./DiffViewer";
 
 type Activity = "explorer" | "search" | "git" | "extensions" | "skills";
+
+type MenuEntry = {
+  key: string;
+  label?: string;
+  kbd?: string;
+  run?: () => void;
+  disabled?: boolean;
+  sep?: boolean;
+};
+type MenuGroup = { id: string; label: string; items: MenuEntry[] };
+
+/**
+ * Buffers outlive the Code surface. Leaving Code for chat unmounts the
+ * workspace, so keeping tabs and drafts here means unsaved edits are still
+ * there (and still dirty) when the user comes back instead of vanishing.
+ */
+const bufferCache: {
+  active: string | null;
+  tabs: string[];
+  drafts: Record<string, string>;
+} = { active: null, tabs: [], drafts: {} };
 
 interface IdeViewProps {
   onExit: () => void;
@@ -166,9 +187,9 @@ export function IdeView({
   const [activity, setActivity] = useState<Activity>("explorer");
   const [sideOpen, setSideOpen] = useState(true);
   const [assistantOpen, setAssistantOpen] = useState(true);
-  const [tabs, setTabs] = useState<string[]>([]);
-  const [active, setActive] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [tabs, setTabs] = useState<string[]>(() => [...bufferCache.tabs]);
+  const [active, setActive] = useState<string | null>(() => bufferCache.active);
+  const [drafts, setDrafts] = useState<Record<string, string>>(() => ({ ...bufferCache.drafts }));
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
   const [search, setSearch] = useState("");
   const [quick, setQuick] = useState<string | null>(null);
@@ -177,6 +198,8 @@ export function IdeView({
   const [entryPrompt, setEntryPrompt] = useState<"file" | "folder" | "rename" | null>(null);
   const [entryName, setEntryName] = useState("");
   const [entryBusy, setEntryBusy] = useState(false);
+  const [menu, setMenu] = useState<string | null>(null);
+  const [openEditorsOpen, setOpenEditorsOpen] = useState(true);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewBusy, setReviewBusy] = useState<string | null>(null);
@@ -198,6 +221,12 @@ export function IdeView({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    bufferCache.tabs = tabs;
+    bufferCache.active = active;
+    bufferCache.drafts = drafts;
+  }, [tabs, active, drafts]);
+
+  useEffect(() => {
     if (files.length && expanded.size === 0) {
       setExpanded(new Set(allDirPaths(tree)));
     }
@@ -205,6 +234,18 @@ export function IdeView({
 
   const activeFile = files.find((file) => file.path === active) ?? null;
   const activeText = active ? (drafts[active] ?? activeFile?.text ?? "") : "";
+
+  // A restored buffer can point at a file that was renamed or deleted while the
+  // user was in chat.
+  useEffect(() => {
+    if (!files.length) return;
+    const known = new Set(files.map((file) => file.path));
+    setTabs((current) => {
+      const next = current.filter((path) => known.has(path));
+      return next.length === current.length ? current : next;
+    });
+    setActive((current) => (current && known.has(current) ? current : null));
+  }, [files]);
 
   const dirty = useMemo(() => {
     const set = new Set<string>();
@@ -268,9 +309,16 @@ export function IdeView({
   }, [entryPrompt]);
 
   const startEntry = (kind: "file" | "folder" | "rename") => {
+    // A browser tab opens a folder through the File System Access API and has no
+    // absolute root, so creating, renaming and deleting are desktop-only. Say
+    // that instead of reopening the picker as if nothing were open.
     if (!state.workspaceRoot) {
-      notify("Open a folder first", "error");
-      onOpenFolder();
+      notify(
+        inTauri()
+          ? "Open a folder first"
+          : "Creating and renaming files needs the desktop app. Editing and saving open files works here.",
+        "error",
+      );
       return;
     }
     if (kind === "rename" && !active) return;
@@ -312,7 +360,8 @@ export function IdeView({
         const previous = active;
         const from = resolveWorkspaceTarget(state.workspaceRoot, previous);
         if (from.root !== target.root) throw new Error("A file cannot move between two folders.");
-        await renameWorkspacePath(from.root, from.relative, target.relative);
+        const moved = await renameWorkspacePath(from.root, from.relative, target.relative);
+        if (!moved) throw new Error("Renaming needs the desktop app.");
         const next = await readWorkspaceWithExtras(state.workspaceRoot);
         if (next) {
           setWorkspace(next.name, next.files, next.root);
@@ -357,7 +406,8 @@ export function IdeView({
     if (!window.confirm(`Delete ${active}? This cannot be undone.`)) return;
     try {
       const target = resolveWorkspaceTarget(state.workspaceRoot, active);
-      await deleteWorkspacePath(target.root, target.relative);
+      const removed = await deleteWorkspacePath(target.root, target.relative);
+      if (!removed) throw new Error("Deleting needs the desktop app.");
       setWorkspace(
         state.workspaceName || "Workspace",
         files.filter((file) => file.path !== active && !file.path.startsWith(`${active}/`)),
@@ -444,7 +494,7 @@ export function IdeView({
         event.preventDefault();
         if (event.shiftKey) void saveAll();
         else saveActive();
-      } else if (key === "b") {
+      } else if (key === "b" && !event.shiftKey) {
         event.preventDefault();
         setSideOpen((value) => !value);
       } else if (key === "j") {
@@ -459,6 +509,15 @@ export function IdeView({
   useEffect(() => {
     if (quick !== null) quickRef.current?.focus();
   }, [quick]);
+
+  useEffect(() => {
+    if (!menu) return undefined;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenu(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menu]);
 
   useEffect(() => {
     const firstFile = files.find((file) => !file.dir);
@@ -506,6 +565,106 @@ export function IdeView({
     }
     setSettings({ defaultProvider: provider, defaultModel: model });
   };
+
+  const showPanel = (next: Activity) => {
+    setActivity(next);
+    setSideOpen(true);
+  };
+
+  const menus: MenuGroup[] = [
+    {
+      id: "file",
+      label: "File",
+      items: [
+        { key: "new-file", label: "New File…", kbd: "⌥⌘N", run: () => startEntry("file") },
+        { key: "new-folder", label: "New Folder…", run: () => startEntry("folder") },
+        { key: "open-folder", label: "Open Folder…", kbd: "⌘O", run: onOpenFolder },
+        { key: "file-sep-1", sep: true },
+        { key: "save", label: "Save", kbd: "⌘S", run: saveActive, disabled: !active },
+        {
+          key: "save-all",
+          label: "Save All",
+          kbd: "⇧⌘S",
+          run: () => void saveAll(),
+          disabled: dirty.size === 0,
+        },
+        {
+          key: "revert",
+          label: "Revert File",
+          run: () => active && discard(active),
+          disabled: !active || !dirty.has(active),
+        },
+        { key: "file-sep-2", sep: true },
+        {
+          key: "close",
+          label: "Close Editor",
+          kbd: "⌘W",
+          run: () => active && close(active),
+          disabled: !active,
+        },
+        { key: "file-sep-3", sep: true },
+        {
+          key: "vscode",
+          label: "Open in VS Code",
+          run: () => void openInCode(),
+          disabled: !state.workspaceRoot || openingCode,
+        },
+        { key: "chat", label: "Back to Chat", run: onExit },
+      ],
+    },
+    {
+      id: "view",
+      label: "View",
+      items: [
+        { key: "explorer", label: "Explorer", kbd: "⌘B", run: () => showPanel("explorer") },
+        { key: "search", label: "Search", kbd: "⇧⌘F", run: () => showPanel("search") },
+        { key: "git", label: "Source Control", kbd: "⌃⇧G", run: () => showPanel("git") },
+        { key: "ext", label: "Extensions", run: () => showPanel("extensions") },
+        { key: "view-sep-1", sep: true },
+        {
+          key: "assistant",
+          label: "Assistant",
+          kbd: "⌘J",
+          run: () => setAssistantOpen((value) => !value),
+        },
+        {
+          key: "terminal",
+          label: "Terminal",
+          kbd: "⌃`",
+          run: () => setTerminalOpen((value) => !value),
+        },
+        { key: "view-sep-2", sep: true },
+        { key: "quick", label: "Quick Open", kbd: "⌘P", run: () => setQuick("") },
+        {
+          key: "refresh",
+          label: "Refresh Explorer",
+          run: () => void refreshFromDisk(),
+          disabled: !state.workspaceRoot,
+        },
+      ],
+    },
+    {
+      id: "go",
+      label: "Go",
+      items: [
+        { key: "go-file", label: "Go to File…", kbd: "⌘P", run: () => setQuick("") },
+        {
+          key: "go-search",
+          label: "Find in Folder…",
+          kbd: "⇧⌘F",
+          run: () => showPanel("search"),
+        },
+        { key: "go-sep-1", sep: true },
+        {
+          key: "go-side",
+          label: "Toggle Sidebar",
+          kbd: "⌘B",
+          run: () => setSideOpen((value) => !value),
+        },
+        { key: "go-chat", label: "Back to Chat", run: onExit },
+      ],
+    },
+  ];
 
   // A kept or declined staged file replaces the editor's saved copy. Drop the
   // stale draft so the open tab shows the accepted text instead of an old,
@@ -575,6 +734,110 @@ export function IdeView({
         notify(`${dropped.length} file${dropped.length === 1 ? "" : "s"} opened`);
       }}
     >
+      <header className="ide-header">
+        <div className="ide-header-left">
+          <button
+            type="button"
+            className="ide-header-brand"
+            onClick={onExit}
+            title="Back to chat"
+          >
+            <span className="ide-header-mark" aria-hidden />
+            <span className="ide-header-name">Lantas</span>
+            <span className="ide-header-tag">Code</span>
+          </button>
+          <nav className="ide-menus" aria-label="Editor menu">
+            {menus.map((group) => (
+              <div className="ide-menu-wrap" key={group.id}>
+                <button
+                  type="button"
+                  className={cx("ide-menu-trigger", menu === group.id && "is-open")}
+                  aria-haspopup="menu"
+                  aria-expanded={menu === group.id}
+                  onClick={() => setMenu((current) => (current === group.id ? null : group.id))}
+                >
+                  {group.label}
+                </button>
+                {menu === group.id && (
+                  <div className="ide-menu" role="menu">
+                    {group.items.map((item) =>
+                      item.sep ? (
+                        <span key={item.key} className="ide-menu-rule" />
+                      ) : (
+                        <button
+                          key={item.key}
+                          type="button"
+                          role="menuitem"
+                          disabled={item.disabled}
+                          onClick={() => {
+                            setMenu(null);
+                            item.run?.();
+                          }}
+                        >
+                          <span>{item.label}</span>
+                          {item.kbd && <kbd>{item.kbd}</kbd>}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </nav>
+        </div>
+
+        <div className="ide-header-center">
+          <button
+            type="button"
+            className="ide-command"
+            onClick={() => setQuick("")}
+            title="Go to file (⌘P)"
+          >
+            <Icon name="search" size={13} />
+            <span>{state.workspaceName || "Search files by name"}</span>
+            <kbd>⌘P</kbd>
+          </button>
+        </div>
+
+        <div className="ide-header-right">
+          <button
+            type="button"
+            className="ide-icon-button"
+            onClick={() => startEntry("file")}
+            title="New file"
+            aria-label="New file"
+          >
+            <Icon name="filePlus" size={14} />
+          </button>
+          <button
+            type="button"
+            className="ide-icon-button"
+            onClick={onOpenFolder}
+            title="Open folder"
+            aria-label="Open folder"
+          >
+            <Icon name="folder" size={14} />
+          </button>
+          <span className="ide-header-rule" />
+          <button
+            type="button"
+            className="ide-icon-button"
+            onClick={() => void openInCode()}
+            disabled={!state.workspaceRoot || openingCode}
+            title="Open this folder in VS Code"
+            aria-label="Open in VS Code"
+          >
+            <Icon name="external" size={14} />
+          </button>
+          <button type="button" className="ide-header-chat" onClick={onExit}>
+            Chat
+            <Icon name="chevronRight" size={11} />
+          </button>
+        </div>
+      </header>
+
+      {menu && <div className="ide-menu-scrim" onMouseDown={() => setMenu(null)} />}
+
       <div className="ide-body">
         <nav className="ide-rail" aria-label="IDE sections">
           {RAIL.map((item) => (
@@ -670,6 +933,67 @@ export function IdeView({
                       <Icon name="folder" size={13} />
                     </button>
                   </div>
+                </div>
+                <div className="ide-editors">
+                  <button
+                    type="button"
+                    className="ide-section-head"
+                    onClick={() => setOpenEditorsOpen((value) => !value)}
+                    aria-expanded={openEditorsOpen}
+                  >
+                    <Icon
+                      name="chevronRight"
+                      size={12}
+                      className={cx("ide-caret", openEditorsOpen && "is-open")}
+                    />
+                    <span>Open editors</span>
+                    <span className="ide-section-count">{tabs.length}</span>
+                  </button>
+                  {openEditorsOpen && (
+                    <div className="ide-open-list">
+                      {tabs.map((path) => (
+                        <div
+                          key={path}
+                          className={cx("ide-open-row", active === path && "is-active")}
+                        >
+                          <button
+                            type="button"
+                            className="ide-open-name"
+                            onClick={() => setActive(path)}
+                            title={path}
+                          >
+                            <span className="ide-file-badge" style={{ color: fileTone(path) }}>
+                              {fileInitials(path)}
+                            </span>
+                            <span className="ide-open-label">
+                              {path.split("/").pop() ?? path}
+                            </span>
+                            {dirty.has(path) && <span className="ide-dirty" aria-label="Unsaved" />}
+                          </button>
+                          <button
+                            type="button"
+                            className="ide-open-close"
+                            onClick={() => close(path)}
+                            aria-label={`Close ${path.split("/").pop() ?? path}`}
+                          >
+                            <Icon name="close" size={11} />
+                          </button>
+                        </div>
+                      ))}
+                      {tabs.length === 0 && (
+                        <p className="ide-section-empty">No editors open</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="ide-workspace">
+                  <Icon name="chevronRight" size={12} className="ide-caret is-open" />
+                  <span className="ide-workspace-name">
+                    {state.workspaceName || "No folder open"}
+                  </span>
+                  <span className="ide-workspace-count">
+                    {files.filter((file) => !file.dir).length}
+                  </span>
                 </div>
                 <div className="ide-tree">
                   {files.length > 0 ? (
@@ -783,7 +1107,11 @@ export function IdeView({
               return (
                 <div
                   key={path}
-                  className={cx("ide-tab", active === path && "is-active")}
+                  className={cx(
+                    "ide-tab",
+                    active === path && "is-active",
+                    dirty.has(path) && "is-dirty",
+                  )}
                   role="tab"
                   aria-selected={active === path}
                 >
@@ -880,6 +1208,9 @@ export function IdeView({
           {activeFile ? (
             <>
               <div className="ide-crumbs">
+                <span className="ide-file-badge" style={{ color: fileTone(activeFile.path) }}>
+                  {fileInitials(activeFile.path)}
+                </span>
                 {activeFile.path.split("/").map((part, index, parts) => (
                   <span key={`${part}-${index}`} className="ide-crumb">
                     {part}
@@ -1121,10 +1452,15 @@ export function IdeView({
 
       <footer className="ide-status">
         <div className="ide-status-left">
-          <span className="ide-status-item">
+          <button
+            type="button"
+            className="ide-status-item is-button"
+            onClick={() => showPanel("git")}
+            title="Source control"
+          >
             <Icon name="branch" size={12} />
             {session?.branch ?? "main"}
-          </span>
+          </button>
           {dirty.size > 0 && (
             <span className="ide-status-item">
               <span className="ide-dirty" />
@@ -1138,17 +1474,17 @@ export function IdeView({
         <div className="ide-status-right">
           {activeFile && (
             <>
+              <span className="ide-status-item">{monacoLanguage(activeFile.path)}</span>
+              <span className="ide-status-item">UTF-8</span>
+              <span className="ide-status-item">LF</span>
+              <span className="ide-status-item">Spaces: 2</span>
+              <span className="ide-status-item">{countLines(activeText)} lines</span>
               <span className="ide-status-item">
                 Ln {cursor.line}, Col {cursor.column}
               </span>
-              <span className="ide-status-item">
-                {countLines(activeText)} lines
-              </span>
-              <span className="ide-status-item">{monacoLanguage(activeFile.path)}</span>
-              <span className="ide-status-item">Spaces: 2</span>
             </>
           )}
-          <span className="ide-status-item dim">UTF-8</span>
+          {!activeFile && <span className="ide-status-item dim">UTF-8</span>}
         </div>
       </footer>
 

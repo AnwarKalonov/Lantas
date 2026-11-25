@@ -64,9 +64,66 @@ export function parseToolCalls(
   raw: string,
   options: { defaultTool?: string } = {},
 ): { calls: ToolCall[]; text: string } {
-  const pattern = /<(tool_call|tool|function_call)>\s*([\s\S]*?)\s*<\/\1>/gi;
   const calls: ToolCall[] = [];
-  let match: RegExpExecArray | null;
+
+  /**
+   * Reads the first JSON value at or after `from` and reports where it ended.
+   * Scanning the braces ourselves is what makes an unclosed block work: models
+   * routinely stop after the final `}` and never write `</tool_call>`.
+   */
+  const readJson = (
+    source: string,
+    from: number,
+  ): { value: unknown; end: number } | null => {
+    let start = -1;
+    for (let index = from; index < source.length; index += 1) {
+      const ch = source[index];
+      if (ch === "{" || ch === "[") {
+        start = index;
+        break;
+      }
+    }
+    if (start < 0) return null;
+
+    const stack: string[] = [];
+    let inString = false;
+    let escaped = false;
+    for (let index = start; index < source.length; index += 1) {
+      const ch = source[index];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') {
+        inString = true;
+        continue;
+      }
+      if (ch === "{") stack.push("}");
+      else if (ch === "[") stack.push("]");
+      else if (ch === "}" || ch === "]") {
+        if (!stack.length) break;
+        stack.pop();
+        if (!stack.length) {
+          const value = safeParse(source.slice(start, index + 1));
+          return value === undefined ? null : { value, end: index + 1 };
+        }
+      }
+    }
+
+    // Cut off mid-value, usually by the token limit: close what was opened and
+    // keep the call instead of throwing the whole step away.
+    if (stack.length) {
+      const value = safeParse(source.slice(start) + stack.reverse().join(""));
+      if (value !== undefined) return { value, end: source.length };
+    }
+    return null;
+  };
+
+  const blocks: Array<[number, number]> = [];
+  const opener = /<(tool_call|tool|function_call)\b[^>]*>/gi;
+  let tag: RegExpExecArray | null;
 
   const accept = (entry: unknown) => {
     if (!entry || typeof entry !== "object") return;
@@ -81,6 +138,12 @@ export function parseToolCalls(
       name = options.defaultTool;
       args = record;
     }
+    // A bare action object is unambiguous in a full agent too: no other tool
+    // takes an `action` key, so it can only mean the browser.
+    if (!name && BROWSER_ACTIONS.has(String(record.action ?? ""))) {
+      name = "browser";
+      args = record;
+    }
     if (!name) return;
     calls.push({
       name,
@@ -88,51 +151,103 @@ export function parseToolCalls(
     });
   };
 
-  while ((match = pattern.exec(raw))) {
-    const body = match[2]
-      .trim()
-      .replace(/^```(?:json)?/i, "")
-      .replace(/```$/, "")
-      .trim();
-    try {
-      const parsed = JSON.parse(body);
-      const entries = Array.isArray(parsed) ? parsed : [parsed];
-      for (const entry of entries) accept(entry);
-    } catch {
-      /* A malformed call is reported back to the model as text below. */
-    }
+  while ((tag = opener.exec(raw))) {
+    const read = readJson(raw, tag.index + tag[0].length);
+    if (!read) continue;
+    const entries = Array.isArray(read.value) ? read.value : [read.value];
+    const before = calls.length;
+    for (const entry of entries) accept(entry);
+    if (calls.length === before) continue;
+
+    // Take the closing tag only when it sits right after the JSON; prose that
+    // follows the call belongs to the visible answer.
+    let end = read.end;
+    const rest = raw.slice(end);
+    const closing = new RegExp(`</${tag[1]}>`, "i").exec(rest);
+    if (closing && closing.index < 200) end += closing.index + closing[0].length;
+    blocks.push([tag.index, end]);
+    opener.lastIndex = end;
   }
 
-  // Some providers strip the tags or the model forgets them. Recover a bare
-  // JSON call only in a tool-restricted panel, where there is no ambiguity
-  // between prose and a tool call.
-  if (!calls.length && options.defaultTool) {
-    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1] ?? raw;
-    const start = fenced.indexOf("{");
-    const end = fenced.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        const parsed = JSON.parse(fenced.slice(start, end + 1));
-        accept(parsed);
-      } catch {
-        const action = fenced.match(/"(?:action|type)"\s*:\s*"([a-z_]+)"/i)?.[1];
-        if (action) {
-          const args: Record<string, unknown> = { action };
-          for (const key of ["url", "text", "target", "selector", "ref", "query", "key", "value"]) {
-            const found =
-              fenced.match(new RegExp(`"${key}"\\s*:\\s*"([\\s\\S]*?)"`, "i"))?.[1] ??
-              fenced.match(new RegExp(`"${key}"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)`, "i"))?.[1];
-            if (found !== undefined) {
-              args[key] = /^-?\d+(?:\.\d+)?$/.test(found) ? Number(found) : found.replace(/\s+/g, " ").trim();
-            }
-          }
-          calls.push({ name: options.defaultTool, args });
-        }
+  // Some providers strip the tags or the model forgets them. A bare object is
+  // still a call when it names its tool, or when this panel has only one.
+  if (!calls.length) {
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
+    const source = fenced && fenced.includes("{") ? fenced : raw;
+    const read = readJson(source, 0);
+    if (read) {
+      const entries = Array.isArray(read.value) ? read.value : [read.value];
+      const before = calls.length;
+      for (const entry of entries) accept(entry);
+      if (calls.length > before) {
+        const at = raw.indexOf(source);
+        if (at >= 0) blocks.push([at, at + source.length]);
       }
     }
   }
 
-  return { calls, text: raw.replace(pattern, "").trim() };
+  // Remove every accepted block, tag and all, so raw JSON never reaches the
+  // transcript even when the model wrote prose around it.
+  let text = raw;
+  if (blocks.length) {
+    const parts: string[] = [];
+    let cursor = 0;
+    for (const [start, end] of blocks.sort((a, b) => a[0] - b[0])) {
+      if (start > cursor) parts.push(raw.slice(cursor, start));
+      cursor = Math.max(cursor, end);
+    }
+    if (cursor < raw.length) parts.push(raw.slice(cursor));
+    text = parts.join("");
+  }
+
+  return {
+    calls,
+    text: text.replace(/<\/\s*(tool_call|tool|function_call)\s*>/gi, "").trim(),
+  };
+}
+
+/** The actions the browser tool understands, used to recognise a bare call. */
+const BROWSER_ACTIONS = new Set([
+  "navigate",
+  "snapshot",
+  "extract",
+  "find",
+  "wait",
+  "click",
+  "click_at",
+  "hover",
+  "type",
+  "fill",
+  "select",
+  "check",
+  "press",
+  "enter",
+  "scroll",
+  "tabs",
+  "switch_tab",
+  "new_tab",
+  "close_tab",
+  "back",
+  "forward",
+  "reload",
+  "evaluate",
+  "open_in_chrome",
+]);
+
+/** JSON with one common model slip repaired: a trailing comma. */
+function safeParse(text: string): unknown {
+  const trimmed = text.trim();
+  if (!trimmed) return undefined;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    /* fall through */
+  }
+  try {
+    return JSON.parse(trimmed.replace(/,\s*([}\]])/g, "$1"));
+  } catch {
+    return undefined;
+  }
 }
 
 function safeJson(value: string): Record<string, unknown> {
@@ -160,6 +275,14 @@ class ToolStream {
   }
 
   end() {
+    // A block whose closing tag never arrived still has to run, not appear.
+    // Flushing this buffer is what printed raw JSON in the transcript.
+    const start = this.buffer.indexOf(OPEN);
+    if (start >= 0) {
+      if (start > 0) this.emit(this.buffer.slice(0, start));
+      this.buffer = "";
+      return;
+    }
     this.drain(true);
     if (this.buffer) {
       this.emit(this.buffer);
@@ -217,6 +340,7 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
   // one model response, or retrying one that failed, is not.
   const seen = new Map<string, { outcome: ToolOutcome; step: number }>();
   let toolCalls = 0;
+  let parseRetries = 0;
 
   for (let step = 0; step < budget; step += 1) {
     if (options.signal.aborted) throw new DOMException("aborted", "AbortError");
@@ -244,9 +368,26 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
       defaultTool: options.only?.length === 1 ? options.only[0] : undefined,
     });
     if (parsed.calls.length === 0) {
-      let visible = "";
-      // The text was already streamed; nothing more to emit.
-      void visible;
+      // A reply that clearly tried to call a tool must not end the turn as if
+      // it were an answer; that is how "open mathway" produced nothing but a
+      // raw JSON line. Ask once for a clean block, then let it answer.
+      const tried =
+        /<\s*(tool_call|tool|function_call)\b/i.test(raw) ||
+        (Boolean(options.only?.length === 1) && /"name"\s*:/i.test(raw));
+      if (tried && parseRetries < 1) {
+        parseRetries += 1;
+        turns.push({ role: "assistant", content: raw.slice(0, 16_000) });
+        turns.push({
+          role: "user",
+          content: [
+            "That reply contained a tool call the app could not read, so nothing ran.",
+            'Send exactly one complete block, valid JSON, no prose around it:',
+            '<tool_call>{"name":"browser","arguments":{"action":"navigate","url":"https://www.mathway.com"}}</tool_call>',
+          ].join("\n\n"),
+        });
+        options.onNote?.("The tool call did not read cleanly; asking the model again.");
+        continue;
+      }
       return { steps: step + 1, toolCalls, stopped: "answer" };
     }
 

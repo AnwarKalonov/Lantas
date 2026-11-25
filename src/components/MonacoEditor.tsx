@@ -130,6 +130,23 @@ monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions(diagnostics
 monaco.languages.typescript.javascriptDefaults.setCompilerOptions(compilerOptions);
 monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
 
+/**
+ * Models outlive the editor instance. Disposing them on unmount, which is what
+ * this file used to do, threw away undo history and every unsaved buffer as
+ * soon as the user left Code for chat and came back.
+ */
+const modelCache = new Map<string, monaco.editor.ITextModel>();
+
+function ensureModel(path: string, value: string): monaco.editor.ITextModel {
+  const uri = monaco.Uri.file(`/${path}`);
+  const cached = modelCache.get(path);
+  if (cached && !cached.isDisposed()) return cached;
+  const model =
+    monaco.editor.getModel(uri) ?? monaco.editor.createModel(value, monacoLanguage(path), uri);
+  modelCache.set(path, model);
+  return model;
+}
+
 interface MonacoEditorProps {
   path: string;
   value: string;
@@ -153,7 +170,6 @@ export function MonacoEditor({
 }: MonacoEditorProps) {
   const host = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const models = useRef(new Map<string, monaco.editor.ITextModel>());
   const lastValue = useRef(value);
   const handlers = useRef({ onChange, onSave, onCursor });
   handlers.current = { onChange, onSave, onCursor };
@@ -162,11 +178,7 @@ export function MonacoEditor({
     if (!host.current) return undefined;
     // Give the model a real file URI so the TypeScript worker sees a `.tsx` or
     // `.jsx` extension and parses JSX and generic type arguments correctly.
-    const model = monaco.editor.createModel(
-      value,
-      monacoLanguage(path),
-      monaco.Uri.file(`/${path}`),
-    );
+    const model = ensureModel(path, value);
     const editor = monaco.editor.create(host.current, {
       model,
       theme: theme === "dark" ? "lantas-dark" : "lantas-light",
@@ -193,7 +205,6 @@ export function MonacoEditor({
       fixedOverflowWidgets: true,
     });
     editorRef.current = editor;
-    models.current.set(path, model);
 
     const change = editor.onDidChangeModelContent(() => {
       const model = editor.getModel();
@@ -213,8 +224,6 @@ export function MonacoEditor({
       change.dispose();
       cursor.dispose();
       editor.dispose();
-      models.current.forEach((model) => model.dispose());
-      models.current.clear();
       editorRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -224,15 +233,7 @@ export function MonacoEditor({
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    let model = models.current.get(path);
-    if (!model) {
-      model = monaco.editor.createModel(
-        value,
-        monacoLanguage(path),
-        monaco.Uri.file(`/${path}`),
-      );
-      models.current.set(path, model);
-    }
+    const model = ensureModel(path, value);
     if (editor.getModel() !== model) {
       editor.setModel(model);
       lastValue.current = model.getValue();

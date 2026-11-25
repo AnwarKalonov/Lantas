@@ -180,6 +180,16 @@ function readAuthCache(): Record<string, string> {
   }
 }
 
+function forgetAuthConfig(app: string) {
+  try {
+    const map = readAuthCache();
+    delete map[app];
+    localStorage.setItem(AUTH_CACHE, JSON.stringify(map));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 function cacheAuthConfig(app: string, id: string) {
   try {
     localStorage.setItem(AUTH_CACHE, JSON.stringify({ ...readAuthCache(), [app]: id }));
@@ -224,36 +234,69 @@ async function authConfigId(app: string): Promise<string> {
 export async function connectToolkit(app: string): Promise<string> {
   const config = getComposio();
   if (!config) throw new ComposioError("This build has no Composio app key.");
-  const authConfig = await authConfigId(app);
   // tauri:// and localhost origins are not valid OAuth callbacks; Composio then
   // shows its own success page and the app picks the account up by polling.
   const here = window.location.href;
   const callback = /^https?:/i.test(here) ? here : undefined;
 
-  try {
-    const link = await api<any>("/connected_accounts/link", {
-      method: "POST",
-      body: JSON.stringify({
-        auth_config_id: authConfig,
-        user_id: config.userId,
-        ...(callback ? { callback_url: callback } : {}),
-      }),
-    });
-    if (link?.redirect_url) return link.redirect_url;
-  } catch {
-    /* projects without the link endpoint fall through */
-  }
+  const withAuthConfig = async (authConfig: string): Promise<string> => {
+    let linkError = "";
+    try {
+      const link = await api<any>("/connected_accounts/link", {
+        method: "POST",
+        body: JSON.stringify({
+          auth_config_id: authConfig,
+          user_id: config.userId,
+          ...(callback ? { callback_url: callback } : {}),
+        }),
+      });
+      const linkUrl = link?.redirect_url ?? link?.redirectUrl;
+      if (linkUrl) return linkUrl;
+      linkError = "Composio returned no redirect URL for the connect link.";
+    } catch (error) {
+      // Keep the reason: a deprecated or rejected endpoint must not turn into a
+      // silent second call with a stranger error message.
+      linkError = error instanceof Error ? error.message : String(error);
+    }
 
-  const created = await api<any>("/connected_accounts", {
-    method: "POST",
-    body: JSON.stringify({
-      auth_config: { id: authConfig },
-      connection: { user_id: config.userId, ...(callback ? { callback_url: callback } : {}) },
-    }),
-  });
-  const url = created?.redirect_url ?? created?.connectionData?.redirectUrl;
-  if (!url) throw new ComposioError("Composio did not return a redirect URL.");
-  return url;
+    try {
+      const created = await api<any>("/connected_accounts", {
+        method: "POST",
+        body: JSON.stringify({
+          auth_config: { id: authConfig },
+          connection: { user_id: config.userId, ...(callback ? { callback_url: callback } : {}) },
+        }),
+      });
+      const url =
+        created?.redirect_url ?? created?.redirectUrl ?? created?.connectionData?.redirectUrl;
+      if (url) return url;
+      throw new ComposioError(linkError || "Composio did not return a redirect URL for this app.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new ComposioError(
+        linkError && !message.includes(linkError) ? `${message} · connect link: ${linkError}` : message,
+      );
+    }
+  };
+
+  const cached = readAuthCache()[app];
+  if (cached) {
+    try {
+      return await withAuthConfig(cached);
+    } catch (first) {
+      // A saved auth config can belong to an older project or have been deleted
+      // in Composio. Make a current one and try the whole flow once more.
+      forgetAuthConfig(app);
+      const firstError = first instanceof Error ? first.message : String(first);
+      try {
+        return await withAuthConfig(await authConfigId(app));
+      } catch (second) {
+        const message = second instanceof Error ? second.message : String(second);
+        throw new ComposioError(message === firstError ? message : `${message} · first attempt: ${firstError}`);
+      }
+    }
+  }
+  return withAuthConfig(await authConfigId(app));
 }
 
 export async function revokeConnection(id: string): Promise<void> {

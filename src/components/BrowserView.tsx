@@ -28,6 +28,7 @@ import {
   agentScroll,
   agentType,
 } from "../lib/browserAgent";
+import { engineHealth } from "../lib/browserSidecar";
 import { flattenBookmarks, readBrowserBookmarks } from "../lib/bookmarks";
 import { ChromeBridgePanel } from "./ChromeBridgePanel";
 import { MarkGlyph } from "./Brand";
@@ -94,8 +95,24 @@ export function BrowserView({
   const [engineTick, setEngineTick] = useState(0);
   const [clickTarget, setClickTarget] = useState("");
   const [controlsOpen, setControlsOpen] = useState(false);
-  const [aiOpen, setAiOpen] = useState(false);
+  // The assistant is part of the browser, not a mode you discover: it opens
+  // beside the page on a wide window and remembers being closed.
+  const [aiOpen, setAiOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const saved = window.localStorage.getItem("lantas.browser.ai");
+    if (saved === "on") return true;
+    if (saved === "off") return false;
+    return window.innerWidth >= 1180;
+  });
   const [aiDraft, setAiDraft] = useState("");
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("lantas.browser.ai", aiOpen ? "on" : "off");
+    } catch {
+      // Private mode: the default still applies for this session.
+    }
+  }, [aiOpen]);
   const [driving, setDriving] = useState(() => aiDriving());
   const aiLogRef = useRef<HTMLDivElement>(null);
   const frameKey = useRef(0);
@@ -105,7 +122,27 @@ export function BrowserView({
   const trailIndex = useRef(0);
   const native = inTauri();
   const [engine, setEngine] = useState<BrowserEngine>(() => browserEngine());
+  const [sidecar, setSidecar] = useState<{ ok: boolean; detail: string; version?: string } | null>(
+    null,
+  );
   const bridge = useChromeBridge(engine === "chrome" && visible);
+
+  // The local browser engine (engine/run.sh) is optional; the chip only says
+  // whether a delegated task would work right now.
+  useEffect(() => {
+    let alive = true;
+    const check = () => {
+      void engineHealth().then((next) => {
+        if (alive) setSidecar(next);
+      });
+    };
+    check();
+    const timer = window.setInterval(check, 20_000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const active = data.tabs.find((tab) => tab.id === data.active) ?? data.tabs[0];
   const atHome = active.url === EL_HOME;
@@ -1305,6 +1342,26 @@ export function BrowserView({
           {controlsOpen ? "Hide page tools" : "Page tools"}
         </button>
         <span className="el-foot-spacer" />
+        <button
+          type="button"
+          className={cx("el-engine", sidecar?.ok && "is-on")}
+          title={
+            sidecar?.ok
+              ? "browser-use is running; the agent can delegate a whole task to it"
+              : "Optional: run bash engine/run.sh to let the agent delegate whole browsing tasks"
+          }
+          onClick={() => {
+            if (sidecar?.ok) {
+              notify(`Browser engine ready · ${sidecar.detail}`);
+              return;
+            }
+            void navigator.clipboard?.writeText("bash engine/run.sh");
+            notify("Copied: bash engine/run.sh — run it once to enable delegated tasks");
+          }}
+        >
+          <span className="el-engine-dot" />
+          {sidecar?.ok ? "browser-use" : "engine off"}
+        </button>
         <button
           type="button"
           className={cx("el-switch is-compact", driving && "is-on")}

@@ -53,6 +53,7 @@ import { cx, timeAgo, uid } from "../lib/util";
 import { AppLogo } from "./AppLogo";
 import { Icon } from "./Icons";
 import { Transcript } from "./Transcript";
+import { TrustPanelHead } from "./TrustPanelHead";
 
 const SHORTCUTS = [
   { name: "GitHub", slug: "github", url: "https://github.com" },
@@ -1142,34 +1143,18 @@ export function BrowserView({
 
         {aiOpen && (
           <aside className="el-ai" aria-label="Lantas">
-            <header className="el-ai-head">
-              <div className="el-ai-id">
-                <div className="el-ai-who">
-                  <span className="el-ai-title">Ask about this page</span>
-                  <small>{page?.title || (atHome ? "Lantas Browser" : hostOf(active.url) || "This tab")}</small>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="el-round"
-                onClick={() => {
-                  createSession();
-                  notify("Started a new browser chat");
-                }}
-                aria-label="New browser chat"
-                title="New browser chat"
-              >
-                <Icon name="plus" size={12} />
-              </button>
-              <button
-                type="button"
-                className="el-round"
-                onClick={() => setAiOpen(false)}
-                aria-label="Close assistant"
-              >
-                <Icon name="close" size={12} />
-              </button>
-            </header>
+            <TrustPanelHead
+              onNewChat={() => {
+                createSession();
+                notify("Started a new browser chat");
+              }}
+              onSettings={() =>
+                window.dispatchEvent(
+                  new CustomEvent("lantas:settings", { detail: { tab: "providers" } }),
+                )
+              }
+              onClose={() => setAiOpen(false)}
+            />
 
             <div className="el-ai-log" ref={aiLogRef}>
               <Transcript
@@ -1247,7 +1232,7 @@ export function BrowserView({
                   }
                 }}
                 rows={2}
-                placeholder={driving ? "Ask, or say what to do" : "Ask about this page"}
+                placeholder={driving ? "Ask AI anything, or say what to do" : "Ask AI anything"}
                 spellCheck={false}
                 aria-label="Ask Lantas"
               />
@@ -1312,7 +1297,7 @@ export function BrowserView({
             </form>
 
             <div className="el-ai-foot">
-              <span>{driving ? "Can read and act in this tab" : "Reads this tab, changes nothing"}</span>
+              <span>Lantas can browse the web. Check important info.</span>
               <span className="el-ai-hint">
                 {aiStreaming ? "Working" : driving ? "Step by step" : "Read only"}
               </span>

@@ -4,18 +4,14 @@
     <meta charset="utf-8" />
     <meta name="color-scheme" content="dark" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Lantas</title>
+    <title>ReUI Chat</title>
     <link rel="stylesheet" href="panel.css" />
   </head>
   <body>
     <header class="bar">
       <div class="ident">
-        <span class="glyph" aria-hidden="true">
-          <img src="icons/icon32.png" alt="" />
-        </span>
-        <span class="name-block">
-          <span class="name">Lantas</span>
-        </span>
+        <span class="name">ReUI Chat</span>
+        <span class="beta">Beta</span>
         <span class="conn" id="conn"><i id="dot"></i><span id="status-text">Offline</span></span>
       </div>
       <div class="bar-actions">
@@ -28,11 +24,10 @@
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
             <rect x="2.2" y="2.2" width="7.2" height="7.2" rx="1.6" /><rect x="6.6" y="6.6" width="7.2" height="7.2" rx="1.6" />
           </svg>
-          <span>Agents</span>
         </button>
         <button class="icon" id="new-chat" type="button" title="New chat" aria-label="New chat">
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
-            <path d="M8 3.5v9M3.5 8h9" />
+            <path d="M11.6 3.1a1.9 1.9 0 0 1 2.7 2.7l-7.2 7.2-3.5.8.8-3.5z" /><path d="m9.8 4.9 1.7 1.7" />
           </svg>
         </button>
       </div>
@@ -73,6 +68,20 @@
               <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 3 5 5-5 5" /></svg>
             </span>
             <span class="prompt-label">Review the content</span>
+            <span class="arrow">→</span>
+          </button>
+          <button type="button" data-prompt="Explain the most important section of this page.">
+            <span class="prompt-ic" aria-hidden="true">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 3 5 5-5 5" /></svg>
+            </span>
+            <span class="prompt-label">Explain the key section</span>
+            <span class="arrow">→</span>
+          </button>
+          <button type="button" data-prompt="Draft a short status update from what this page says.">
+            <span class="prompt-ic" aria-hidden="true">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 3 5 5-5 5" /></svg>
+            </span>
+            <span class="prompt-label">Draft a status update</span>
             <span class="arrow">→</span>
           </button>
         </div>

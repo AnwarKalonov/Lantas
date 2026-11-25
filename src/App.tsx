@@ -1648,6 +1648,12 @@ export function App() {
     return () => window.removeEventListener("lantas:compare", open);
   }, []);
 
+  // Compare is a chat overlay, not a fourth workspace tab. Leaving Chat closes
+  // it instead of letting the comparison sit on top of Code or Browser.
+  useEffect(() => {
+    if (state.mode !== "chat") setCompareOpen(false);
+  }, [state.mode]);
+
   const overlayOpen =
     paletteOpen ||
     compareOpen ||

@@ -25,6 +25,7 @@ const PATHS = {
   cursor: <path d="M5 3l6.2 17 2.2-6.6L20 11z" />,
   paperclip: <path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7-7l8-8a3.5 3.5 0 0 1 5 5l-8 8a2 2 0 0 1-2.8-2.8l7-7" />,
   sparkle: <><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" /></>,
+  bot: <><rect x="4" y="8" width="16" height="11" rx="3" /><path d="M12 4v4" /><path d="M9 16h6" /><circle cx="9" cy="13" r="1" fill="currentColor" stroke="none" /><circle cx="15" cy="13" r="1" fill="currentColor" stroke="none" /></>,
   star: <path d="M12 4.2l2.3 4.9 5.2.7-3.8 3.7.9 5.3-4.6-2.5-4.6 2.5.9-5.3-3.8-3.7 5.2-.7z" />,
   pin: <><path d="M12 17v5" /><path d="M9 3h6l-.7 5.2 3.2 2.8v1.5H6.5V11l3.2-2.8z" /></>,
   compass: <><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2 5-5 2 2-5z" /></>,

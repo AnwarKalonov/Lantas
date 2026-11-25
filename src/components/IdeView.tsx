@@ -32,6 +32,7 @@ import { Icon } from "./Icons";
 import { MonacoEditor } from "./MonacoEditor";
 import { TerminalPanel } from "./TerminalPanel";
 import { Transcript } from "./Transcript";
+import { TrustPanelHead } from "./TrustPanelHead";
 import { StagedDiffReview } from "./DiffViewer";
 
 type Activity = "explorer" | "search" | "git" | "extensions" | "skills";
@@ -1338,40 +1339,14 @@ export function IdeView({
 
         {assistantOpen && (
           <aside className="ide-assistant">
-            <div className="ide-assistant-head">
-              <div className="ide-assistant-id">
-                <span className="ide-assistant-title">Assistant</span>
-              </div>
-              <div className="ide-assistant-head-actions">
-                <ModelPicker
-                  provider={session?.provider ?? state.settings.defaultProvider}
-                  model={session?.model || defaultModel}
-                  onPick={pickModel}
-                  onConnect={onOpenSettings}
-                  className="ide-assistant-model"
-                />
-                <button
-                  type="button"
-                  className="ide-icon-button small"
-                  onClick={() => {
-                    createSession();
-                    notify("New thread ready");
-                  }}
-                  title="New chat"
-                  aria-label="New chat"
-                >
-                  <Icon name="plus" size={13} />
-                </button>
-                <button
-                  type="button"
-                  className="ide-icon-button small"
-                  onClick={() => setAssistantOpen(false)}
-                  aria-label="Close assistant"
-                >
-                  <Icon name="close" size={13} />
-                </button>
-              </div>
-            </div>
+            <TrustPanelHead
+              onNewChat={() => {
+                createSession();
+                notify("New thread ready");
+              }}
+              onSettings={onOpenSettings}
+              onClose={() => setAssistantOpen(false)}
+            />
 
             <Transcript
               session={session}
@@ -1509,6 +1484,13 @@ export function IdeView({
                     {activeFile.name}
                   </button>
                 )}
+                <ModelPicker
+                  provider={session?.provider ?? state.settings.defaultProvider}
+                  model={session?.model || defaultModel}
+                  onPick={pickModel}
+                  onConnect={onOpenSettings}
+                  className="ide-assistant-model trust-model"
+                />
                 <span className="ide-assistant-hint">⇧↵ new line</span>
                 <button
                   type="button"
@@ -1522,6 +1504,8 @@ export function IdeView({
                 </button>
               </div>
             </div>
+
+            <div className="trust-foot">Lantas can edit this folder. Check important info.</div>
 
             <button type="button" className="ide-assistant-open" onClick={onExit}>
               Open full chat

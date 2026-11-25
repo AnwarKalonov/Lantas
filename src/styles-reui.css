@@ -262,134 +262,6 @@
   font-size: 10px;
 }
 
-/* ── home ──────────────────────────────────────────────────────────────── */
-
-.home {
-  display: block;
-  padding: 0;
-  overflow-y: auto;
-}
-
-.home-inner {
-  width: min(576px, 100%);
-  max-width: 576px;
-  min-height: 100%;
-  margin: 0 auto;
-  padding: 40px 20px 10px;
-  display: flex;
-  flex-direction: column;
-}
-
-.home-head {
-  margin: 0;
-}
-
-.home-kicker {
-  margin: 0 0 10px;
-  font-size: 11px;
-  color: #6d6d6d;
-}
-
-.home-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-  line-height: 1.3;
-  letter-spacing: -0.015em;
-  color: #ececec;
-}
-
-.home-line {
-  margin: 6px 0 0;
-  max-width: 44ch;
-  font-size: 13px;
-  line-height: 1.5;
-  color: #9a9a9a;
-}
-
-.home-try {
-  margin: 32px 0 2px;
-  font-size: 11px;
-  color: #a0a0a0;
-}
-
-.suggestions {
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-}
-
-.suggestion {
-  grid-template-columns: 15px minmax(0, 1fr) 14px;
-  gap: 9px;
-  padding: 8px 5px;
-  border: 0;
-  border-bottom: 1px solid #242424;
-  border-radius: 0;
-}
-
-.suggestion:last-child {
-  border-bottom: 0;
-}
-
-.suggestion:hover {
-  background: #1b1b1b;
-  border-radius: 6px;
-}
-
-.suggestion-icon {
-  width: 15px;
-  height: 15px;
-  border-radius: 0;
-  color: #8a8a8a;
-}
-
-.suggestion-title {
-  font-size: 12.5px;
-  color: #c9c9c9;
-}
-
-.suggestion:hover .suggestion-title {
-  color: #ececec;
-}
-
-.suggestion-body {
-  display: none;
-}
-
-.suggestion-arrow {
-  color: #555555;
-}
-
-.home-spacer {
-  flex: 1;
-  min-height: 34px;
-}
-
-.home-composer {
-  padding-top: 10px;
-}
-
-.home-foot {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin-top: 10px;
-  padding: 0;
-  font-size: 10px;
-  color: #6d6d6d;
-}
-
-.home-foot-spacer {
-  display: none;
-}
-
-.home-foot-item {
-  gap: 5px;
-}
-
 /* ── chat thread ───────────────────────────────────────────────────────── */
 
 .session.chat {
@@ -730,7 +602,6 @@
 
 /* ── composer ──────────────────────────────────────────────────────────── */
 
-.home .composer,
 .session.chat .composer {
   padding: 9px 11px 8px;
   border: 1px solid #3a3a3a;
@@ -739,18 +610,15 @@
   box-shadow: none;
 }
 
-.home .composer:hover,
 .session.chat .composer:hover {
   border-color: #4a4a4a;
 }
 
-.home .composer:focus-within,
 .session.chat .composer:focus-within {
   border-color: rgba(207, 207, 207, 0.35);
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.07);
 }
 
-.home .composer-input,
 .session.chat .composer-input {
   min-height: 22px;
   padding: 0;
@@ -759,12 +627,10 @@
   color: #ececec;
 }
 
-.home .composer-input::placeholder,
 .session.chat .composer-input::placeholder {
   color: #8a8a8a;
 }
 
-.home .composer-bar,
 .session.chat .composer-bar {
   min-height: 0;
   margin-top: 7px;
@@ -776,7 +642,6 @@
   gap: 1px;
 }
 
-.home .bar-icon,
 .session.chat .bar-icon {
   width: 24px;
   height: 24px;
@@ -784,26 +649,20 @@
   color: #a8a8a8;
 }
 
-.home .bar-icon:hover,
 .session.chat .bar-icon:hover {
   background: #242424;
   color: #ececec;
 }
 
-/* The template keeps the bar to attach, model, one extra action, send.
-   Command, screen and pointer control remain available from Settings. */
-.home .bar-icon[title="Slash commands"],
+/* The thread keeps the template's short bar. The original home keeps its
+   command, screen and pointer controls. */
 .session.chat .bar-icon[title="Slash commands"],
-.home .bar-icon[title="Share this screen with Lantas"],
 .session.chat .bar-icon[title="Share this screen with Lantas"],
-.home .bar-icon[title="Pointer and keyboard control"],
 .session.chat .bar-icon[title="Pointer and keyboard control"],
-.home .bar-divider,
 .session.chat .bar-divider {
   display: none;
 }
 
-.home .bar-pill,
 .session.chat .bar-pill {
   height: 24px;
   padding: 0 7px;
@@ -813,8 +672,6 @@
   font-size: 12px;
 }
 
-.home .bar-pill:hover,
-.home .bar-pill.is-open,
 .session.chat .bar-pill:hover,
 .session.chat .bar-pill.is-open {
   background: #242424;
@@ -839,7 +696,6 @@
   opacity: 0.9;
 }
 
-.home .send-button,
 .session.chat .send-button {
   width: 28px;
   height: 28px;
@@ -848,18 +704,15 @@
   color: #111111;
 }
 
-.home .send-button:hover:not(:disabled),
 .session.chat .send-button:hover:not(:disabled) {
   opacity: 0.86;
 }
 
-.home .send-button:disabled,
 .session.chat .send-button:disabled {
   background: #242424;
   color: #555555;
 }
 
-.home .send-button.is-stop,
 .session.chat .send-button.is-stop {
   border-color: #3a3a3a;
   background: #161616;
@@ -872,7 +725,6 @@
   color: #555555;
 }
 
-.home .attach-chip,
 .session.chat .attach-chip {
   height: 24px;
   border-radius: 5px;
@@ -881,7 +733,6 @@
   font-size: 10.5px;
 }
 
-.home .composer-note,
 .session.chat .composer-note {
   display: flex;
   align-items: center;
@@ -895,7 +746,6 @@
   font-size: 10.5px;
 }
 
-.home .composer-note .text-button,
 .session.chat .composer-note .text-button {
   margin-left: auto;
   color: #c9c9c9;
@@ -1261,17 +1111,17 @@
 /* ── compare models ────────────────────────────────────────────────────── */
 
 .compare-overlay {
-  padding: 2vh 1.5vw;
-  background: rgba(0, 0, 0, 0.74);
+  padding: 4vh 3vw;
+  background: rgba(0, 0, 0, 0.62);
   backdrop-filter: blur(7px);
   -webkit-backdrop-filter: blur(7px);
 }
 
 .compare-sheet {
-  width: min(1440px, 97vw);
-  height: min(94vh, 980px);
+  width: min(1180px, 94vw);
+  height: min(86vh, 860px);
   border: 1px solid #2c2c2c;
-  border-radius: 10px;
+  border-radius: 14px;
   background: #0a0a0a;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
 }
@@ -1909,6 +1759,13 @@
   }
 }
 
+/* A white primary button needs its dark ink even when it also carries the
+   quiet-button class (the IDE's empty state does). */
+.button-primary,
+.button-primary.button-quiet {
+  color: var(--accent-ink);
+}
+
 @media (max-width: 720px) {
   .session.chat .transcript-inner {
     padding: 18px 16px 6px;
@@ -1918,12 +1775,309 @@
     padding: 4px 16px 10px;
   }
 
-  .home-inner {
-    padding: 30px 16px 8px;
-  }
-
   .sidebar.shell-nav {
     flex-basis: 260px;
     width: 260px;
   }
+}
+
+/* ── Trust in AI replies — boxed side chat (Code + Browser) ──────────────
+   The template's first panel, not a full-height edge rail: 408px box,
+   56px header, bot + title + chevron, three quiet actions, one measure of
+   text and the composer at the bottom. */
+
+.ide-assistant,
+.el .el-ai {
+  flex: 0 0 408px;
+  min-height: 0;
+  margin: 10px;
+  border: 1px solid #2c2c2c;
+  border-radius: 12px;
+  background: #1b1b1b;
+  overflow: hidden;
+}
+
+.trust-head {
+  flex: 0 0 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px 0 18px;
+  border-bottom: 1px solid #2c2c2c;
+  background: #1b1b1b;
+}
+
+.trust-head-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: #ececec;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.trust-head-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trust-bot {
+  flex: 0 0 auto;
+  color: #bbbbbb;
+}
+
+.trust-chev {
+  flex: 0 0 auto;
+  color: #6d6d6d;
+}
+
+.trust-head-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.trust-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  color: #c4c4c4;
+}
+
+.trust-icon:hover {
+  background: #2a2a2a;
+  color: #ececec;
+}
+
+.trust-foot {
+  flex: 0 0 auto;
+  padding: 8px 14px 10px;
+  color: #9a9a9a;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* IDE assistant: the same box, with its transcript and composer inside. */
+.ide-assistant .transcript {
+  flex: 1;
+  min-height: 0;
+  background: transparent;
+}
+
+.ide-assistant .transcript-inner {
+  max-width: none;
+  gap: 20px;
+  padding: 18px 22px 10px;
+}
+
+.ide-assistant .transcript-tail {
+  height: 4px;
+}
+
+.ide-assistant-empty {
+  padding: 0;
+}
+
+.ide-assistant-empty h3 {
+  margin: 0 0 4px;
+  color: #ececec;
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+.ide-assistant-empty p {
+  margin: 0 0 16px;
+  color: #9a9a9a;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.ide-assistant-suggestions {
+  gap: 0;
+}
+
+.ide-assistant-suggestions button {
+  padding: 7px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #a8a8a8;
+  font-size: 13px;
+  text-align: left;
+}
+
+.ide-assistant-suggestions button:hover {
+  border-color: transparent;
+  background: #242424;
+  color: #ececec;
+}
+
+.ide-assistant .user-card {
+  max-width: 92%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: #242424;
+}
+
+.ide-assistant .user-card p,
+.ide-assistant .md p,
+.ide-assistant .md li {
+  color: #d4d4d4;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ide-assistant-composer {
+  flex: 0 0 auto;
+  margin: 0 12px 8px;
+  padding: 10px 12px 8px;
+  border: 1px solid #3a3a3a;
+  border-radius: 10px;
+  background: #161616;
+}
+
+.ide-assistant-composer:focus-within {
+  border-color: #555555;
+}
+
+.ide-assistant-composer textarea {
+  min-height: 52px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #ececec;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.ide-assistant-composer textarea:focus {
+  border: 0;
+}
+
+.ide-assistant-composer textarea::placeholder {
+  color: #8a8a8a;
+}
+
+.ide-assistant-actions {
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ide-assistant-actions .ide-assistant-hint {
+  display: none;
+}
+
+.ide-assistant-actions .ide-send-button {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ededed;
+  color: #111111;
+}
+
+.ide-assistant-actions .ide-send-button:disabled {
+  background: #2a2a2a;
+  color: #555555;
+}
+
+.ide-assistant-model .mp-trigger {
+  height: 23px;
+  padding: 0 5px;
+  border: 0;
+  background: transparent;
+  color: #cfcfcf;
+  font-size: 11.5px;
+}
+
+.ide-assistant-model .mp-trigger:hover,
+.ide-assistant-model .mp-trigger.is-open {
+  background: #242424;
+  color: #ececec;
+}
+
+.ide-assistant-open {
+  flex: 0 0 30px;
+  border-top: 0;
+  color: #9a9a9a;
+  font-size: 11px;
+}
+
+.ide-assistant-open:hover {
+  background: #242424;
+  color: #ececec;
+}
+
+/* Browser assistant: the same box, sitting beside the page. */
+.el .el-ai {
+  background: #1b1b1b;
+}
+
+.el .el-ai-log {
+  gap: 16px;
+  padding: 20px 22px 10px;
+  background: #1b1b1b;
+}
+
+.el-ai-log .msg-user {
+  justify-content: flex-end;
+}
+
+.el-ai-log .user-card {
+  max-width: 90%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: #242424;
+}
+
+.el .el-ai-form {
+  margin: 0 14px 4px;
+  padding: 10px 12px 8px;
+  border-color: #3a3a3a;
+  border-radius: 10px;
+  background: #161616;
+}
+
+.el .el-ai-foot {
+  flex: 0 0 32px;
+  padding: 0 16px 8px;
+  color: #9a9a9a;
+  font-size: 10.5px;
+}
+
+@media (max-width: 1180px) {
+  .ide-assistant,
+  .el .el-ai {
+    flex-basis: 360px;
+  }
+}
+
+@media (max-width: 980px) {
+  .ide-assistant,
+  .el .el-ai {
+    flex-basis: 330px;
+  }
+}
+
+/* The original home composer keeps its rounder card and larger target dots. */
+.home .bar-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.home .bar-compare {
+  color: var(--text-2);
 }

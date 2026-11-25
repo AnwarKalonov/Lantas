@@ -3,6 +3,7 @@ import type { Attachment } from "../lib/types";
 import { SUGGESTIONS } from "../lib/data";
 import { isConfigured } from "../lib/providers";
 import { Composer } from "./Composer";
+import { Lockup } from "./Brand";
 import { Icon, type IconName } from "./Icons";
 
 const SUGGESTION_ICONS: Record<string, IconName> = {
@@ -28,16 +29,30 @@ export function Home({ onSend, onOpenSettings, onScreenToggle }: HomeProps) {
     <div className="home">
       <div className="home-inner">
         <div className="home-head">
+          <Lockup className="home-lockup" />
           {state.workspaceName ? (
             <p className="home-kicker">Working in {state.workspaceName}</p>
           ) : null}
-          <h1 className="home-title">What are we building?</h1>
+          <h1 className="home-title">Ask, build or browse</h1>
           <p className="home-line">
-            Lantas reads this folder, your screen and the page in front of you.
+            One thread for the folder, the screen and the page in front of you.
           </p>
         </div>
 
-        <p className="home-try">Try Asking</p>
+        <Composer
+          variant="home"
+          agent={state.settings.defaultAgent}
+          provider={state.settings.defaultProvider}
+          model={state.settings.defaultModel}
+          onAgentChange={(agent) => setSettings({ defaultAgent: agent })}
+          onModelChange={(provider, model) =>
+            setSettings({ defaultProvider: provider, defaultModel: model })
+          }
+          onOpenProviders={onOpenSettings}
+          onSend={onSend}
+          onScreenToggle={onScreenToggle}
+        />
+
         <div className="suggestions">
           {SUGGESTIONS.map((item) => (
             <button
@@ -47,42 +62,30 @@ export function Home({ onSend, onOpenSettings, onScreenToggle }: HomeProps) {
               onClick={() => onSend(item.prompt)}
             >
               <span className="suggestion-icon">
-                <Icon name={SUGGESTION_ICONS[item.icon]} size={13} />
+                <Icon name={SUGGESTION_ICONS[item.icon]} size={15} />
               </span>
               <span className="suggestion-title">{item.title}</span>
-              <Icon name="chevronRight" size={12} className="suggestion-arrow" />
+              <span className="suggestion-body">{item.body}</span>
+              <Icon name="chevronRight" size={14} className="suggestion-arrow" />
             </button>
           ))}
         </div>
 
-        <div className="home-spacer" />
-
-        <div className="home-composer">
-          <Composer
-            variant="home"
-            agent={state.settings.defaultAgent}
-            provider={state.settings.defaultProvider}
-            model={state.settings.defaultModel}
-            onAgentChange={(agent) => setSettings({ defaultAgent: agent })}
-            onModelChange={(provider, model) =>
-              setSettings({ defaultProvider: provider, defaultModel: model })
-            }
-            onOpenProviders={onOpenSettings}
-            onSend={onSend}
-            onScreenToggle={onScreenToggle}
-          />
-        </div>
-
         <div className="home-foot">
           <span className="home-foot-item">
-            <Icon name="folder" size={12} /> {state.workspaceName || "No folder"}
+            <Icon name="folder" size={13} /> {state.workspaceName || "No folder"}
           </span>
-          <span className="home-foot-spacer" />
+          <span className="home-foot-item">
+            <Icon name="branch" size={13} /> {state.workspaceName ? "main" : "—"}
+          </span>
           <span className="home-foot-item">
             <span className={`status-dot ${configured ? "is-ok" : "is-idle"}`} aria-hidden="true" />
-            {configured ? "Ready" : "No provider"}
+            {configured ? "Provider configured" : "No provider connected"}
           </span>
-          <span className="home-foot-item dim">Lantas can make mistakes.</span>
+          <span className="home-foot-spacer" />
+          <span className="home-foot-item dim">
+            {state.skills.filter((skill) => skill.enabled).length} skills on
+          </span>
         </div>
       </div>
     </div>

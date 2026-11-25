@@ -1,4 +1,5 @@
 import { httpFetch } from "./providers";
+import { siteForName, stripOpenCommand } from "./sites";
 
 const KEY = "lantas.el.v1";
 export const EL_HOME = "el://home";
@@ -98,20 +99,38 @@ export function saveEl(data: ElData) {
   }
 }
 
+/** Is this a hostname such as `github.com` or `example.co.uk/path`? */
+function isHostname(value: string): boolean {
+  return /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(value);
+}
+
 export function normalizeUrl(raw: string): string {
-  const value = raw.trim();
+  const original = raw.trim();
+  if (!original) return EL_HOME;
+  if (original === EL_HOME) return original;
+
+  // A command is not a search query. "Open GitHub" used to be typed into the
+  // address bar verbatim and became a Google search for the words "open
+  // github", which looked like the browser ignoring the request.
+  const { value, commanded } = stripOpenCommand(original);
   if (!value) return EL_HOME;
-  if (value === EL_HOME) return value;
+
   if (/^https?:\/\//i.test(value)) {
     try {
       // Do not hand a hostless string such as `https://` to the browser: it
       // renders as an empty page and looks like a successful navigation.
       if (new URL(value).hostname) return value;
     } catch {
-      /* fall through to search */
+      /* fall through */
     }
   }
-  if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(value)) return `https://${value}`;
+  if (isHostname(value)) return `https://${value}`;
+
+  // A named destination resolves to its real address before anything else.
+  const named = siteForName(value);
+  if (named) return named;
+
+  if (commanded) return EL_HOME;
   return `https://www.google.com/search?q=${encodeURIComponent(value)}`;
 }
 

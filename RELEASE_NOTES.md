@@ -1,3 +1,16 @@
+Lantas 1.0.8
+
+- **“Open X” opens X.** The address bar and the browser tool strip the command word, resolve the sites people actually name through an explicit table (GitHub, YouTube, Gmail, Drive, Notion, Reddit, Figma, ChatGPT, Claude, Spotify, Stack Overflow and the rest), and never turn a command into a Google query. A destination the table does not know comes back as a question for the model, not a search. Typing a real query still searches.
+- **The agent has a visible pointer.** Every click, field and scroll draws a blue cursor inside the page itself, with a ripple on a click, so you can watch where the work is happening. It is injected into the page, so it appears over the native webview that an app overlay cannot paint on.
+- **Provider markers are gone.** MiniMax streams `<]minimax[>` around its thinking, and the transcript used to print the brackets verbatim. They are filtered from the visible stream, including when a marker is split across deltas, while the raw stream stays intact for tool parsing. Chat-template tokens (`<|im_start|>` and friends) are removed too.
+- **A word is not a file.** Clicking a path now checks that it exists in the open folder before the window switches to the editor, so `newsletters` or `computer` in a sentence can no longer open an empty editor tab.
+- **Any window on the Mac can be attached.** A new button in the chat composer puts macOS into window-selection mode (`screencapture -w`): click a window and its snapshot is attached to the message. The screen toggle still captures the whole display per turn.
+- **The inbox reads broadly.** `inbox` and `search_email` page Composio’s cursor up to 300 messages each (ten pages of up to 100), and the tool text tells the model when to ask for a wide read instead of summarizing a page of ten.
+- **Faster turns.** On Anthropic the system prompt is marked as an ephemeral cache prefix, so later steps in the same turn no longer reprocess it.
+- **A quieter interface.** One warm graphite ramp, hairline separators and a single blue accent used for the probe, the focus ring and the active tab; prose is set in the UI face and monospace is kept for code, paths and figures; the mode switch, sidebar rows, suggestion list and composer share one spacing scale; uppercase tracked labels are gone.
+
+This build is ad-hoc signed and not notarized. macOS may ask you to approve Lantas once: open **System Settings → Privacy & Security**, click **Open Anyway**, and authenticate.
+
 Lantas 1.0.7
 
 - **Lantas asks before it acts.** A consent sheet on first launch lists files, commands, screen and computer control; every tool checks the grant before it runs, so a denied capability cannot reach the disk, a shell or the pointer. Settings → Permissions reopens it, and macOS keeps its own switches for Screen Recording and Accessibility with a button straight to the right pane.

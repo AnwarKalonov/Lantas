@@ -1242,7 +1242,7 @@ async function runIntegrationTool(args: Record<string, unknown>): Promise<ToolOu
       }
 
       case "inbox": {
-        const limit = Math.min(100, Math.max(1, Number(args.limit ?? 25) || 25));
+        const limit = Math.min(300, Math.max(1, Number(args.limit ?? 40) || 40));
         const items = await fetchInbox(limit, String(args.query ?? "is:unread"));
         return {
           ok: true,
@@ -1261,7 +1261,7 @@ async function runIntegrationTool(args: Record<string, unknown>): Promise<ToolOu
 
       case "search_email": {
         const query = String(args.query ?? "");
-        const limit = Math.min(100, Math.max(1, Number(args.limit ?? 25) || 25));
+        const limit = Math.min(300, Math.max(1, Number(args.limit ?? 40) || 40));
         const items = await searchEmails(query, limit);
         return {
           ok: true,
@@ -1363,6 +1363,7 @@ export const TOOL_MANUAL = [
   "",
   BROWSER_GUIDE,
   '- integrations {"action",...} — apps, tools {"toolkit"}, inbox {"limit","query"}, search_email {"query","limit"}, run {"slug","arguments"}.',
+  "- inbox reads up to 300 messages by paging Composio's cursor, and search_email the same. When the user asks what is in their mail, ask for enough: limit 50 to 100 covers a normal day, 200 when they say everything or a whole week. Never summarize from a single page of 10 if the question is about what needs attention; read broadly, then group the results.",
   '- deliver {"name","format?","content?","files?"} — build a file the user can download: txt, md, csv, json, html, svg, pdf, or zip (pass files: [{"name","content"}] for a zip). The format is inferred from the name when omitted. Use it for any "make me a …", "export", "write a report" or "bundle these files" request instead of pasting the whole thing into chat.',
   "",
   "Rules:",

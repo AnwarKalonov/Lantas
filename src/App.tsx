@@ -49,6 +49,7 @@ import {
   watchWorkspaceTree,
   writeWorkspacePath,
 } from "./lib/workspace";
+import { looksLikePath } from "./lib/paths";
 import { gitStatus } from "./lib/git";
 import { recordAudit } from "./lib/audit";
 import type { ChromeEvent } from "./lib/chrome";
@@ -1533,12 +1534,24 @@ export function App() {
   }, [state.mode, state.view, activeSession, state.workspaceName]);
 
   const openFile = useCallback(
-    (path: string, line?: number) => {
-      const clean = path.replace(/^\.\//, "");
+    async (path: string, line?: number) => {
+      const clean = path.replace(/^\.\//, "").replace(/^\/+/, "");
+      // A word in a sentence is not a file. Before switching the whole app to
+      // the editor, make sure the path is real in this folder; otherwise the
+      // click only explains why nothing opened.
+      if (!looksLikePath(clean)) return;
+      const root = state.workspaceRoot;
+      if (root) {
+        const text = await readWorkspacePath(root, clean).catch(() => null);
+        if (text === null) {
+          notify(`${clean} is not in this folder`);
+          return;
+        }
+      }
       setMode("code");
       setFileRequest({ path: clean, line, nonce: Date.now() });
     },
-    [setMode],
+    [notify, setMode, state.workspaceRoot],
   );
 
   const openCli = useCallback(() => {

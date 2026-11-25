@@ -384,6 +384,41 @@ fn screen_capture() -> Result<String, String> {
     }
 }
 
+/// One still frame of a window the user picks.
+///
+/// `screencapture -w` puts macOS into window-selection mode: the pointer turns
+/// into a camera, and the next click captures that window. Screen Recording
+/// permission applies, and Escape cancels without producing a file.
+#[tauri::command]
+fn screen_capture_window() -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+        let path = std::env::temp_dir().join(format!("lantas-window-{}.jpg", std::process::id()));
+        let status = std::process::Command::new("/usr/sbin/screencapture")
+            .args(["-x", "-w", "-t", "jpg"])
+            .arg(&path)
+            .status()
+            .map_err(|error| format!("Could not start window capture: {error}"))?;
+        if !status.success() || !path.exists() {
+            return Err("No window was captured. Click a window when the camera pointer appears, or press Escape to cancel.".to_string());
+        }
+        let bytes = std::fs::read(&path)
+            .map_err(|error| format!("Could not read the window capture: {error}"))?;
+        let _ = std::fs::remove_file(&path);
+        if bytes.is_empty() {
+            return Err("The window capture was empty. Check Screen Recording permission.".to_string());
+        }
+        Ok(STANDARD.encode(bytes))
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Window capture is available in the macOS build.".to_string())
+    }
+}
+
 fn open_in_browser(url: &str, prefer_chrome: bool) -> Result<(), String> {
     let parsed = parse_url(url)?;
     let target = parsed.as_str();
@@ -559,6 +594,7 @@ pub fn run() {
             open_in_vscode,
             open_privacy_settings,
             screen_capture,
+            screen_capture_window,
             git::git_status,
             git::git_diff,
             git::git_stage,

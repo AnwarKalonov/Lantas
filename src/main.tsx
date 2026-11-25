@@ -12,6 +12,7 @@ import "./styles-activity.css";
 import "./styles-chat.css";
 import "./styles-code.css";
 import "./styles-permissions.css";
+import "./styles-polish.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

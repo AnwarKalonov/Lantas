@@ -3,6 +3,8 @@ import { useStore } from "../lib/store";
 import { AGENTS, PROVIDERS, SLASH_COMMANDS } from "../lib/data";
 import { isConfigured, isFreeModel, prettyModel } from "../lib/providers";
 import { fileKind } from "../lib/workspace";
+import { inTauri } from "../lib/native";
+import { captureNativeWindow } from "../lib/screen";
 import type { AgentId, Attachment, ProviderId } from "../lib/types";
 import { cx, uid } from "../lib/util";
 import { Icon } from "./Icons";
@@ -151,6 +153,30 @@ export function Composer({
     }
     setAttachments((current) => [...current, ...next]);
     notify(`${next.length} file${next.length === 1 ? "" : "s"} attached`);
+  };
+
+  /**
+   * Attach a snapshot of any window on the Mac.
+   *
+   * macOS shows its camera pointer, the user clicks the window, and the shot
+   * arrives as an image attachment on this message. Only one still per click:
+   * a window cannot be streamed into a WKWebView without ScreenCaptureKit.
+   */
+  const attachWindow = async () => {
+    try {
+      const frame = await captureNativeWindow();
+      if (!frame) {
+        notify("No window was captured", "error");
+        return;
+      }
+      setAttachments((current) => [
+        ...current,
+        { id: uid("att"), name: "window.jpg", size: frame.length, kind: "image", body: frame },
+      ]);
+      notify("Window attached");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Window capture failed", "error");
+    }
   };
 
   const submit = () => {
@@ -367,11 +393,22 @@ export function Composer({
                 if (onScreenToggle) onScreenToggle();
                 else setSettings({ screenAccess: !state.settings.screenAccess });
               }}
-              title="Read the frontmost window"
-              aria-label="Screen access"
+              title="Share this screen with Lantas"
+              aria-label="Share this screen"
             >
               <Icon name="screen" size={14} />
             </button>
+            {inTauri() && (
+              <button
+                type="button"
+                className="bar-icon"
+                onClick={() => void attachWindow()}
+                title="Attach a window from this Mac"
+                aria-label="Attach a window"
+              >
+                <Icon name="frame" size={14} />
+              </button>
+            )}
             <button
               type="button"
               className={cx("bar-icon", state.settings.computerControl && "is-on")}

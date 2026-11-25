@@ -232,6 +232,53 @@ export function clickScript(target: string): string {
   `;
 }
 
+/**
+ * Draw the agent's pointer inside the page.
+ *
+ * The browser is a native child webview, so an overlay in the app's own DOM
+ * cannot paint over it. The page can: this injects one fixed element above
+ * everything else and moves it to where the agent is working, with a ripple
+ * for a click. It is created once and reused, and hides itself after a pause.
+ */
+export function pointerScript(x: number, y: number, kind: string): string {
+  return `
+    const px = ${Math.max(0, Math.round(Number(x) || 0))};
+    const py = ${Math.max(0, Math.round(Number(y) || 0))};
+    const kind = ${quote(kind)};
+    const ID = "lantas-agent-pointer";
+    let node = document.getElementById(ID);
+    if (!node || !node.shadowRoot) {
+      node = document.createElement("div");
+      node.id = ID;
+      node.style.cssText = "all:initial;position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none;width:0;height:0;transition:transform .22s cubic-bezier(.2,.75,.3,1);will-change:transform";
+      const root = node.attachShadow({ mode: "open" });
+      root.innerHTML =
+        '<style>' +
+        '.arrow{position:absolute;left:0;top:0;width:18px;height:24px;filter:drop-shadow(0 2px 5px rgba(8,20,40,.35));}' +
+        '.ring{position:absolute;left:-14px;top:-14px;width:28px;height:28px;border-radius:50%;border:2px solid #3b82f6;opacity:0;}' +
+        '.ring.on{animation:ripple .55s ease-out;}' +
+        '.dot{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.18);}' +
+        '@keyframes ripple{0%{opacity:.85;transform:scale(.35)}100%{opacity:0;transform:scale(1.5)}}' +
+        '</style>' +
+        '<svg class="arrow" viewBox="0 0 18 24" aria-hidden="true">' +
+        '<path d="M2 1.5 16 13.5l-6.4.9 3.2 6.1-2.8 1.4-3.1-6.2L2 19.7z" fill="#2563eb" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/>' +
+        '</svg>' +
+        '<span class="ring"></span><span class="dot"></span>';
+      document.documentElement.appendChild(node);
+    }
+    node.style.transform = "translate(" + px + "px," + py + "px)";
+    node.style.opacity = "1";
+    const root = node.shadowRoot;
+    if (kind === "click") {
+      const ring = root.querySelector(".ring");
+      if (ring) { ring.classList.remove("on"); void ring.offsetWidth; ring.classList.add("on"); }
+    }
+    clearTimeout(window.__lantasPointerTimer);
+    window.__lantasPointerTimer = setTimeout(() => { if (node) node.style.opacity = "0"; }, 3000);
+    return { ok: true };
+  `;
+}
+
 /** Click the element the latest snapshot tagged with this ref. */
 export function clickRefScript(index: number): string {
   const ref = Math.max(0, Math.floor(Number(index) || 0));
@@ -338,7 +385,13 @@ export function typeScript(text: string, selector: string | undefined, submit: b
       if (form && typeof form.requestSubmit === "function") form.requestSubmit();
     }
 
-    return { ok: true, detail: labelOf(el) };
+    const box = el.getBoundingClientRect();
+    return {
+      ok: true,
+      detail: labelOf(el),
+      x: Math.round(box.left + box.width / 2),
+      y: Math.round(box.top + box.height / 2),
+    };
   `;
 }
 

@@ -8,6 +8,7 @@ import {
   type ChromeTab,
 } from "./chrome";
 import { getElContext, loadEl, setElContext, type ElPage } from "./el";
+import { siteForName, stripOpenCommand } from "./sites";
 import {
   checkedStateScript,
   clickAtScript,
@@ -15,6 +16,7 @@ import {
   clickScript,
   evaluateScript,
   hoverScript,
+  pointerScript,
   pressScript,
   scrollScript,
   selectScript,
@@ -64,19 +66,32 @@ export type BrowserAddress = { ok: true; url: string } | { ok: false; error: str
  * error so the model can choose the real page on its next step.
  */
 export function parseBrowserAddress(raw: string): BrowserAddress {
-  const value = String(raw ?? "")
+  const original = String(raw ?? "")
     .trim()
     .replace(/^[`"']+|[`"']+$/g, "")
     .trim();
 
-  if (!value) {
+  if (!original) {
     return { ok: false, error: "No address was given. Choose the exact page and call navigate with a full https:// URL." };
   }
+
+  // The user's words are not the URL. "Open GitHub" is a destination, so the
+  // verb is removed and a named site becomes its real address instead of a
+  // query string or a rejection the model may answer with a search.
+  const { value, commanded } = stripOpenCommand(original);
+  if (!value) {
+    return { ok: false, error: "That was a command with no destination. Decide the page the user means and call navigate again." };
+  }
+
+  const named = siteForName(value);
+  if (named) return { ok: true, url: named };
 
   if (/\s/.test(value)) {
     return {
       ok: false,
-      error: `“${value}” is not a web address. Decide the exact page yourself and call navigate with a complete https:// URL.`,
+      error: commanded
+        ? `“${original}” names something that is not in the site table. Decide its real domain yourself and call navigate with that address; do not send the sentence to a search engine.`
+        : `“${value}” is not a web address. Decide the exact page yourself and call navigate with a complete https:// URL.`,
     };
   }
 
@@ -217,6 +232,29 @@ export async function waitForNativePage(
 
 /* --------------------------------------------------------------- actions */
 
+/**
+ * Move the visible pointer to where the agent is working.
+ *
+ * Best effort on purpose: a page that blocks injected elements must never make
+ * the action itself fail, so the result is ignored.
+ */
+function drawPointer(x: number, y: number, kind: "move" | "click" | "type" | "scroll") {
+  if (activeEngine() === "chrome") return;
+  void runInPage(pointerScript(x, y, kind)).catch(() => {});
+}
+
+async function pointerAt(fallback?: { x: number; y: number }) {
+  if (fallback) return fallback;
+  try {
+    const box = await runInPage<{ x: number; y: number }>(
+      "return { x: Math.round((window.innerWidth || 1200) / 2), y: Math.round((window.innerHeight || 800) / 2) };",
+    );
+    return box ?? { x: 600, y: 400 };
+  } catch {
+    return { x: 600, y: 400 };
+  }
+}
+
 export async function agentClick(target: string): Promise<boolean> {
   if (activeEngine() === "chrome") {
     try {
@@ -231,8 +269,16 @@ export async function agentClick(target: string): Promise<boolean> {
     }
   }
 
-  const result = await runInPage<{ ok: boolean; error?: string }>(clickScript(target));
+  const result = await runInPage<{ ok: boolean; error?: string; x?: number; y?: number }>(
+    clickScript(target),
+  );
   if (!result?.ok) return false;
+  const point = await pointerAt(
+    typeof result.x === "number" && typeof result.y === "number"
+      ? { x: result.x, y: result.y }
+      : undefined,
+  );
+  drawPointer(point.x, point.y, "click");
   await sleep(200);
   return true;
 }
@@ -247,8 +293,14 @@ export async function agentClickRef(index: number): Promise<boolean> {
     }
   }
 
-  const result = await runInPage<{ ok: boolean }>(clickRefScript(index));
+  const result = await runInPage<{ ok: boolean; x?: number; y?: number }>(clickRefScript(index));
   if (!result?.ok) return false;
+  const point = await pointerAt(
+    typeof result.x === "number" && typeof result.y === "number"
+      ? { x: result.x, y: result.y }
+      : undefined,
+  );
+  drawPointer(point.x, point.y, "click");
   await sleep(200);
   return true;
 }
@@ -267,10 +319,16 @@ export async function agentType(
     }
   }
 
-  const result = await runInPage<{ ok: boolean; error?: string }>(
+  const result = await runInPage<{ ok: boolean; error?: string; x?: number; y?: number }>(
     typeScript(text, selector, submit),
   );
   if (!result?.ok) return false;
+  const point = await pointerAt(
+    typeof result.x === "number" && typeof result.y === "number"
+      ? { x: result.x, y: result.y }
+      : undefined,
+  );
+  drawPointer(point.x, point.y, "type");
   await sleep(250);
   return true;
 }
@@ -308,6 +366,10 @@ export async function agentScroll(pixels: number): Promise<boolean> {
   // The script scrolls the surface under the pointer and reports whether
   // anything actually moved, so "scrolled" never means "asked to scroll".
   const result = await runInPage<{ ok: boolean; moved?: number }>(scrollScript(pixels));
+  if (result?.ok) {
+    const point = await pointerAt();
+    drawPointer(point.x, point.y, "scroll");
+  }
   await sleep(180);
   return Boolean(result?.ok);
 }
@@ -533,6 +595,7 @@ export async function agentClickAt(x: number, y: number): Promise<boolean> {
 
   const result = await runInPage<{ ok: boolean; error?: string }>(clickAtScript(px, py));
   if (!result?.ok) return false;
+  drawPointer(px, py, "click");
   await sleep(250);
   return true;
 }

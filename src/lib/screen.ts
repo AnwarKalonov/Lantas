@@ -28,6 +28,20 @@ export async function captureNativeScreen(): Promise<string | null> {
   return encoded ? `data:image/jpeg;base64,${encoded}` : null;
 }
 
+/**
+ * One frame of a window the user picks with the macOS camera pointer.
+ *
+ * A live stream of a single window is not possible from a WKWebView without
+ * ScreenCaptureKit, so this attaches one still at a time. The picker is the
+ * same click-to-capture affordance as ⌘⇧4 then Space.
+ */
+export async function captureNativeWindow(): Promise<string | null> {
+  if (!inTauri()) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  const encoded = await invoke<string>("screen_capture_window");
+  return encoded ? `data:image/jpeg;base64,${encoded}` : null;
+}
+
 export async function acquireScreen(): Promise<MediaStream> {
   if (active) return active;
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getDisplayMedia) {

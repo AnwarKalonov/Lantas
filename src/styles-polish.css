@@ -1,0 +1,442 @@
+/* ==========================================================================
+   Polish pass
+   --------------------------------------------------------------------------
+   The chrome stays quiet: one warm graphite ramp, hairline separators, and a
+   single blue probe that marks where the agent is working (its cursor, the
+   streaming caret, the active tool). Type is one family; monospace is reserved
+   for code, paths and figures, not for labels.
+   ========================================================================== */
+
+:root,
+[data-theme="dark"] {
+  --probe: #4c8dff;
+  --probe-soft: rgba(76, 141, 255, 0.16);
+  --probe-line: rgba(76, 141, 255, 0.38);
+
+  /* Slightly deeper steps so panels separate without borders everywhere. */
+  --bg: #0a0a0b;
+  --surface: #121213;
+  --raised: #19191b;
+  --raised-2: #202023;
+  --line: rgba(241, 239, 233, 0.085);
+  --line-strong: rgba(241, 239, 233, 0.16);
+  --text-2: #b8b6ae;
+  --text-3: #8a887f;
+
+  --accent: #4c8dff;
+  --accent-ink: #07101f;
+  --accent-soft: rgba(76, 141, 255, 0.16);
+}
+
+[data-theme="light"] {
+  --probe: #2563eb;
+  --probe-soft: rgba(37, 99, 235, 0.12);
+  --probe-line: rgba(37, 99, 235, 0.34);
+
+  --accent: #2563eb;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(37, 99, 235, 0.12);
+}
+
+/* ------------------------------------------------------------------ type */
+
+.md {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.66;
+  letter-spacing: 0.001em;
+}
+
+.md p {
+  margin: 0 0 12px;
+}
+
+.md p:last-child {
+  margin-bottom: 0;
+}
+
+.md h1 {
+  font-size: 19px;
+  letter-spacing: -0.01em;
+}
+
+.md h2 {
+  font-size: 16.5px;
+  letter-spacing: -0.005em;
+}
+
+.md h3,
+.md h4 {
+  font-size: 14.5px;
+}
+
+.md li {
+  margin: 4px 0;
+}
+
+.md code {
+  font-size: 12.5px;
+  padding: 1.5px 5px;
+  border-radius: 5px;
+}
+
+.md pre,
+.md-code pre {
+  line-height: 1.6;
+}
+
+/* Chat rhythm: a little more air between turns, none inside them. */
+.msg {
+  padding: 16px 0;
+}
+
+.msg + .msg {
+  border-top: 1px solid var(--line);
+}
+
+.assistant-block {
+  gap: 10px;
+}
+
+.assistant-head {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.assistant-foot {
+  font-size: 11px;
+  color: var(--text-4);
+}
+
+.stream-caret {
+  background: var(--probe);
+}
+
+/* -------------------------------------------------------------- composer */
+
+.composer {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.composer:focus-within {
+  border-color: var(--line-strong);
+  box-shadow: 0 0 0 2px var(--probe-soft);
+}
+
+.composer textarea,
+.composer-input {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.55;
+  padding: 14px 16px 6px;
+}
+
+/* The card's border already shows focus; a second ring inside reads as a bug. */
+.composer-input:focus,
+.composer-input:focus-visible {
+  outline: none;
+}
+
+.composer-input::placeholder {
+  color: var(--text-4);
+}
+
+.composer-bar {
+  padding: 4px 10px 10px;
+}
+
+.bar-icon {
+  width: 30px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--text-3);
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.bar-icon:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.bar-icon.is-on {
+  background: var(--probe-soft);
+  color: var(--probe);
+}
+
+.bar-pill {
+  height: 28px;
+  border-radius: 8px;
+  padding: 0 9px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.bar-pill:hover,
+.bar-pill.is-open {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.bar-divider {
+  height: 14px;
+}
+
+.bar-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.bar-dot.is-live {
+  background: var(--ok);
+}
+
+.send-button,
+.composer-send {
+  border-radius: 8px;
+}
+
+.attach-chip {
+  border-radius: 7px;
+  font-size: 11.5px;
+}
+
+/* --------------------------------------------------------------- sidebar */
+
+.thread-row {
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 8px;
+  gap: 8px;
+}
+
+.thread-row:hover {
+  background: var(--raised);
+}
+
+.thread-row.is-active {
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.thread-title {
+  font-size: 12.5px;
+}
+
+.thread-time {
+  font-size: 10.5px;
+  color: var(--text-4);
+}
+
+.new-thread {
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  transition:
+    border-color 140ms ease,
+    color 140ms ease,
+    background 140ms ease;
+}
+
+.new-thread:hover {
+  border-color: var(--probe-line);
+  background: var(--probe-soft);
+  color: var(--text);
+}
+
+.project-head {
+  height: 28px;
+}
+
+.project-name {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.rail-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.rail-button.is-active {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.nav-heading-label {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-4);
+}
+
+/* ------------------------------------------------------------------ home */
+
+.hero-lockup,
+.hero-lockup svg {
+  max-width: 188px;
+  height: auto;
+}
+
+.hero {
+  gap: 10px;
+  margin-bottom: 26px;
+}
+
+.hero-line {
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  color: var(--text-3);
+  letter-spacing: 0.01em;
+}
+
+.suggestions {
+  gap: 6px;
+}
+
+.suggestion {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: transparent;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.suggestion:hover {
+  background: var(--raised);
+  border-color: var(--line-strong);
+}
+
+.suggestion-title {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.suggestion-body {
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.home-foot {
+  font-size: 11px;
+  color: var(--text-4);
+}
+
+.home-foot-item {
+  gap: 6px;
+}
+
+/* -------------------------------------------------------------- titlebar */
+
+.titlebar {
+  border-bottom: 1px solid var(--line);
+}
+
+.mode-tabs {
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.mode-tab {
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.mode-tab:hover {
+  color: var(--text);
+}
+
+.mode-tab.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+/* The underline read as a second indicator on top of the raised tab. */
+.mode-tab::after,
+.mode-tab.is-active::after {
+  display: none;
+}
+
+.icon-button {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+
+.update-pill {
+  border-radius: 8px;
+}
+
+/* Prose is the UI face; monospace is for code, paths, addresses and figures. */
+.hero p,
+.home-inner p,
+.el-hero p,
+.el-copy,
+.el-ai-empty p,
+.el-ai p,
+.el-ai-body,
+.el-dock p,
+.browser-dock p,
+.ide-welcome p,
+.ide-assistant p {
+  font-family: var(--font-ui);
+}
+
+.el-hero p,
+.el-ai p,
+.el-ai-body {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ------------------------------------------------ sentence-case labels */
+
+.nav-heading-label,
+.project-name,
+.ide-welcome-kicker,
+.ide-msg-role,
+.ide-gh-subhead,
+.el-kicker,
+.el-ai-role,
+.el-chrome-section-head span,
+.browser-dock-kicker,
+.browser-dock-live,
+.mp-group-head,
+.perm-kicker,
+.market-cat,
+.el .el-ai-eyebrow,
+.el .el-ai-empty .el-ai-eyebrow,
+.el-dock-kicker,
+.el-ai-foot span,
+.el-chrome-section-head span,
+.el-ai-role,
+.browser-dock-kicker,
+.browser-dock-live {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Focus is the same colour everywhere, so keyboard use is obvious. */
+:focus-visible {
+  outline: 2px solid var(--probe-line);
+  outline-offset: 2px;
+}

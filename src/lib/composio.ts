@@ -460,22 +460,21 @@ export async function fetchInboxPage(options: {
 }
 
 /**
- * Reads up to `limit` messages, following the page cursor. Three round trips is
- * enough for a normal inbox read and keeps a single prompt from hanging on a
- * slow upstream.
+ * Reads up to `limit` messages, following the page cursor. A large inbox read
+ * is several round trips, capped so one prompt cannot hang on a slow upstream.
  */
 export async function fetchInbox(
   limit = 25,
   query = "is:unread",
 ): Promise<InboxItem[]> {
-  const wanted = Math.min(Math.max(1, limit), 200);
+  const wanted = Math.min(Math.max(1, limit), 500);
   const items: InboxItem[] = [];
   const seen = new Set<string>();
   let cursor: string | null = null;
 
-  for (let page = 0; page < 4 && items.length < wanted; page += 1) {
+  for (let page = 0; page < 10 && items.length < wanted; page += 1) {
     const result = await fetchInboxPage({
-      limit: Math.min(50, wanted - items.length),
+      limit: Math.min(100, wanted - items.length),
       cursor,
       query,
     });

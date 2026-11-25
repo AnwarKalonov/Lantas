@@ -1,5 +1,6 @@
 import type { ProviderConfig, ProviderId, ProviderMeta } from "./types";
 import { PROVIDERS } from "./data";
+import { MarkerFilter } from "./text";
 
 /* ------------------------------------------------------------------ *
  * HTTP bridge
@@ -165,7 +166,20 @@ async function streamAnthropic(options: StreamOptions): Promise<void> {
       model: options.model,
       max_tokens: 4096,
       stream: true,
-      ...(options.system ? { system: options.system } : {}),
+      // Cache the system prompt: an agent turn re-sends it on every step, and
+      // Anthropic charges and processes a cached prefix far faster than a cold
+      // one. Providers that ignore the field simply ignore it.
+      ...(options.system
+        ? {
+            system: [
+              {
+                type: "text",
+                text: options.system,
+                cache_control: { type: "ephemeral" },
+              },
+            ],
+          }
+        : {}),
       messages: options.messages.map((message) =>
         message.images?.length
           ? {
@@ -511,11 +525,16 @@ export async function streamChat(options: StreamOptions): Promise<void> {
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     let started = false;
+    // Strip provider control markers before they reach the transcript, while
+    // keeping the raw text available to the tool parser.
+    const filter = new MarkerFilter();
     const wrapped: StreamOptions = {
       ...options,
       onDelta: (chunk) => {
+        const clean = filter.push(chunk);
+        if (!clean) return;
         started = true;
-        options.onDelta(chunk);
+        options.onDelta(clean);
       },
     };
 
@@ -524,6 +543,8 @@ export async function streamChat(options: StreamOptions): Promise<void> {
       else if (meta.kind === "google") await streamGoogle(wrapped);
       else if (meta.kind === "ollama") await streamOllama(wrapped);
       else await streamOpenAI(wrapped);
+      const rest = filter.end();
+      if (rest) options.onDelta(rest);
       return;
     } catch (error) {
       lastError = error;

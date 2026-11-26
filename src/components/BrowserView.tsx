@@ -55,7 +55,6 @@ import { AppLogo } from "./AppLogo";
 import { Icon } from "./Icons";
 import { Transcript } from "./Transcript";
 import { getActiveUserAsk, skipUserAsk, subscribeUserAsk } from "../lib/userAsk";
-import { AgentQuestion } from "./AgentQuestion";
 import { TrustPalette, TrustPanelHead } from "./TrustPanelHead";
 
 const SHORTCUTS = [
@@ -1344,8 +1343,6 @@ export function BrowserView({
                 </button>
               </div>
             )}
-
-            <AgentQuestion />
 
             <form className="trust-composer" onSubmit={submitAsk}>
               {aiFiles.length > 0 && (

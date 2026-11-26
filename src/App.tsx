@@ -70,6 +70,7 @@ import { cx, titleFrom, uid } from "./lib/util";
 import { BrowserView } from "./components/BrowserView";
 import { BrowserActivityDock } from "./components/BrowserActivityDock";
 import { ScreenShare } from "./components/ScreenShare";
+import { AgentQuestion } from "./components/AgentQuestion";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { IdeView } from "./components/IdeView";
 import { setEngineModel } from "./lib/browserSidecar";
@@ -1855,6 +1856,11 @@ export function App() {
       )}
 
       <ScreenShare />
+
+      {/* A question from the browser agent is answered in place, over whatever
+          surface is open. Keeping it inside the browser panel meant a closed
+          rail hid the form while the turn waited. */}
+      <AgentQuestion />
 
       <CommandPalette
         open={paletteOpen}

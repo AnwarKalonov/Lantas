@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "../lib/store";
-import { inTauri, overlayHide, overlayShow } from "../lib/native";
+import {
+  inTauri,
+  openPrivacySettings,
+  overlayHide,
+  overlayShow,
+  requestScreenPermission,
+  revealApp,
+  screenPermission,
+} from "../lib/native";
 import { acquireScreen, captureFrame, captureNativeScreen, currentScreen } from "../lib/screen";
 import { isConfigured, streamChat, type ChatTurn } from "../lib/providers";
 import { Icon } from "./Icons";
@@ -58,11 +66,32 @@ export function ScreenShare() {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState("");
   const [hint, setHint] = useState<ScreenPoint | null>(null);
+  // null means "not checked yet" (or an older build without the command).
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [checking, setChecking] = useState(false);
   const history = useRef<ChatTurn[]>([]);
   const controller = useRef<AbortController | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hideTimer = useRef<number | undefined>(undefined);
   const native = inTauri();
+
+  // macOS keeps Screen Recording behind a switch the user owns. Ask whether
+  // the switch is on while the card is open, so it can show the one action
+  // that works instead of failing every preview frame.
+  useEffect(() => {
+    if (!native || !open) return;
+    let alive = true;
+    const check = async () => {
+      const value = await screenPermission();
+      if (alive && value !== null) setAllowed(value);
+    };
+    void check();
+    const timer = window.setInterval(check, 2500);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [native, open]);
 
   const grab = useCallback(async (): Promise<string | null> => {
     if (native) return captureNativeScreen();
@@ -74,7 +103,7 @@ export function ScreenShare() {
   // native side refreshes one still at a time. Slow enough to stay cheap,
   // fast enough to see the page you just moved to.
   useEffect(() => {
-    if (!native || !open) return;
+    if (!native || !open || allowed === false) return;
     let alive = true;
     let pending = false;
     const tick = async () => {
@@ -95,7 +124,7 @@ export function ScreenShare() {
       alive = false;
       window.clearInterval(timer);
     };
-  }, [native, open, grab]);
+  }, [native, open, allowed, grab]);
 
   useEffect(() => {
     if (native || !open) return;
@@ -149,9 +178,25 @@ export function ScreenShare() {
     [native],
   );
 
+  /** Registers Lantas with the macOS list and opens the switch for the user. */
+  const askAccess = async () => {
+    setChecking(true);
+    try {
+      const granted = await requestScreenPermission();
+      if (granted !== null) setAllowed(granted);
+      if (!granted) await openPrivacySettings("screen");
+    } finally {
+      setChecking(false);
+    }
+  };
+
   const send = async (text: string) => {
     const question = text.trim();
     if (!question || busy || !open) return;
+    if (native && allowed === false) {
+      notify("Allow Lantas in Screen Recording first", "error");
+      return;
+    }
     const provider = state.settings.defaultProvider;
     const config = state.settings.providers[provider];
     const model = state.settings.defaultModel;
@@ -249,7 +294,41 @@ export function ScreenShare() {
       </header>
 
       <div className="ss-preview">
-        {native ? (
+        {native && allowed === false ? (
+          <div className="ss-perm">
+            <Icon name="shield" size={19} />
+            <strong>Allow screen access</strong>
+            <p>
+              macOS keeps this switch with you. Lantas asks macOS now and opens the right
+              settings pane; turn Lantas on there. If it was already on, quit and reopen
+              Lantas so the permission takes effect.
+            </p>
+            <div className="ss-perm-actions">
+              <button
+                type="button"
+                className="ss-perm-primary"
+                onClick={() => void askAccess()}
+                disabled={checking}
+              >
+                {checking ? "Asking macOS…" : "Allow screen access"}
+              </button>
+              <button
+                type="button"
+                className="ss-perm-secondary"
+                onClick={() => void openPrivacySettings("screen")}
+              >
+                Open System Settings
+              </button>
+              <button
+                type="button"
+                className="ss-perm-link"
+                onClick={() => void revealApp()}
+              >
+                Show Lantas in Finder
+              </button>
+            </div>
+          </div>
+        ) : native ? (
           frame ? (
             <img src={frame} alt="Your screen" />
           ) : (
@@ -258,7 +337,7 @@ export function ScreenShare() {
         ) : (
           <video ref={videoRef} muted playsInline />
         )}
-        {hint && (
+        {hint && allowed !== false && (
           <span
             className="ss-ring"
             style={{ left: `${hint.x * 100}%`, top: `${hint.y * 100}%` }}
@@ -266,10 +345,12 @@ export function ScreenShare() {
             {hint.label && <span className="ss-ring-label">{hint.label}</span>}
           </span>
         )}
-        <span className="ss-live">
-          <i />
-          live
-        </span>
+        {allowed !== false && (
+          <span className="ss-live">
+            <i />
+            live
+          </span>
+        )}
       </div>
 
       <div className="ss-log">

@@ -40,6 +40,79 @@ const SEARCH_RECOVERY: &str = r#"
 })();
 "#;
 
+// Screen Recording is a user-granted macOS permission, and an app that has
+// never asked is not even listed in System Settings, so there is no switch for
+// the user to turn on. `CGRequestScreenCaptureAccess` is the only call that
+// adds Lantas to that list and shows the system prompt.
+#[cfg(target_os = "macos")]
+#[link(name = "CoreGraphics", kind = "framework")]
+extern "C" {
+    fn CGPreflightScreenCaptureAccess() -> bool;
+    fn CGRequestScreenCaptureAccess() -> bool;
+}
+
+/// Registers Lantas with the Screen Recording pane and asks once. Returns
+/// whether macOS granted access immediately; when it returns false the switch
+/// is waiting in System Settings for the user.
+#[tauri::command]
+fn screen_request_permission() -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        return Ok(unsafe { CGRequestScreenCaptureAccess() });
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Screen Recording permission is macOS-only.".to_string())
+    }
+}
+
+/// Whether this process can capture the screen right now.
+#[tauri::command]
+fn screen_permission() -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        return Ok(unsafe { CGPreflightScreenCaptureAccess() });
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Screen Recording permission is macOS-only.".to_string())
+    }
+}
+
+/// Reveals Lantas.app in Finder, so it can be dragged onto the permission list
+/// on macOS versions that do not add it from the request alone.
+#[tauri::command]
+fn reveal_app() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let exe = std::env::current_exe()
+            .map_err(|error| format!("Could not find the app: {error}"))?;
+        let mut bundle = exe.clone();
+        for ancestor in exe.ancestors() {
+            if ancestor.extension().and_then(|value| value.to_str()) == Some("app") {
+                bundle = ancestor.to_path_buf();
+                break;
+            }
+        }
+        let status = std::process::Command::new("/usr/bin/open")
+            .arg("-R")
+            .arg(&bundle)
+            .status()
+            .map_err(|error| format!("Could not open Finder: {error}"))?;
+        if status.success() {
+            return Ok(());
+        }
+        return Err("Finder did not open.".to_string());
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Finder is macOS-only.".to_string())
+    }
+}
+
 /// Records the user's own input inside the child browser.
 ///
 /// The agent drives the page by calling element methods, which dispatch no
@@ -821,6 +894,9 @@ pub fn run() {
             open_in_chrome,
             open_in_vscode,
             open_privacy_settings,
+            screen_permission,
+            screen_request_permission,
+            reveal_app,
             screen_capture,
             screen_capture_window,
             el_screenshot,

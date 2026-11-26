@@ -428,3 +428,187 @@ body.is-overlay #root {
   font-size: 11px;
   cursor: pointer;
 }
+
+/* ── the agent's question, answered in place ──────────────────────────── */
+
+.ask-pop {
+  position: fixed;
+  left: 50%;
+  bottom: 88px;
+  z-index: 96;
+  width: min(348px, calc(100vw - 24px));
+  margin: 0;
+  padding: 12px;
+  transform: translateX(-50%);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--raised) 96%, transparent);
+  box-shadow: 0 26px 70px -26px rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(18px);
+  animation: ask-in 180ms var(--ease-out) both;
+}
+
+@keyframes ask-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.ask-pop .trust-question-head strong {
+  color: var(--text);
+}
+
+.ask-pop .trust-question-head p,
+.ask-pop .trust-question-fields label,
+.ask-pop .trust-question-foot {
+  color: var(--text-3);
+}
+
+.ask-pop .trust-question-mark {
+  background: var(--sel);
+  color: var(--accent);
+}
+
+.ask-pop .trust-question-fields input {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.ask-pop .trust-question-eye:hover,
+.ask-pop .trust-question-skip:hover {
+  background: var(--sel);
+  color: var(--text);
+}
+
+.ask-pop .trust-question-send {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.ask-pop .trust-question-send:disabled {
+  background: var(--raised-2);
+  color: var(--text-4);
+}
+
+/* ── one line of work, however long the turn was ──────────────────────── */
+
+.session.chat .run-block {
+  margin: 0 0 8px;
+  gap: 2px;
+}
+
+.session.chat .run-head {
+  height: 20px;
+  padding: 0 6px 0 4px;
+  gap: 5px;
+  color: var(--text-4);
+  font-size: 10.5px;
+}
+
+.session.chat .run-head:hover {
+  color: var(--text-2);
+}
+
+.reasoning-toggle {
+  display: none;
+}
+
+.trust-panel .run-block {
+  margin-bottom: 6px;
+}
+
+.trust-panel .run-head {
+  height: 20px;
+  color: var(--text-4);
+  font-size: 10.5px;
+}
+
+/* ── screen permission card ───────────────────────────────────────────── */
+
+.ss-perm {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px;
+  background: linear-gradient(180deg, rgba(12, 12, 11, 0.86), rgba(12, 12, 11, 0.96));
+  text-align: center;
+}
+
+.ss-perm > svg {
+  color: #ffd666;
+}
+
+.ss-perm strong {
+  color: #f2f2f2;
+  font-size: 12px;
+  font-weight: 560;
+}
+
+.ss-perm p {
+  max-width: 244px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.ss-perm-actions {
+  display: flex;
+  width: 100%;
+  max-width: 214px;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.ss-perm-actions button {
+  height: 27px;
+  border-radius: 7px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.ss-perm-primary {
+  border: 0;
+  background: #ededed;
+  color: #111111;
+  font-weight: 520;
+}
+
+.ss-perm-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ss-perm-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.ss-perm-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ss-perm-link {
+  height: 22px !important;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px !important;
+}
+
+.ss-perm-link:hover {
+  color: rgba(255, 255, 255, 0.75);
+}

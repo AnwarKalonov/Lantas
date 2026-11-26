@@ -26,9 +26,9 @@ const TOOL_ICONS: Record<string, IconName> = {
 /**
  * Execution is shown as one line, not twenty.
  *
- * A turn that browses, runs a command and edits a file used to print a row for
- * every step before the answer. The work is still here — one line says what ran
- * and stays open while it runs — but the reply starts with the reply.
+ * A turn that browses, runs a command and thinks between steps used to print a
+ * row for every one of them. The work is still here — one collapsed line says
+ * what ran — but the reply starts with the reply.
  */
 const STEP_NAMES: Record<string, string> = {
   browser: "browser",
@@ -59,12 +59,36 @@ function isStep(part: Part): boolean {
   return stepName(part) !== null;
 }
 
+/** Thinking belongs with the work it explains, not in its own row above it. */
+function isActivity(part: Part): boolean {
+  return isStep(part) || part.kind === "reasoning";
+}
+
+function thoughtSeconds(parts: Part[]): number {
+  const ms = parts.reduce(
+    (total, part) => total + (part.kind === "reasoning" ? (part.durationMs ?? 0) : 0),
+    0,
+  );
+  return ms ? Math.max(1, Math.round(ms / 1000)) : 0;
+}
+
+/** One quiet line: how long it thought and how many steps it took. */
+function runLabel(parts: Part[], running: boolean): string {
+  const seconds = thoughtSeconds(parts);
+  const steps = parts.filter(isStep).length;
+  const bits: string[] = [];
+  if (seconds) bits.push(`thought for ${seconds}s`);
+  if (steps) bits.push(`${steps} step${steps === 1 ? "" : "s"}`);
+  if (!bits.length) return running ? "Working" : "Worked";
+  return bits.join(" · ");
+}
+
 type Block = { kind: "text"; part: Part } | { kind: "run"; parts: Part[] };
 
 function groupParts(parts: Part[]): Block[] {
   const blocks: Block[] = [];
   for (const part of parts) {
-    if (isStep(part)) {
+    if (isActivity(part)) {
       const last = blocks.at(-1);
       if (last?.kind === "run") last.parts.push(part);
       else blocks.push({ kind: "run", parts: [part] });
@@ -128,14 +152,10 @@ function RunBlock({
   onOpenFile?: (path: string, line?: number) => void;
 }) {
   const running = parts.some(partRunning);
-  const [open, setOpen] = useState(running);
-
-  // Open while the steps are live, then fold them back into one quiet line.
-  // The details are still one click away, but a finished turn is not a wall
-  // of tool output.
-  useEffect(() => {
-    setOpen(running);
-  }, [running]);
+  // A turn shows one line of work however many steps it took. Expanding is
+  // the user's choice; nothing opens itself and pushes the answer down.
+  const [open, setOpen] = useState(false);
+  const label = runLabel(parts, running);
 
   return (
     <div className={cx("run-block", running && "is-running")}>
@@ -150,9 +170,9 @@ function RunBlock({
         ) : (
           <Icon name="check" size={12} />
         )}
-        <span className="run-title">
-          {running ? "Working · " : "Used "}
-          {runSummary(parts)}
+        <span className="run-title" title={runSummary(parts)}>
+          {running ? "Working · " : ""}
+          {label}
         </span>
         <Icon name="chevronDown" size={11} className={cx("run-caret", open && "is-open")} />
       </button>
@@ -540,7 +560,6 @@ function ReasoningBlock({ part }: { part: Extract<Part, { kind: "reasoning" }> }
           className={running ? "spin" : "reasoning-mark"}
         />
         <span>{label}</span>
-        <span className="reasoning-toggle">{open ? "Hide" : "Show"}</span>
         <Icon name="chevronDown" size={11} className={cx("reasoning-caret", open && "is-open")} />
       </button>
       {open && <div className="reasoning-body">{part.text}</div>}

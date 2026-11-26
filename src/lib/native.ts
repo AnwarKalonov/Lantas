@@ -124,6 +124,25 @@ export async function openPrivacySettings(pane: PrivacyPane): Promise<boolean> {
   return lastNativeOk;
 }
 
+/** Whether macOS currently lets Lantas capture the screen. Null outside the app. */
+export async function screenPermission(): Promise<boolean | null> {
+  return command<boolean>("screen_permission", {});
+}
+
+/**
+ * Asks macOS for Screen Recording access. This is what adds Lantas to the
+ * switch list in System Settings; an app that never asks is invisible there.
+ */
+export async function requestScreenPermission(): Promise<boolean | null> {
+  return command<boolean>("screen_request_permission", {});
+}
+
+/** Shows Lantas.app in Finder so it can be dragged into the permission list. */
+export async function revealApp(): Promise<boolean> {
+  await command("reveal_app", {});
+  return lastNativeOk;
+}
+
 export async function openInVsCode(path: string): Promise<boolean> {
   await command("open_in_vscode", { path });
   return lastNativeOk;

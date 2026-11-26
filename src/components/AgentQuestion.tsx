@@ -61,7 +61,9 @@ export function AgentQuestion() {
 
   return (
     <form
-      className="trust-question"
+      className="trust-question ask-pop"
+      role="dialog"
+      aria-label={credentials ? "Sign in to continue" : "Lantas needs a detail"}
       onSubmit={(event) => {
         event.preventDefault();
         submit();
@@ -72,7 +74,7 @@ export function AgentQuestion() {
           <Icon name="bot" size={13} />
         </span>
         <div>
-          <strong>Lantas needs a detail</strong>
+          <strong>{credentials ? "Sign in to continue" : "Lantas needs a detail"}</strong>
           <p>{ask.question}</p>
         </div>
       </div>
@@ -80,12 +82,12 @@ export function AgentQuestion() {
       <div className="trust-question-fields">
         {mail && (
           <label>
-            <span>Email</span>
+            <span>Username or email</span>
             <input
               ref={inputRef}
-              type="email"
+              type="text"
               value={email}
-              autoComplete="off"
+              autoComplete="username"
               spellCheck={false}
               placeholder="you@example.com"
               onChange={(event) => setEmail(event.target.value)}
@@ -108,7 +110,7 @@ export function AgentQuestion() {
                 name="ask-password"
                 type={showPassword ? "text" : "password"}
                 value={password}
-                autoComplete="new-password"
+                autoComplete="current-password"
                 placeholder="Password"
                 onChange={(event) => setPassword(event.target.value)}
               />
@@ -148,7 +150,7 @@ export function AgentQuestion() {
           </button>
           <button type="submit" className="trust-question-send" disabled={!ready}>
             <Icon name="arrowUp" size={12} />
-            Share
+            Continue
           </button>
         </div>
       </div>

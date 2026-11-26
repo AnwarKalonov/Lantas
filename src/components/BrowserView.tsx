@@ -627,29 +627,14 @@ export function BrowserView({
   }, [aiOpen, aiMessages.length, activeSession?.messages.at(-1)?.parts]);
 
   // A question is useless behind a closed panel. Open the side chat when the
-  // agent pauses for a login detail. If the browser surface goes away while a
-  // pending question is still waiting, release it rather than leaving the run
-  // blocked behind a component that no longer exists.
+  // agent pauses for a login detail. The form itself lives at App level, so it
+  // survives leaving this surface; do not release the wait here.
   useEffect(() => {
-    const unsubscribe = subscribeUserAsk((question) => {
+    return subscribeUserAsk((question) => {
       setPendingAsk(question);
       if (question) setAiOpen(true);
     });
-    return () => {
-      const pending = getActiveUserAsk();
-      if (pending) skipUserAsk(pending.id);
-      unsubscribe();
-    };
   }, []);
-
-  // If the page is no longer on screen, a hidden question cannot be answered.
-  // Release the wait when the browser surface hides instead of stranding the
-  // turn in another mode.
-  useEffect(() => {
-    if (visible) return;
-    const pending = getActiveUserAsk();
-    if (pending) skipUserAsk(pending.id);
-  }, [visible]);
 
   // Escape interrupts the same run the main composer stops, without making the
   // user find the thread again.
@@ -1250,13 +1235,7 @@ export function BrowserView({
                   new CustomEvent("lantas:settings", { detail: { tab: "providers" } }),
                 )
               }
-              onClose={() => {
-                // Closing the rail while Lantas is waiting cancels the wait so
-                // the turn can finish instead of hanging behind a hidden bubble.
-                const pending = getActiveUserAsk();
-                if (pending) skipUserAsk(pending.id);
-                setAiOpen(false);
-              }}
+              onClose={() => setAiOpen(false)}
             />
 
             <div className="el-ai-log trust-log" ref={aiLogRef}>

@@ -740,7 +740,7 @@ function AssistantMessage({
             ),
           )}
           {message.streaming && <span className="stream-caret" aria-hidden="true" />}
-          {message.interrupted && <span className="interrupted">interrupted</span>}
+          {message.interrupted && <span className="interrupted">paused</span>}
         </div>
       </div>
     );
@@ -773,7 +773,7 @@ function AssistantMessage({
         <div className="assistant-foot">
           <span>{duration ? `Worked for ${duration}` : "Done"}</span>
           {message.tokens ? <span className="assistant-tokens">{formatTokens(message.tokens)} tokens</span> : null}
-          {message.interrupted ? <span className="interrupted">interrupted</span> : null}
+          {message.interrupted ? <span className="interrupted">paused</span> : null}
           <button type="button" className="assistant-copy" onClick={copy}>
             <Icon name={copied ? "check" : "copy"} size={11} />
             {copied ? "Copied" : "Copy"}

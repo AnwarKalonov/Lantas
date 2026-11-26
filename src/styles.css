@@ -1585,7 +1585,8 @@ code {
 
 .interrupted {
   margin-left: 4px;
-  color: var(--err);
+  color: var(--text-4);
+  opacity: 0.85;
 }
 
 .tool-row {

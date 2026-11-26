@@ -408,31 +408,20 @@ export function App() {
   }, []);
 
   const startScreen = useCallback(async () => {
-    // A screen without a vision model is a picture no one reads. Stop before
-    // the share opens and point at the model picker instead.
-    const visionProvider = activeSession?.provider ?? state.settings.defaultProvider;
-    const visionModel = activeSession?.model || state.settings.defaultModel;
-    if (!canSeeImages(visionProvider, visionModel)) {
-      notify("This model cannot see images — choose a vision model to share your screen", "error");
-      return;
-    }
-    // A desktop window has no getDisplayMedia, so it captures natively instead
-    // of asking for a screen-share picker that can never appear.
+    // A text-only model still gets the screen: the floating card reads it as
+    // an accessibility tree and controls it by coordinates. Only the pixels
+    // are limited to vision models.
+    // A desktop window has no getDisplayMedia. The floating card owns capture,
+    // permissions and the accessibility tree, so open it and let it show the
+    // one permission that is actually missing instead of refusing to start.
     if (inTauri()) {
-      try {
-        const frame = await captureNativeScreen();
-        if (!frame) throw new Error("The screen capture came back empty.");
-        setSettings({ screenAccess: true });
-        const shown = await showScreenAssistant();
-        notify(
-          shown
-            ? "Screen assistant open — it stays above your other windows"
-            : "Screen access on — every turn includes a fresh frame",
-        );
-      } catch (error) {
-        setSettings({ screenAccess: false });
-        notify(error instanceof Error ? error.message : "Screen capture failed", "error");
-      }
+      setSettings({ screenAccess: true });
+      const shown = await showScreenAssistant();
+      notify(
+        shown
+          ? "Screen assistant open — it stays above your other windows"
+          : "Screen access on — the screen card is ready",
+      );
       return;
     }
     try {
@@ -1321,7 +1310,8 @@ export function App() {
             drive: browserMode ? undefined : state.settings.computerControl,
             // The question form lives at App level now, so any surface can ask
             // instead of ending the turn with "please type your password here".
-            askUser: (question, kind) => askUser({ question, kind }, controller.signal),
+            askUser: (question, kind, extra) =>
+              askUser({ question, kind, ...extra }, controller.signal),
             settings: {
               theme: state.settings.theme,
               reduceMotion: state.settings.reduceMotion,

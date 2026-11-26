@@ -1,5 +1,6 @@
 mod bookmarks;
 mod bridge;
+mod control;
 mod git;
 mod terminal;
 mod vscode;
@@ -123,6 +124,9 @@ const INPUT_WATCH: &str = r#"
 (() => {
   let seq = 0;
   const note = (type, event) => {
+    // The app's own clicks and keystrokes are synthetic events. Counting them
+    // here is what made every agent action look like the user taking over.
+    if (!event || event.isTrusted === false) return;
     seq += 1;
     window.__lantasInput = {
       seq,
@@ -268,6 +272,10 @@ fn el_bounds(
 #[tauri::command]
 fn overlay_show(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("screen-overlay") {
+        #[cfg(target_os = "macos")]
+        {
+            let _ = window.set_visible_on_all_workspaces(true);
+        }
         window.show().map_err(|error| error.to_string())?;
         return Ok(());
     }
@@ -304,6 +312,10 @@ fn overlay_show(app: tauri::AppHandle) -> Result<(), String> {
 
     // The layer is a pointer, not a window: clicks reach the app underneath.
     let _ = window.set_ignore_cursor_events(true);
+    #[cfg(target_os = "macos")]
+    {
+        let _ = window.set_visible_on_all_workspaces(true);
+    }
     window.show().map_err(|error| error.to_string())?;
     Ok(())
 }
@@ -971,6 +983,18 @@ pub fn run() {
             el_screenshot,
             overlay_show,
             overlay_hide,
+            control::screen_info,
+            control::screen_control_permission,
+            control::screen_control_request,
+            control::screen_ax_tree,
+            control::screen_windows,
+            control::screen_focus,
+            control::screen_move,
+            control::screen_click,
+            control::screen_scroll,
+            control::screen_type,
+            control::screen_key,
+            control::screen_drag,
             screen_assistant_show,
             screen_assistant_hide,
             git::git_status,

@@ -869,6 +869,15 @@ export function IdeView({
           >
             <Icon name="external" size={14} />
           </button>
+          <button
+            type="button"
+            className={cx("ide-icon-button", assistantOpen && "is-on")}
+            onClick={() => setAssistantOpen((value) => !value)}
+            title="Assistant (⌘J)"
+            aria-label="Assistant"
+          >
+            <Icon name="sparkle" size={14} />
+          </button>
           <button type="button" className="ide-header-chat" onClick={onExit}>
             Chat
             <Icon name="chevronRight" size={11} />
@@ -1632,6 +1641,17 @@ export function IdeView({
             </>
           )}
           {!activeFile && <span className="ide-status-item dim">UTF-8</span>}
+          {!assistantOpen && (
+            <button
+              type="button"
+              className="ide-status-item is-button"
+              onClick={() => setAssistantOpen(true)}
+              title="Open the Lantas assistant (⌘J)"
+            >
+              <Icon name="sparkle" size={12} />
+              Assistant
+            </button>
+          )}
         </div>
       </footer>
 

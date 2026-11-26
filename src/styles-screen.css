@@ -255,6 +255,16 @@
   white-space: pre-wrap;
 }
 
+.ss-ask {
+  max-height: 46vh;
+  padding: 8px 12px 0;
+  overflow-y: auto;
+}
+
+.ss-ask .trust-question {
+  margin: 0;
+}
+
 .ss-composer {
   margin: 8px 12px 0;
   padding: 8px 8px 6px;
@@ -327,6 +337,89 @@
 
 .ss-send:not(:disabled):active {
   transform: scale(0.94);
+}
+
+.ss-send.is-stop {
+  background: var(--sel);
+  color: var(--text);
+}
+
+.ss-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-4);
+  font-size: 10px;
+}
+
+.ss-control.is-on {
+  border-color: rgba(92, 153, 255, 0.42);
+  background: rgba(76, 140, 255, 0.13);
+  color: #a9c6ff;
+}
+
+.ss-control:hover {
+  border-color: var(--line-strong);
+  color: var(--text-2);
+}
+
+.ss-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 7px;
+}
+
+.ss-steps span {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--sel);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.ss-live-control {
+  left: auto;
+  right: 8px;
+  color: #b9d0ff;
+}
+
+.ss-live-control i {
+  display: none;
+}
+
+.ss-control-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 12px;
+  padding: 7px 8px;
+  border: 1px solid rgba(92, 153, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(76, 140, 255, 0.1);
+  color: #b9cdf3;
+  font-size: 9.5px;
+  line-height: 1.4;
+}
+
+.ss-control-note span {
+  flex: 1;
+}
+
+.ss-control-note button {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #e6efff;
+  font-size: 9.5px;
+  font-weight: 600;
 }
 
 .ss-foot {

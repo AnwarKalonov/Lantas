@@ -34,6 +34,7 @@ import {
   waitForNavigation,
 } from "./browserAgent";
 import { engineHealth, engineTask } from "./browserSidecar";
+import { runScreenAction } from "./screenControl";
 import type { ChatImage } from "./providers";
 import { openInChrome } from "./chrome";
 import { aiDriving, getElContext } from "./el";
@@ -96,12 +97,23 @@ export interface ToolContext {
     control: boolean;
   };
   /**
+   * The floating screen card. `control` lets the model use the pointer and
+   * keyboard; `read` only reads the accessibility tree. Undefined means the
+   * screen tool is unavailable on this surface.
+   */
+  screen?: "control" | "read";
+  /**
    * Pauses the browser turn for a detail only the user knows, such as a login
    * email or a one-time code. Resolves with the answer, or throws AbortError.
    */
   askUser?: (
     question: string,
     kind?: "text" | "email" | "password" | "credentials",
+    extra?: {
+      fields?: import("./userAsk").UserAskField[];
+      options?: string[];
+      multiple?: boolean;
+    },
   ) => Promise<string>;
 }
 
@@ -147,6 +159,7 @@ export const TOOL_NAMES = [
   "ask_user",
   "integrations",
   "deliver",
+  "screen",
 ] as const;
 
 export type ToolName = (typeof TOOL_NAMES)[number];
@@ -166,6 +179,7 @@ export const TOOL_LABELS: Record<string, string> = {
   ask_user: "Ask you",
   integrations: "Connected apps",
   deliver: "Deliver file",
+  screen: "Screen",
 };
 
 export function toolLabel(call: ToolCall): string {
@@ -715,6 +729,24 @@ export async function runTool(
           context.vision,
         );
 
+      case "screen": {
+        if (!context.screen) {
+          return {
+            ok: false,
+            summary: "Screen control is not available here",
+            content:
+              "Screen control only works in the Lantas Screen card. Open it from the Screen button first.",
+            resource: "screen",
+          };
+        }
+        const result = await runScreenAction(call.args, {
+          vision: Boolean(context.vision),
+          mode: context.screen,
+          task: context.task,
+        });
+        return result;
+      }
+
       case "ask_user": {
         const question = String(call.args.question ?? "").trim();
         if (!question) throw new Error("A question is required.");
@@ -731,7 +763,35 @@ export async function runTool(
         const kind = ["text", "email", "password", "credentials"].includes(requestedKind)
           ? (requestedKind as "text" | "email" | "password" | "credentials")
           : "text";
-        const answer = await context.askUser(question, kind);
+        // A question with several details becomes one titled box each, and a
+        // question with known answers becomes a multiple-choice card. Asking
+        // for a name and an age in prose is what left the user with no fields.
+        const fields: import("./userAsk").UserAskField[] | undefined = Array.isArray(
+          call.args.fields,
+        )
+          ? (call.args.fields as Array<Record<string, unknown>>)
+              .map((field) => ({
+                label: String(field?.label ?? "").trim(),
+                type: String(field?.type ?? "text").toLowerCase() as import("./userAsk").UserAskFieldType,
+                placeholder: field?.placeholder ? String(field.placeholder) : undefined,
+                options: Array.isArray(field?.options)
+                  ? (field.options as unknown[]).map((option) => String(option))
+                  : undefined,
+                optional: Boolean(field?.optional),
+              }))
+              .filter((field) => field.label)
+          : undefined;
+        const rawOptions = call.args.options ?? call.args.choices;
+        const options = Array.isArray(rawOptions)
+          ? (rawOptions as unknown[]).map((option) => String(option)).filter(Boolean)
+          : typeof rawOptions === "string"
+            ? rawOptions.split(/[,|]\s*/).filter(Boolean)
+            : undefined;
+        const extra =
+          (fields && fields.length) || (options && options.length)
+            ? { fields, options, multiple: Boolean(call.args.multiple) }
+            : undefined;
+        const answer = await context.askUser(question, kind, extra);
         return {
           ok: true,
           summary: "Answered your question",

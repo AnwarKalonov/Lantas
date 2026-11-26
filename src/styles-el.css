@@ -1286,6 +1286,43 @@
   background: var(--sel);
 }
 
+/* Take over sits in the page's top corner and only pauses the run. */
+.el-takeover {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  margin-left: 2px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.el-takeover:hover {
+  filter: brightness(1.06);
+}
+
+.el-takeover.is-paused {
+  border: 1px solid var(--line);
+  background: var(--card-bg);
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.el-foot-assistant {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+}
+
 .el-ai {
   flex: 0 0 328px;
   min-height: 0;

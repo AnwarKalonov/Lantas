@@ -369,11 +369,32 @@ export function BrowserView({
     const observer = new ResizeObserver(sync);
     observer.observe(node);
     window.addEventListener("resize", sync);
+    // macOS fullscreen animates the window: the first rect is the pre-animation
+    // one, which is how the page could end up covering the toolbar and the AI
+    // button with it. Measure again after the edges settle.
+    document.addEventListener("fullscreenchange", sync);
+    const timers = [60, 220, 480].map((ms) => window.setTimeout(sync, ms));
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", sync);
+      document.removeEventListener("fullscreenchange", sync);
+      for (const timer of timers) window.clearTimeout(timer);
     };
   }, [native, visible]);
+
+  // Closing or opening the rail changes the page width. Reassert the page
+  // rectangle after that layout so the child webview never keeps the wider
+  // rectangle and swallows the chrome around it.
+  useEffect(() => {
+    if (!native || !visible) return;
+    const timer = window.setTimeout(() => {
+      const rect = viewportRef.current?.getBoundingClientRect();
+      if (rect) {
+        void elBounds({ x: rect.left, y: rect.top, width: rect.width, height: rect.height }, 1);
+      }
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [aiOpen, native, visible]);
 
   const patchTab = (id: string, patch: Partial<ElTab>) =>
     setData((current) => ({
@@ -558,12 +579,15 @@ export function BrowserView({
 
   /** Pick the task back up from the page the user left behind. */
   const resumeAfterTakeover = () => {
-    const where = takeover
-      ? `a ${takeover.type} at about ${takeover.x}% across and ${takeover.y}% down the page`
-      : "the page";
+    const where =
+      takeover?.type === "manual"
+        ? "I paused you to take control"
+        : takeover
+          ? `I did a ${takeover.type} at about ${takeover.x}% across and ${takeover.y}% down the page`
+          : "I took control";
     setTakeover(null);
     void ask(
-      `While you were working I took over and did ${where}. Read the page as it is now, work out what my action changed, and continue the task from there. Do not repeat what I just did.`,
+      `${where}. Read the page as it is now, work out what my action changed, and continue the task from there. Do not repeat what I just did.`,
     );
   };
 
@@ -666,6 +690,14 @@ export function BrowserView({
       lastAnswerText.length < 600 &&
       /\?\s*$/.test(lastAnswerText),
   );
+
+  /** Pause the run without saying the user interrupted or wrestled control. */
+  const takeOver = () => {
+    if (aiStreaming) window.dispatchEvent(new CustomEvent("lantas:stop"));
+    setTakeover({ type: "manual", x: 0, y: 0 });
+    setPromptOpen(true);
+    notify("Paused — you have control");
+  };
 
   // Suggestions are written for this page and this exchange, not a fixed menu.
   // One cheap call per finished turn; a failure keeps the last good set.
@@ -774,6 +806,19 @@ export function BrowserView({
     return () => window.removeEventListener("keydown", onKey);
   }, [aiStreaming]);
 
+  // Closing the rail is not a one-way door: the same shortcut the rest of the
+  // app uses brings it back even when the page has taken the whole window.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "j") return;
+      event.preventDefault();
+      if (!aiOpen && state.panelOpen) togglePanel();
+      setAiOpen((open) => !open);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [aiOpen, state.panelOpen, togglePanel]);
+
   // Watch for the person at the keyboard while the agent drives the page.
   // The agent acts through element methods, which raise no pointer or key
   // events, so any counted input is a takeover: stop the turn, then let the
@@ -800,8 +845,8 @@ export function BrowserView({
             type: input.type,
             x: rect && rect.width ? Math.round((input.x / rect.width) * 100) : 0,
             y: rect && rect.height ? Math.round((input.y / rect.height) * 100) : 0,
-          });
-          notify("You took over — Lantas paused to see what you did");
+                });
+      notify("Paused — you have control");
         })
         .catch(() => undefined);
     }, 850);
@@ -1134,11 +1179,26 @@ export function BrowserView({
             className={cx("el-ai-button", aiOpen && "is-on")}
             onClick={toggleAssistant}
             aria-label="Lantas AI"
-            title="Ask Lantas AI about this page"
+            title="Ask Lantas AI about this page (⌘J)"
           >
             <Icon name="sparkle" size={13} />
             <span>Ask AI</span>
           </button>
+          {(aiStreaming || takeover) && (
+            <button
+              type="button"
+              className={cx("el-takeover", takeover && !aiStreaming && "is-paused")}
+              onClick={takeover && !aiStreaming ? resumeAfterTakeover : takeOver}
+              title={
+                takeover && !aiStreaming
+                  ? "Let Lantas pick the task back up"
+                  : "Pause Lantas and take control"
+              }
+            >
+              <Icon name="cursor" size={12} />
+              <span>{takeover && !aiStreaming ? "Resume" : "Take over"}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1425,9 +1485,9 @@ export function BrowserView({
             {takeover && (
               <div className="trust-takeover">
                 <span className="trust-takeover-dot" />
-                <span>You took over — Lantas paused.</span>
+                <span>Paused. You have control.</span>
                 <button type="button" onClick={resumeAfterTakeover}>
-                  Pick it up
+                  Resume
                 </button>
               </div>
             )}
@@ -1555,6 +1615,17 @@ export function BrowserView({
                 ? "Native engine"
                 : "Web preview"}
         </span>
+        {!aiOpen && (
+          <button
+            type="button"
+            className="el-foot-assistant"
+            onClick={openAssistant}
+            title="Open the Lantas assistant (⌘J)"
+          >
+            <Icon name="sparkle" size={11} />
+            Ask Lantas
+          </button>
+        )}
         <button
           type="button"
           className="el-foot-toggle"

@@ -1822,7 +1822,8 @@
 }
 
 .assistant-foot .interrupted {
-  color: var(--warn);
+  color: var(--text-4);
+  opacity: 0.85;
 }
 
 .assistant-copy {

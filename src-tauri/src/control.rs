@@ -198,6 +198,7 @@ mod imp {
         fn AXIsProcessTrustedWithOptions(options: CFRef) -> u8;
         fn AXUIElementCreateSystemWide() -> AXRef;
         fn AXUIElementCreateApplication(pid: i32) -> AXRef;
+        fn AXUIElementGetPid(element: AXRef, pid: *mut i32) -> i32;
         fn AXUIElementCopyAttributeValue(
             element: AXRef,
             attribute: CFRef,
@@ -503,6 +504,25 @@ mod imp {
 
     /// The first normal window that is not Lantas. The floating card is always
     /// in front, so "frontmost app" would otherwise always be Lantas itself.
+    /// The floating pointer and the screen card are Lantas windows too, but
+    /// they are never what the user means by "the front window". The main app
+    /// window stays a valid target so the card can work on Lantas Browser.
+    fn auxiliary_window(title: &str) -> bool {
+        matches!(
+            title.trim().to_lowercase().as_str(),
+            "lantas screen" | "lantas pointer"
+        )
+    }
+
+    unsafe fn app_pid(app: AXRef) -> i32 {
+        let mut pid = 0;
+        if AXUIElementGetPid(app, &mut pid) == 0 {
+            pid
+        } else {
+            0
+        }
+    }
+
     unsafe fn front_window_owner() -> Option<(i32, String, String)> {
         let list = CGWindowListCopyWindowInfo(1 | 16, 0);
         if list.is_null() {
@@ -519,7 +539,7 @@ mod imp {
                 let pid = dict_value(info, "kCGWindowOwnerPID")
                     .and_then(|value| number_of(value))
                     .unwrap_or(0.0) as i32;
-                if pid <= 0 || pid == std::process::id() as i32 {
+                if pid <= 0 {
                     continue;
                 }
                 let layer = dict_value(info, "kCGWindowLayer")
@@ -537,6 +557,9 @@ mod imp {
                 let title = dict_value(info, "kCGWindowName")
                     .and_then(|value| string_of(value))
                     .unwrap_or_default();
+                if pid == std::process::id() as i32 && auxiliary_window(&title) {
+                    continue;
+                }
                 found = Some((pid, owner, title));
                 break;
             }
@@ -560,6 +583,7 @@ mod imp {
         let wanted = hint
             .map(|value| value.trim().to_lowercase())
             .filter(|value| !value.is_empty());
+        let own = app_pid(app) == std::process::id() as i32;
         if let Some(windows) = copy_attr(app, "AXWindows") {
             if CFGetTypeID(windows) == CFArrayGetTypeID() {
                 let total = CFArrayGetCount(windows).min(20);
@@ -570,25 +594,42 @@ mod imp {
                     if window.is_null() {
                         continue;
                     }
+                    let title = window_title(window);
+                    if own && auxiliary_window(&title) {
+                        continue;
+                    }
                     if first.is_none() {
-                        first = Some(window);
+                        first = Some(CFRetain(window as CFRef) as AXRef);
                     }
                     if let Some(needle) = &wanted {
-                        if window_title(window).to_lowercase().contains(needle.as_str()) {
-                            matched = Some(window);
+                        if title.to_lowercase().contains(needle.as_str()) {
+                            matched = Some(CFRetain(window as CFRef) as AXRef);
                             break;
                         }
                     }
                 }
-                if let Some(window) = matched.or(first) {
-                    CFRetain(window as CFRef);
-                    CFRelease(windows);
+                CFRelease(windows);
+                if let Some(window) = matched {
+                    if let Some(other) = first {
+                        CFRelease(other as CFRef);
+                    }
                     return Some(window);
                 }
+                if first.is_some() {
+                    return first;
+                }
+                if own {
+                    return None;
+                }
+            } else {
+                CFRelease(windows);
             }
-            CFRelease(windows);
         }
-        focused_window(app)
+        if own {
+            None
+        } else {
+            focused_window(app)
+        }
     }
 
     pub fn control_permission() -> bool {
@@ -685,6 +726,7 @@ mod imp {
             } else {
                 hint_name
             };
+            let own = app_pid(app) == std::process::id() as i32;
             let mut list: Vec<Value> = Vec::new();
             if let Some(windows) = copy_attr(app, "AXWindows") {
                 if CFGetTypeID(windows) == CFArrayGetTypeID() {
@@ -694,11 +736,15 @@ mod imp {
                         if window.is_null() {
                             continue;
                         }
+                        let title = window_title(window);
+                        if own && auxiliary_window(&title) {
+                            continue;
+                        }
                         let point = point_attr(window, "AXPosition").unwrap_or_default();
                         let size = size_attr(window, "AXSize").unwrap_or_default();
                         list.push(json!({
                             "app": name,
-                            "title": window_title(window),
+                            "title": title,
                             "x": point.x.round(),
                             "y": point.y.round(),
                             "w": size.width.round(),

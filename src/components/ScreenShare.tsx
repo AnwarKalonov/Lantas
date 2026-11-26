@@ -105,6 +105,8 @@ function systemPrompt(vision: boolean, control: boolean): string {
       ? "You may control the real pointer and keyboard. Use one screen tool call per step, then read the snapshot it returns before the next step."
       : "Control is off. Read the screen and answer, but do not click, type, scroll, drag or switch windows.",
     "",
+    "The target is the frontmost normal window behind this card; the card and its blue pointer are skipped, and Lantas Browser is a normal target too. To work in another app, focus it first. Click a text field before typing so the keystrokes go to that field instead of this card.",
+    "",
     "The screen tool:",
     '<tool_call>{"name":"screen","arguments":{"action":"snapshot"}}</tool_call>',
     '<tool_call>{"name":"screen","arguments":{"action":"click","ref":"s4"}}</tool_call>',

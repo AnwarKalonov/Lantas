@@ -544,8 +544,13 @@ export function App() {
   const requestApproval = useCallback(
     (call: ToolCall, resource: string) => {
       // “Always allow” is saved for later turns, and this keeps the rest of
-      // the current turn from asking about the same action again.
-      if (autoAllowed.current.has(`${call.name}\u0000${resource}`)) {
+      // the current turn from asking about the same action again. The rule is
+      // checked too, so removing it in Settings takes effect immediately.
+      const key = `${call.name}\u0000${resource}`;
+      const stillSaved = allowedRulesRef.current.some(
+        (rule) => rule.tool === call.name && rule.literal && rule.pattern === resource,
+      );
+      if (stillSaved && autoAllowed.current.has(key)) {
         recordAudit({ tool: call.name, resource, decision: "allowed" });
         return Promise.resolve(true);
       }

@@ -1,14 +1,17 @@
 {
-  "label": "Lantas 1.3.0 development build",
+  "label": "Lantas 1.4.0 development build",
   "dev": true,
-  "builtAt": "2026-11-26T18:30:00Z",
-  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.3.0-arm64.dmg",
-  "size": 10336155,
-  "sha256": "59a627f0cb274be4349d7d5c1b822a3a38f7bebf9470e7a721e70c3d8ba8d633",
+  "builtAt": "2026-11-26T19:20:00Z",
+  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.4.0-arm64.dmg",
+  "size": 10344229,
+  "sha256": "16e27867fdff3453083fe43b43212c5a3c00f91d0ab079a701a9a5faf7b5394a",
   "changes": [
-    "Browser: the agent can run JavaScript in the live page and keep the tab session between calls.",
-    "Browser: page screenshots now reach the model. Chrome captures over CDP; the native engine captures the live webview.",
-    "Code: prompts carry the open file, the current selection and the editor's diagnostics.",
-    "Chat: reasoning collapses, Stop interrupts a run, ask-you bubbles, inline Compare, and side chats follow light mode."
+    "Screen: share your screen in a card that answers questions about what is on it.",
+    "Screen: Lantas can point at a control. It draws a temporary ring above your apps, click-through and always on top.",
+    "Browser: when you click, type or scroll while the agent is driving, it stops and reads what you did before continuing.",
+    "Browser: a pending sign-in detail replaces the page suggestions with a form to fill in.",
+    "Browser: the mini view in chat zooms out to show the whole page instead of cropping it.",
+    "Code: the empty-workspace buttons wrap instead of running past the card.",
+    "Storage: the local backup no longer fills up and fails when sessions carry screenshots."
   ]
 }

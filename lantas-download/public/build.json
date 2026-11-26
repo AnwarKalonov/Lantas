@@ -1,10 +1,10 @@
 {
   "label": "Lantas 1.5.0 development build",
   "dev": true,
-  "builtAt": "2026-11-26T19:59:00Z",
+  "builtAt": "2026-11-26T20:07:30Z",
   "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.5.0-arm64.dmg",
-  "size": 10348566,
-  "sha256": "82ef105462570a8367863093dedf62e59e8a4dd9ca798623a197808d5f42ce1b",
+  "size": 10348649,
+  "sha256": "990da22d028845d3fb3312cd2302faba76f0cee1b769181796720a7895924e92",
   "changes": [
     "Screen: Lantas now asks macOS for Screen Recording, so it appears in the switch list instead of being missing from it. The screen card has Allow, Settings and Finder buttons and re-checks on its own.",
     "Sign-in: a credential question opens one popup with username and password fields, over whatever chat you are in. You no longer have to type a password into a message.",

@@ -1,0 +1,174 @@
+:root {
+  color-scheme: light dark;
+  --ink: #16161a;
+  --paper: #f6f5f1;
+  --line: #d8d5cc;
+  --muted: #6b6a66;
+  --accent: #16161a;
+  --accent-ink: #f6f5f1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #ecebe6;
+    --paper: #141416;
+    --line: #2e2e33;
+    --muted: #9a9993;
+    --accent: #ecebe6;
+    --accent-ink: #141416;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background: var(--paper);
+  color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+.card {
+  width: 100%;
+  max-width: 400px;
+  padding: 28px 24px 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+}
+
+h1 {
+  margin: 0 0 6px;
+  font-size: 19px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.muted {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.meta {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+h2 {
+  margin: 18px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.changes {
+  margin: 0 0 18px;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.changes li {
+  margin-bottom: 4px;
+}
+
+.notice {
+  margin: 0 0 16px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+form {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+input:focus-visible,
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+button,
+.download {
+  padding: 9px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
+  font-weight: 500;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.download {
+  display: block;
+  padding: 11px 14px;
+  margin-top: 4px;
+}
+
+.quiet {
+  margin-top: 18px;
+  border-color: var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.error {
+  min-height: 1.4em;
+  margin: 8px 0 0;
+  color: #b3261e;
+  font-size: 12px;
+}
+
+.sha {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.sha code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.foot {
+  margin: 20px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+}

@@ -1,0 +1,12 @@
+{
+  "label": "Lantas 1.2.0",
+  "dev": false,
+  "builtAt": "2026-11-26T01:42:21Z",
+  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/v1.2.0/Lantas-1.2.0-arm64.dmg",
+  "size": 0,
+  "sha256": "",
+  "changes": [
+    "No developer build has been published here yet; this points at the public 1.2.0 release.",
+    "Add a short line for each fix here whenever you replace this file."
+  ]
+}

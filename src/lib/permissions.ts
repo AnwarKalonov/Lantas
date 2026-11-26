@@ -69,10 +69,23 @@ export function defaultRules(mode: "auto" | "ask", buildAgent: boolean): Permiss
     // picker, a settings panel. Nothing outside the window changes.
     { tool: "settings", pattern: "*", effect: "allow" },
     { tool: "todo", pattern: "*", effect: "allow" },
-    { tool: "integrations", pattern: "apps", effect: "allow" },
-    { tool: "integrations", pattern: "inbox", effect: "allow" },
-    { tool: "integrations", pattern: "search_email", effect: "allow" },
-    { tool: "integrations", pattern: "tools", effect: "allow" },
+    // Reading a page is not acting on it. These stay allowed in every mode,
+    // including Plan and Chat, so a question never waits on an approval card.
+    { tool: "browser", pattern: "snapshot", effect: "allow" },
+    { tool: "browser", pattern: "extract", effect: "allow" },
+    { tool: "browser", pattern: "find", effect: "allow" },
+    { tool: "browser", pattern: "wait*", effect: "allow" },
+    { tool: "browser", pattern: "tabs", effect: "allow" },
+    { tool: "browser", pattern: "screenshot", effect: "allow" },
+    // A connected-app read keeps its toolkit in the resource (`inbox gmail`),
+    // so the patterns must cover the suffix. These are read-only calls; asking
+    // for each one is what made every inbox check feel like a permission wall.
+    { tool: "integrations", pattern: "apps*", effect: "allow" },
+    { tool: "integrations", pattern: "inbox*", effect: "allow" },
+    { tool: "integrations", pattern: "search_email*", effect: "allow" },
+    { tool: "integrations", pattern: "tools*", effect: "allow" },
+    { tool: "integrations", pattern: "get_*", effect: "allow" },
+    { tool: "integrations", pattern: "list_*", effect: "allow" },
   ];
 
   if (!buildAgent) {
@@ -83,9 +96,22 @@ export function defaultRules(mode: "auto" | "ask", buildAgent: boolean): Permiss
       { tool: "terminal", pattern: "*", effect: "deny" },
       { tool: "browser", pattern: "click*", effect: "deny" },
       { tool: "browser", pattern: "type*", effect: "deny" },
+      { tool: "browser", pattern: "fill*", effect: "deny" },
       { tool: "browser", pattern: "press*", effect: "deny" },
+      { tool: "browser", pattern: "select*", effect: "deny" },
+      { tool: "browser", pattern: "check*", effect: "deny" },
+      { tool: "browser", pattern: "hover*", effect: "deny" },
+      { tool: "browser", pattern: "scroll*", effect: "deny" },
       { tool: "browser", pattern: "navigate*", effect: "deny" },
       { tool: "browser", pattern: "evaluate*", effect: "deny" },
+      { tool: "browser", pattern: "execute*", effect: "deny" },
+      { tool: "browser", pattern: "steps*", effect: "deny" },
+      { tool: "browser", pattern: "task*", effect: "deny" },
+      { tool: "browser", pattern: "back*", effect: "deny" },
+      { tool: "browser", pattern: "forward*", effect: "deny" },
+      { tool: "browser", pattern: "reload*", effect: "deny" },
+      { tool: "browser", pattern: "new_tab*", effect: "deny" },
+      { tool: "browser", pattern: "close_tab*", effect: "deny" },
       { tool: "integrations", pattern: "run*", effect: "deny" },
     );
     return rules;
@@ -103,6 +129,10 @@ export function defaultRules(mode: "auto" | "ask", buildAgent: boolean): Permiss
     { tool: "browser", pattern: "*", effect: mode === "auto" ? "allow" : "ask" },
     { tool: "browser", pattern: "snapshot", effect: "allow" },
     { tool: "browser", pattern: "extract", effect: "allow" },
+    { tool: "browser", pattern: "find", effect: "allow" },
+    { tool: "browser", pattern: "wait*", effect: "allow" },
+    { tool: "browser", pattern: "tabs", effect: "allow" },
+    { tool: "browser", pattern: "screenshot", effect: "allow" },
     // Running an arbitrary connected-app tool changes the outside world, so it
     // asks even when the app is otherwise on auto.
     { tool: "integrations", pattern: "run", effect: "ask" },

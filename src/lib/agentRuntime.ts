@@ -1,6 +1,12 @@
 import { recordAudit } from "./audit";
 import { decide, type PermissionEffect, type PermissionRule } from "./permissions";
-import { streamChat, type ChatImage, type ChatTurn, type StreamUsage } from "./providers";
+import {
+  canSeeImages,
+  streamChat,
+  type ChatImage,
+  type ChatTurn,
+  type StreamUsage,
+} from "./providers";
 import {
   runTool,
   toolLabel,
@@ -496,6 +502,7 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
   const seen = new Map<string, { outcome: ToolOutcome; step: number }>();
   let toolCalls = 0;
   let parseRetries = 0;
+  const seesImages = canSeeImages(options.provider, options.model);
 
   for (let step = 0; step < budget; step += 1) {
     if (options.signal.aborted) throw new DOMException("aborted", "AbortError");
@@ -662,7 +669,12 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
       seen.set(signature, { outcome, step });
       options.onToolDone(id, outcome, outcome.ok ? "done" : "error");
       results.push(encodeResult(call, outcome));
-      if (outcome.images?.length) images.push(...outcome.images.slice(0, 2));
+      if (outcome.images?.length && seesImages) images.push(...outcome.images.slice(0, 2));
+      if (outcome.images?.length && !seesImages) {
+        results.push(
+          "An image was produced, but this model cannot see images. Use the text result, or browser snapshot/extract/execute instead.",
+        );
+      }
     }
 
     turns.push({

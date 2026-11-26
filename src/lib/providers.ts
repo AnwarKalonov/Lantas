@@ -75,6 +75,23 @@ export function prettyModel(model: string): string {
   return PRETTY[model] ?? model.replace(/^[a-z0-9-]+\//i, "");
 }
 
+/**
+ * Whether a model can take an image at all. Text-only models reject the whole
+ * request when a screenshot is attached, so the browser falls back to the DOM
+ * scan for them instead of spending a turn on a failed image call.
+ */
+const VISION_MODEL =
+  /(gpt-4o|gpt-4\.1|gpt-4-turbo|gpt-5|(^|[-/])o[34](-|$)|claude-(3|4)|gemini|gemma-?3|llama-?3\.2.*vision|llama-?4|qwen.*(vl|vision)|pixtral|llava|moondream|internvl|minicpm-v|grok.*vision|mistral-small-3)/i;
+
+export function canSeeImages(_provider: ProviderId, model: string): boolean {
+  const name = (model || "").toLowerCase();
+  if (!name) return false;
+  // Coder, reasoning and math builds are text-only even when a sibling in the
+  // same family has a vision variant.
+  if (/(coder|deepseek-(r1|v3)|math|reason|text-only)/.test(name)) return false;
+  return VISION_MODEL.test(name);
+}
+
 export function isConfigured(id: ProviderId, config: ProviderConfig): boolean {
   const meta = getProvider(id);
   if (!config.enabled) return false;

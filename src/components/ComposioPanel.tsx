@@ -78,6 +78,24 @@ export function ComposioPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasKey]);
 
+  // OAuth finishes in another browser. Timer polling can be throttled while
+  // Lantas is in the background, so coming back to the app is a real signal to
+  // read the connections again instead of waiting for the next tick.
+  useEffect(() => {
+    if (!hasKey) return;
+    const onFocus = () => void refresh();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasKey]);
+
   useEffect(() => {
     if (!pending) return;
     const poll = window.setInterval(async () => {
@@ -86,19 +104,38 @@ export function ComposioPanel() {
         setConnections(next);
         if (next.some((item) => item.toolkit === pending && item.status === "ACTIVE")) {
           setPending(null);
+          setPendingUrl("");
           notify(`${pending} connected`);
+          void refresh();
         }
       } catch {
         /* keep waiting */
       }
-    }, 4000);
-    const stop = window.setTimeout(() => setPending(null), 180_000);
+    }, 2500);
+    const stop = window.setTimeout(() => setPending(null), 240_000);
     return () => {
       window.clearInterval(poll);
       window.clearTimeout(stop);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending]);
+
+  // The direct Google card points here when it cannot run in the desktop app;
+  // clear a filter so the Gmail card is actually on screen.
+  useEffect(() => {
+    const openGmail = () => {
+      setQuery("");
+      setCategory("All");
+      window.requestAnimationFrame(() => {
+        document.getElementById("market-gmail")?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+    };
+    window.addEventListener("lantas:gmail-card", openGmail);
+    return () => window.removeEventListener("lantas:gmail-card", openGmail);
+  }, []);
 
   const saveKey = (event: React.FormEvent) => {
     event.preventDefault();
@@ -298,7 +335,39 @@ export function ComposioPanel() {
       {pending && (
         <div className="market-pending">
           <span>
-            Waiting for <b>{pending}</b> authorization. This updates automatically.
+            Waiting for <b>{pending}</b> authorization. Finish the sign-in in your browser,
+            then come back here — it checks again as soon as Lantas is in front.
+            {pending === "gmail" && (
+              <>
+                {" "}
+                If Google says the app is unverified, open <b>Advanced</b> and choose{" "}
+                <b>Continue</b>.
+              </>
+            )}
+          </span>
+          <span className="market-pending-actions">
+            <button
+              type="button"
+              className="text-button"
+              onClick={async () => {
+                try {
+                  const next = await listConnections();
+                  setConnections(next);
+                  if (next.some((item) => item.toolkit === pending && item.status === "ACTIVE")) {
+                    setPending(null);
+                    setPendingUrl("");
+                    notify(`${pending} connected`);
+                    return;
+                  }
+                } catch {
+                  /* fall through to refresh */
+                }
+                await refresh();
+                notify("Not connected yet — finish the Google sign-in first", "error");
+              }}
+            >
+              Check now
+            </button>
           </span>
           {pendingUrl && (
             <span className="market-pending-actions">
@@ -344,7 +413,11 @@ export function ComposioPanel() {
           const account = active.get(app.slug);
           const working = busy === app.slug || pending === app.slug;
           return (
-            <article className={cx("market-card", account && "is-connected")} key={app.slug}>
+            <article
+              id={`market-${app.slug}`}
+              className={cx("market-card", account && "is-connected")}
+              key={app.slug}
+            >
               <div className="market-card-top">
                 <div className="market-logo">
                   <AppLogo slug={app.icon} name={app.name} size={20} eager domain={app.domain} />

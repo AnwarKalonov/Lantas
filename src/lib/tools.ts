@@ -71,6 +71,8 @@ export interface ToolContext {
   onShellLine?: (line: string) => void;
   /** Overrides the browser drive switch for one turn (the Chrome panel's Act mode). */
   drive?: boolean;
+  /** Whether the active model can take an image; text-only models read the DOM. */
+  vision?: boolean;
   /** The user's request for this turn, used to resolve ambiguous browser targets. */
   task?: string;
   /** The app's own settings, for the settings tool. */
@@ -394,7 +396,7 @@ export async function runTool(
     }
     if (
       call.name === "browser" &&
-      !["snapshot", "extract", "find"].includes(action) &&
+      !["snapshot", "extract", "find", "screenshot", "wait", "tabs"].includes(action) &&
       !grants.control
     ) {
       return denied(
@@ -705,7 +707,13 @@ export async function runTool(
         return await runTerminalTool(call.args, context);
 
       case "browser":
-        return await runBrowserTool(call.args, context.drive, context.task);
+        return await runBrowserTool(
+          call.args,
+          context.drive,
+          context.task,
+          false,
+          context.vision,
+        );
 
       case "ask_user": {
         const question = String(call.args.question ?? "").trim();
@@ -954,6 +962,8 @@ async function runBrowserTool(
   task = "",
   /** Part of a batched call: no state read before, no snapshot after. */
   quiet = false,
+  /** False for a text-only model: screenshots are refused, text tools remain. */
+  vision = true,
 ): Promise<ToolOutcome> {
   const action = String(args.action ?? "").toLowerCase();
   const resource = toolResource({ name: "browser", args });
@@ -965,7 +975,7 @@ async function runBrowserTool(
     resource,
   });
 
-  const readOnly = ["snapshot", "extract", "find", "screenshot"].includes(action);
+  const readOnly = ["snapshot", "extract", "find", "screenshot", "wait", "tabs"].includes(action);
   if (!readOnly && !(drive ?? aiDriving())) {
     return fail(
       "The user has control of the browser. Ask them to switch to Act mode before changing the page.",
@@ -1239,6 +1249,11 @@ async function runBrowserTool(
     }
 
     case "screenshot": {
+      if (!vision) {
+        return fail(
+          "This model cannot see images. Use browser snapshot, extract, find or execute: they return the page as text with numbered controls.",
+        );
+      }
       const shot = await agentScreenshot();
       if (!shot.ok || !shot.image) {
         return fail(
@@ -1270,7 +1285,7 @@ async function runBrowserTool(
       const timeoutMs = Math.min(60_000, Math.max(1_000, Number(args.timeoutMs ?? 12_000) || 12_000));
       const result = await agentExecute(code, timeoutMs);
       const images: ChatImage[] = [];
-      if (args.screenshot) {
+      if (args.screenshot && vision) {
         const shot = await agentScreenshot();
         if (shot.ok && shot.image) images.push(shot.image);
       }
@@ -1478,7 +1493,7 @@ async function runBrowserTool(
           log.push(`${index + 1}. skipped (${stepAction || "no action"})`);
           continue;
         }
-        const outcome = await runBrowserTool(step, drive, task, true);
+        const outcome = await runBrowserTool(step, drive, task, true, vision);
         log.push(`${index + 1}. ${stepAction}: ${outcome.summary}`);
         if (!outcome.ok) {
           stopped = `${stepAction} failed — ${outcome.content}`;

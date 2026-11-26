@@ -14,6 +14,8 @@ export interface Connection {
   id: string;
   toolkit: string;
   status: string;
+  userId?: string;
+  createdAt?: number;
 }
 
 export type IntegrationCategory =
@@ -85,17 +87,6 @@ function deviceId(): string {
   }
 }
 
-function profileEmail(): string | null {
-  try {
-    const raw = localStorage.getItem("lantas.el.v1");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { profile?: { email?: string } };
-    return parsed.profile?.email ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export function keyPresent(): boolean {
   return Boolean(getStoredKey());
 }
@@ -117,7 +108,11 @@ export function setComposioKey(apiKey: string) {
 export function getComposio(): ComposioConfig | null {
   const apiKey = getStoredKey();
   if (!apiKey) return null;
-  return { apiKey, userId: profileEmail() ?? deviceId() };
+  // A stable device id, not the browser profile email. The email used to be the
+  // user id, so filling in a profile after connecting Gmail made the existing
+  // account invisible; connections are now listed for the whole project and
+  // calls use the connected account id instead.
+  return { apiKey, userId: deviceId() };
 }
 
 export class ComposioError extends Error {}
@@ -162,14 +157,35 @@ function list<T>(payload: any): T[] {
 export async function listConnections(): Promise<Connection[]> {
   const config = getComposio();
   if (!config) return [];
-  const data = await api<any>(
-    `/connected_accounts?limit=100&user_ids=${encodeURIComponent(config.userId)}`,
-  );
-  return list<any>(data).map((item) => ({
-    id: item.id,
-    toolkit: item.toolkit?.slug ?? item.toolkit_slug ?? "",
-    status: (item.status ?? item.connectionData?.status ?? "").toUpperCase(),
-  }));
+  // A project key belongs to one person, so every account in the project is
+  // theirs. Filtering by user id used to hide connections created before a
+  // profile change (or by an older build with a different id rule).
+  const data = await api<any>(`/connected_accounts?limit=100`);
+  const seen = new Set<string>();
+  return list<any>(data)
+    .map((item) => ({
+      id: item.id,
+      toolkit: item.toolkit?.slug ?? item.toolkit_slug ?? "",
+      status: (item.status ?? item.connectionData?.status ?? "").toUpperCase(),
+      userId:
+        item.user_id ??
+        item.userId ??
+        item.connectionData?.user_id ??
+        item.connectionData?.userId,
+      createdAt: Number(item.created_at ?? item.createdAt ?? 0) || 0,
+    }))
+    .filter((item) => item.id && item.toolkit)
+    .sort(
+      (a, b) =>
+        Number(b.status === "ACTIVE") - Number(a.status === "ACTIVE") ||
+        b.createdAt - a.createdAt,
+    )
+    .filter((item) => {
+      const key = `${item.toolkit}:${item.status}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 function readAuthCache(): Record<string, string> {
@@ -311,12 +327,31 @@ export async function executeTool(
 ): Promise<unknown> {
   const config = getComposio();
   if (!config) throw new ComposioError("This build has no Composio app key.");
+
+  // Prefer the connected account itself and its own user id. Both may predate
+  // this install, and an account made under the browser profile email used to
+  // become invisible after that profile changed.
+  let account: Connection | undefined;
+  if (!accountId) {
+    try {
+      const wanted = slug.toLowerCase().replace(/[^a-z0-9]/g, "");
+      account = (await listConnections()).find((item) => {
+        const toolkit = item.toolkit.toLowerCase().replace(/[^a-z0-9]/g, "");
+        return item.status === "ACTIVE" && toolkit && wanted.startsWith(toolkit);
+      });
+    } catch {
+      /* fall back to the project user id */
+    }
+  }
+  const connection = accountId ?? account?.id;
+  const userId = account?.userId || config.userId;
+
   const data = await api<any>(`/tools/execute/${encodeURIComponent(slug)}`, {
     method: "POST",
     body: JSON.stringify({
-      user_id: config.userId,
+      user_id: userId,
+      ...(connection ? { connected_account_id: connection } : {}),
       arguments: args,
-      ...(accountId ? { connected_account_id: accountId } : {}),
       version: "latest",
     }),
   });

@@ -34,7 +34,9 @@ import { flattenBookmarks, readBrowserBookmarks } from "../lib/bookmarks";
 import { ChromeBridgePanel } from "./ChromeBridgePanel";
 import { ModelPicker } from "./ModelPicker";
 import { readAttachments } from "../lib/attachments";
-import type { Attachment, ProviderId } from "../lib/types";
+import type { Attachment, Message, ProviderId } from "../lib/types";
+import { isConfigured, streamChat, type ChatTurn } from "../lib/providers";
+import { AgentQuestion, QuickAnswer } from "./AgentQuestion";
 import {
   EL_HOME,
   aiDriving,
@@ -56,6 +58,51 @@ import { Icon } from "./Icons";
 import { Transcript } from "./Transcript";
 import { getActiveUserAsk, skipUserAsk, subscribeUserAsk } from "../lib/userAsk";
 import { TrustPalette, TrustPanelHead } from "./TrustPanelHead";
+
+const SUGGEST_SYSTEM = [
+  "You write the three quick suggestions shown under a browser assistant's chat.",
+  "They must follow from this page and the last exchange, not be generic menu items.",
+  "Return exactly three lines. Each is a short action or question the user might click next, 2 to 7 words.",
+  "No numbering, quotes, emoji, or punctuation at the end. Never repeat one already shown.",
+  "If the page is a login or a form, suggest what the user can do with it next. If a task just finished, suggest a sensible next step.",
+].join("\n");
+
+function messageText(message: Message): string {
+  return message.parts
+    .filter((part) => part.kind === "text")
+    .map((part) => (part.kind === "text" ? part.text : ""))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function defaultPrompts(page: ElPage | null): string[] {
+  const title = page?.title?.trim().replace(/\s*[|·—-]\s*.*$/, "");
+  return [
+    title && title.length <= 42 ? `Summarize ${title}` : "Summarize this page",
+    "Find what I can do here",
+    "Do the main action",
+  ];
+}
+
+function cleanPrompts(raw: string, page: ElPage | null): string[] {
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  for (const line of raw.split("\n")) {
+    const clean = line
+      .replace(/^[\s>*\-\d.)]+/, "")
+      .replace(/^["'“”]|["'“”]$/g, "")
+      .replace(/[.;:,]+$/, "")
+      .trim();
+    if (clean.length < 3 || clean.length > 52) continue;
+    const key = clean.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    lines.push(clean);
+    if (lines.length === 3) break;
+  }
+  return lines.length >= 2 ? lines : defaultPrompts(page);
+}
 
 const SHORTCUTS = [
   { name: "GitHub", slug: "github", url: "https://github.com" },
@@ -112,12 +159,9 @@ export function BrowserView({
   const [aiDraft, setAiDraft] = useState("");
   const [aiFiles, setAiFiles] = useState<Attachment[]>([]);
   const [promptOpen, setPromptOpen] = useState(true);
+  const [suggestions, setSuggestions] = useState<string[]>(() => defaultPrompts(page));
+  const suggestKey = useRef("");
   const aiFileInput = useRef<HTMLInputElement>(null);
-  const browserPrompts = [
-    "Summarize this page",
-    "Find what I can do here",
-    "Do the main action",
-  ];
 
   useEffect(() => {
     try {
@@ -506,6 +550,7 @@ export function BrowserView({
   };
 
   const ask = async (prompt = "Summarize this page and tell me what matters.") => {
+    setPromptOpen(true);
     openAssistant();
     await ensurePage();
     window.dispatchEvent(new CustomEvent("lantas:ask", { detail: { text: prompt } }));
@@ -609,6 +654,85 @@ export function BrowserView({
   const aiModel = activeSession?.model ?? state.settings.defaultModel;
   const aiProvider = activeSession?.provider ?? state.settings.defaultProvider;
   const aiStreaming = Boolean(activeSession?.messages.at(-1)?.streaming);
+  const aiConfig = state.settings.providers[aiProvider];
+  const lastMessage = activeSession?.messages.at(-1) ?? null;
+  const lastAssistant = lastMessage?.role === "assistant" ? lastMessage : null;
+  const lastAnswerText = lastAssistant ? messageText(lastAssistant) : "";
+  const askedInProse = Boolean(
+    !pendingAsk &&
+      !aiStreaming &&
+      lastAssistant &&
+      lastAnswerText.length > 0 &&
+      lastAnswerText.length < 600 &&
+      /\?\s*$/.test(lastAnswerText),
+  );
+
+  // Suggestions are written for this page and this exchange, not a fixed menu.
+  // One cheap call per finished turn; a failure keeps the last good set.
+  useEffect(() => {
+    if (!aiOpen || aiStreaming || pendingAsk || askedInProse) return;
+    if (!activeSession || !isConfigured(aiProvider, aiConfig)) return;
+    const where = page?.url || active.url;
+    const key = `${activeSession.id}:${activeSession.messages.length}:${where}`;
+    if (suggestKey.current === key) return;
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      suggestKey.current = key;
+      const recent: ChatTurn[] = aiMessages
+        .map((message) => ({ role: message.role, content: messageText(message).slice(0, 700) }))
+        .filter((turn) => turn.content);
+      let buffer = "";
+      void streamChat({
+        provider: aiProvider,
+        config: aiConfig,
+        model: aiModel,
+        system: SUGGEST_SYSTEM,
+        messages: [
+          ...recent.slice(-4),
+          {
+            role: "user",
+            content: [
+              `Page: ${page?.title || hostOf(where)} — ${where}`,
+              page?.text ? `Page text: ${page.text.slice(0, 900)}` : "",
+              "Write the three suggestions now, one per line.",
+            ]
+              .filter(Boolean)
+              .join("\n"),
+          },
+        ],
+        signal: controller.signal,
+        onDelta: (chunk) => {
+          buffer += chunk;
+        },
+      })
+        .then(() => {
+          if (controller.signal.aborted) return;
+          const next = cleanPrompts(buffer, page);
+          if (next.length) setSuggestions(next);
+        })
+        .catch(() => {
+          /* keep the page-aware defaults */
+        });
+    }, 700);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [
+    aiOpen,
+    aiStreaming,
+    pendingAsk,
+    askedInProse,
+    activeSession?.id,
+    activeSession?.messages.length,
+    active.url,
+    page?.url,
+    aiProvider,
+    aiModel,
+    aiConfig,
+  ]);
 
   const pickAiModel = (nextProvider: ProviderId, nextModel: string) => {
     if (activeSession) {
@@ -627,8 +751,8 @@ export function BrowserView({
   }, [aiOpen, aiMessages.length, activeSession?.messages.at(-1)?.parts]);
 
   // A question is useless behind a closed panel. Open the side chat when the
-  // agent pauses for a login detail. The form itself lives at App level, so it
-  // survives leaving this surface; do not release the wait here.
+  // agent pauses for a login detail; the answer form renders inline below the
+  // transcript, in place of the suggestions.
   useEffect(() => {
     return subscribeUserAsk((question) => {
       setPendingAsk(question);
@@ -727,6 +851,7 @@ export function BrowserView({
     event.preventDefault();
     const text = aiDraft.trim();
     if ((!text && aiFiles.length === 0) || aiStreaming) return;
+    setPromptOpen(true);
     const files = aiFiles;
     setAiDraft("");
     setAiFiles([]);
@@ -1235,7 +1360,15 @@ export function BrowserView({
                   new CustomEvent("lantas:settings", { detail: { tab: "providers" } }),
                 )
               }
-              onClose={() => setAiOpen(false)}
+              onClose={() => {
+                // Closing the rail while the turn waits would hide the only
+                // answer form in Browser mode; keep it until the ask settles.
+                if (pendingAsk) {
+                  notify("Answer the question first, then close the rail");
+                  return;
+                }
+                setAiOpen(false);
+              }}
             />
 
             <div className="el-ai-log trust-log" ref={aiLogRef}>
@@ -1261,57 +1394,33 @@ export function BrowserView({
                         <span>{driving ? "Can act" : "Read only"}</span>
                       </span>
                     </div>
-                    {pendingAsk ? (
-                      // A sign-in form is the one thing worth showing here: the
-                      // suggestions are in the way exactly when the turn is
-                      // blocked on a detail only the user has.
-                      <div className="trust-ask">
-                        <span className="trust-ask-mark">
-                          <Icon name="key" size={13} />
-                        </span>
-                        <div className="trust-ask-copy">
-                          <strong>Lantas needs a detail</strong>
-                          <p>{pendingAsk.question}</p>
-                          <span>Fill it in below to continue.</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="trust-qr">
-                        <button type="button" onClick={() => ask()}>
-                          Summarize this page
+                    <div className="trust-qr">
+                      {suggestions.map((item) => (
+                        <button key={item} type="button" onClick={() => void ask(item)}>
+                          {item}
                           <Icon name="chevronRight" size={13} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => ask("What are the main actions available on this page?")}
-                        >
-                          Find what I can do here
-                          <Icon name="chevronRight" size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => ask("Do the main action on this page.")}
-                        >
-                          Do the main action
-                          <Icon name="chevronRight" size={13} />
-                        </button>
-                      </div>
-                    )}
+                      ))}
+                    </div>
                   </div>
                 }
               />
             </div>
 
-            {promptOpen && !aiStreaming && (
+            {pendingAsk ? (
+              <AgentQuestion key={pendingAsk.id} inline />
+            ) : askedInProse ? (
+              <QuickAnswer question={lastAnswerText} onSubmit={(answer) => void ask(answer)} />
+            ) : promptOpen && !aiStreaming ? (
               <TrustPalette
-                items={browserPrompts}
+                items={suggestions}
                 onPick={(text) => {
                   setPromptOpen(false);
                   void ask(text);
                 }}
                 onDismiss={() => setPromptOpen(false)}
               />
-            )}
+            ) : null}
 
             {takeover && (
               <div className="trust-takeover">

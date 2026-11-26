@@ -8,7 +8,7 @@ mod workspace;
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
-use tauri::{LogicalPosition, LogicalSize, Manager, WebviewUrl};
+use tauri::{Emitter, LogicalPosition, LogicalSize, Manager, WebviewUrl};
 
 /// A normal macOS Safari agent string. WKWebView's default agent names the app,
 /// which Google treats as an unusual client and answers with a captcha wall.
@@ -313,6 +313,75 @@ fn overlay_hide(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("screen-overlay") {
         window.hide().map_err(|error| error.to_string())?;
     }
+    Ok(())
+}
+
+/// The screen assistant as its own floating window.
+///
+/// The card used to live inside the main window, so it disappeared behind
+/// whatever app the user switched to. This window stays above normal windows
+/// on every Space, which is what "ask about my screen" needs while the user
+/// works somewhere else. It holds the same React card, with its own capture.
+#[tauri::command]
+fn screen_assistant_show(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("screen-assistant") {
+        window.show().map_err(|error| error.to_string())?;
+        let _ = window.set_always_on_top(true);
+        let _ = window.set_focus();
+        return Ok(());
+    }
+
+    let monitor = app
+        .primary_monitor()
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "No display is available.".to_string())?;
+    let scale = monitor.scale_factor();
+    let size = monitor.size().to_logical::<f64>(scale);
+    let position = monitor.position().to_logical::<f64>(scale);
+    let width = 380.0_f64;
+    let height = 620.0_f64.min(size.height - 48.0);
+    let x = position.x + (size.width - width - 22.0).max(22.0);
+    let y = position.y + (size.height - height - 42.0).max(22.0);
+
+    let window = tauri::WebviewWindowBuilder::new(
+        &app,
+        "screen-assistant",
+        WebviewUrl::App("index.html".into()),
+    )
+    .initialization_script("window.__lantasScreen = true;")
+    .title("Lantas Screen")
+    .decorations(false)
+    .transparent(true)
+    .shadow(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .resizable(true)
+    .focused(true)
+    .visible(false)
+    .inner_size(width, height)
+    .position(x, y)
+    .build()
+    .map_err(|error| format!("screen assistant: {error}"))?;
+
+    // Follow the user across Spaces and over full-screen apps as far as macOS
+    // allows a normal floating window to do so.
+    #[cfg(target_os = "macos")]
+    {
+        let _ = window.set_visible_on_all_workspaces(true);
+    }
+    window.show().map_err(|error| error.to_string())?;
+    let _ = window.set_focus();
+    Ok(())
+}
+
+#[tauri::command]
+fn screen_assistant_hide(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("screen-assistant") {
+        window.hide().map_err(|error| error.to_string())?;
+    }
+    // The main window keeps the screen button in sync even though the popup is
+    // the surface that closed.
+    let _ = app.emit("lantas:screen-stopped", ());
     Ok(())
 }
 
@@ -902,6 +971,8 @@ pub fn run() {
             el_screenshot,
             overlay_show,
             overlay_hide,
+            screen_assistant_show,
+            screen_assistant_hide,
             git::git_status,
             git::git_diff,
             git::git_stage,

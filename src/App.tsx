@@ -7,7 +7,7 @@ import { defaultRules, describeAction } from "./lib/permissions";
 import type { ToolCall, ToolContext } from "./lib/tools";
 import { getElContext } from "./lib/el";
 import { consumeGoogleHash, getGoogleToken } from "./lib/google";
-import { inTauri } from "./lib/native";
+import { hideScreenAssistant, inTauri, showScreenAssistant } from "./lib/native";
 import { openCliInTerminal } from "./lib/terminal";
 import { agentClick, agentEnter, agentScroll, agentType } from "./lib/browserAgent";
 import {
@@ -17,7 +17,7 @@ import {
   buildSystemPrompt,
   parseImage,
 } from "./lib/chat";
-import { isConfigured } from "./lib/providers";
+import { canSeeImages, isConfigured } from "./lib/providers";
 import type { ChatTurn } from "./lib/providers";
 import {
   chromeChatReply,
@@ -408,6 +408,14 @@ export function App() {
   }, []);
 
   const startScreen = useCallback(async () => {
+    // A screen without a vision model is a picture no one reads. Stop before
+    // the share opens and point at the model picker instead.
+    const visionProvider = activeSession?.provider ?? state.settings.defaultProvider;
+    const visionModel = activeSession?.model || state.settings.defaultModel;
+    if (!canSeeImages(visionProvider, visionModel)) {
+      notify("This model cannot see images — choose a vision model to share your screen", "error");
+      return;
+    }
     // A desktop window has no getDisplayMedia, so it captures natively instead
     // of asking for a screen-share picker that can never appear.
     if (inTauri()) {
@@ -415,7 +423,12 @@ export function App() {
         const frame = await captureNativeScreen();
         if (!frame) throw new Error("The screen capture came back empty.");
         setSettings({ screenAccess: true });
-        notify("Screen access on — every turn includes a fresh frame");
+        const shown = await showScreenAssistant();
+        notify(
+          shown
+            ? "Screen assistant open — it stays above your other windows"
+            : "Screen access on — every turn includes a fresh frame",
+        );
       } catch (error) {
         setSettings({ screenAccess: false });
         notify(error instanceof Error ? error.message : "Screen capture failed", "error");
@@ -425,29 +438,51 @@ export function App() {
     try {
       await acquireScreen();
       setSettings({ screenAccess: true });
+      window.dispatchEvent(new CustomEvent("lantas:screen-open"));
       notify("Screen shared — the next turn includes a frame");
     } catch (error) {
       notify(error instanceof Error ? error.message : "Screen access was declined", "error");
     }
-  }, [notify, setSettings]);
+  }, [
+    activeSession?.model,
+    activeSession?.provider,
+    notify,
+    setSettings,
+    state.settings.defaultModel,
+    state.settings.defaultProvider,
+  ]);
 
   const stopScreen = useCallback(() => {
     releaseScreen();
     setSettings({ screenAccess: false });
+    if (inTauri()) void hideScreenAssistant();
+    else window.dispatchEvent(new CustomEvent("lantas:screen-close"));
     notify("Screen sharing stopped");
   }, [notify, setSettings]);
 
   const handleScreenToggle = useCallback(() => {
-    // The popup is the screen feature: sharing turns it on, stopping hides it.
-    // Native capture has no stream to inspect, so the setting is the truth.
-    if (state.settings.screenAccess) {
-      stopScreen();
-      window.dispatchEvent(new CustomEvent("lantas:screen-close"));
-    } else {
-      void startScreen();
-      window.dispatchEvent(new CustomEvent("lantas:screen-open"));
-    }
+    // The popup is the screen feature: sharing opens the floating window,
+    // stopping hides it. Native capture has no stream to inspect, so the
+    // setting is the truth.
+    if (state.settings.screenAccess) stopScreen();
+    else void startScreen();
   }, [startScreen, state.settings.screenAccess, stopScreen]);
+
+  // The floating card can be closed on its own; keep the main window's screen
+  // button in step instead of leaving it lit after the share ended.
+  useEffect(() => {
+    if (!inTauri()) return;
+    let release: (() => void) | undefined;
+    void import("@tauri-apps/api/event")
+      .then(({ listen }) =>
+        listen("lantas:screen-stopped", () => setSettings({ screenAccess: false })),
+      )
+      .then((unlisten) => {
+        release = unlisten;
+      })
+      .catch(() => undefined);
+    return () => release?.();
+  }, [setSettings]);
 
   const openFolder = useCallback(async () => {
     try {
@@ -494,18 +529,28 @@ export function App() {
     (allowed: boolean, remember = false) => {
       const current = approvalRef.current;
       if (allowed && remember && current) {
-        const rule = {
-          tool: current.call.name,
-          pattern: current.resource,
-          effect: "allow" as const,
-          literal: true,
-        };
+        const action = String(current.call.args.action ?? "").toLowerCase();
+        // A browser target changes on every click, so a literal rule would ask
+        // again on the next element. “Always allow” means this kind of browser
+        // action; batched steps stay exact because they can contain anything.
+        const broadBrowser =
+          current.call.name === "browser" &&
+          /^[a-z_]+$/.test(action) &&
+          !["steps", "task", "run"].includes(action);
+        const rule = broadBrowser
+          ? { tool: "browser", pattern: `${action}*`, effect: "allow" as const }
+          : {
+              tool: current.call.name,
+              pattern: current.resource,
+              effect: "allow" as const,
+              literal: true,
+            };
         const next = [
           ...allowedRulesRef.current.filter(
             (entry) =>
               !(
                 entry.tool === rule.tool &&
-                entry.literal &&
+                entry.literal === rule.literal &&
                 entry.pattern === rule.pattern
               ),
           ),
@@ -514,7 +559,11 @@ export function App() {
         allowedRulesRef.current = next;
         autoAllowed.current.add(`${rule.tool}\u0000${rule.pattern}`);
         setSettings({ allowedRules: next });
-        notify("Always allowed — manage it in Settings → Permissions");
+        notify(
+          broadBrowser
+            ? `Always allowed — every browser ${action} now runs without asking`
+            : "Always allowed — manage it in Settings → Permissions",
+        );
       }
       approvalResolve.current?.(allowed);
       approvalResolve.current = null;
@@ -999,14 +1048,17 @@ export function App() {
       const model = existing?.model || state.settings.defaultModel;
       const providerConfig = state.settings.providers[provider];
       const live = isConfigured(provider, providerConfig);
+      const seesImages = canSeeImages(provider, model);
       const snapshot: Session | null = existing ?? null;
       const assistantId = uid("msg");
       const isNew = !existing || existing.messages.length === 0;
 
-      const screen = state.settings.screenAccess ? currentScreen() : null;
+      // A text-only model rejects the whole request when a frame is attached,
+      // so screen sharing only sends pixels to a model that can read them.
+      const screen = state.settings.screenAccess && seesImages ? currentScreen() : null;
       let outgoing = attachments;
       let frame = screen ? await captureFrame(screen) : null;
-      if (!frame && !screen && state.settings.screenAccess && inTauri()) {
+      if (!frame && !screen && state.settings.screenAccess && seesImages && inTauri()) {
         try {
           frame = await captureNativeScreen();
         } catch (error) {
@@ -1225,7 +1277,7 @@ export function App() {
 
           const runningSummary = snapshot ? buildRunningSummary(snapshot) : "";
           const browserMode = state.mode === "browser";
-          const system = browserMode
+          let system = browserMode
             ? buildBrowserSystemPrompt(
                 snapshot ?? ({ cwd: "~/dev/lantas", branch: "main", agent } as Session),
                 page,
@@ -1247,6 +1299,13 @@ export function App() {
                   "",
                   Boolean(state.workspaceRoot),
                 );
+          if (!seesImages) {
+            system += [
+              "",
+              "This model cannot see images. Never call browser screenshot and never expect a picture.",
+              "Read pages as text with browser snapshot, extract, find or execute, which return the page text and numbered controls.",
+            ].join("\n");
+          }
 
           const toolFiles: WorkspaceFile[] = [...state.workspace];
           const shellPart = { current: null as string | null };
@@ -1256,6 +1315,10 @@ export function App() {
             agent,
             skills: state.skills,
             task: text,
+            vision: seesImages,
+            // Outside the browser panel there is no Act switch to read, so the
+            // app-wide Computer control grant is what lets a Chat turn act.
+            drive: browserMode ? undefined : state.settings.computerControl,
             // The question form lives at App level now, so any surface can ask
             // instead of ending the turn with "please type your password here".
             askUser: (question, kind) => askUser({ question, kind }, controller.signal),
@@ -1911,10 +1974,10 @@ export function App() {
 
       <ScreenShare />
 
-      {/* A question from the browser agent is answered in place, over whatever
-          surface is open. Keeping it inside the browser panel meant a closed
-          rail hid the form while the turn waited. */}
-      <AgentQuestion />
+      {/* Outside Browser mode a question floats over whatever surface is open,
+          so a closed rail cannot hide it. In Browser mode the rail renders the
+          same form inline, above its composer, in place of the suggestions. */}
+      {state.mode !== "browser" && <AgentQuestion />}
 
       <CommandPalette
         open={paletteOpen}

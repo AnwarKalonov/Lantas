@@ -3,7 +3,7 @@ import { BROWSER_GUIDE, setBrowserEngineOverride } from "./browserAgent";
 import type { ChromeElement, ChromePage } from "./chrome";
 import type { PermissionRule } from "./permissions";
 import type { ProviderConfig, ProviderId } from "./types";
-import type { ChatTurn, StreamUsage } from "./providers";
+import { canSeeImages, type ChatTurn, type StreamUsage } from "./providers";
 
 /**
  * One browser turn, run through the same tool loop as the coding agent.
@@ -66,7 +66,7 @@ function pageBlock(page: ChromePage | null, elements: ChromeElement[] | null): s
     .join("\n");
 }
 
-function systemPrompt(mode: "ask" | "act"): string {
+function systemPrompt(mode: "ask" | "act", vision: boolean): string {
   return [
     "You are Lantas, inside the Chrome side panel next to the tab the user is reading.",
     "The tab's live text and numbered controls are in the user message. Controls come from a real accessibility scan and their numbers are valid right now.",
@@ -92,6 +92,9 @@ function systemPrompt(mode: "ask" | "act"): string {
     "  back {}, forward {}, reload {}",
     "",
     BROWSER_GUIDE,
+    vision
+      ? ""
+      : "This model cannot see images. Do not call screenshot; use snapshot, extract or execute and work from the text and numbered controls.",
     "",
     "How to work:",
     "1. Answer from the page text when you can; do not act just because you can.",
@@ -120,7 +123,7 @@ export async function runBrowserTurn(options: BrowserTurnOptions): Promise<Brows
       provider: options.provider,
       config: options.config,
       model: options.model,
-      system: systemPrompt(options.mode),
+      system: systemPrompt(options.mode, canSeeImages(options.provider, options.model)),
       messages: [
         ...(options.history ?? []).slice(-8),
         {
@@ -138,6 +141,7 @@ export async function runBrowserTurn(options: BrowserTurnOptions): Promise<Brows
         saveFile: async () => false,
         drive: options.mode === "act",
         task: options.prompt,
+        vision: canSeeImages(options.provider, options.model),
       },
       rules: options.mode === "act" ? ACT_RULES : ASK_RULES,
       only: ["browser"],

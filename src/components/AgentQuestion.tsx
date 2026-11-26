@@ -14,7 +14,7 @@ import { Icon } from "./Icons";
  * this component and the provider request; they are never added to the chat
  * transcript or the session checkpoint.
  */
-export function AgentQuestion() {
+export function AgentQuestion({ inline = false }: { inline?: boolean }) {
   const [ask, setAsk] = useState<UserAsk | null>(getActiveUserAsk);
   const [text, setText] = useState("");
   const [email, setEmail] = useState("");
@@ -61,8 +61,8 @@ export function AgentQuestion() {
 
   return (
     <form
-      className="trust-question ask-pop"
-      role="dialog"
+      className={inline ? "trust-question is-inline" : "trust-question ask-pop"}
+      role={inline ? "group" : "dialog"}
       aria-label={credentials ? "Sign in to continue" : "Lantas needs a detail"}
       onSubmit={(event) => {
         event.preventDefault();
@@ -149,6 +149,75 @@ export function AgentQuestion() {
             Skip
           </button>
           <button type="submit" className="trust-question-send" disabled={!ready}>
+            <Icon name="arrowUp" size={12} />
+            Continue
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * A model that asked its question in prose instead of using ask_user still
+ * gets a real input in the browser rail, where there is no ask_user tool.
+ * It is the same panel, not a second composer, so the suggestion list becomes
+ * the answer field exactly when an answer is what the turn is waiting for.
+ */
+export function QuickAnswer({
+  question,
+  onSubmit,
+}: {
+  question: string;
+  onSubmit: (text: string) => void;
+}) {
+  const [text, setText] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 40);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return (
+    <form
+      className="trust-question is-inline trust-quick-answer"
+      role="group"
+      aria-label="Answer Lantas"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const answer = text.trim();
+        if (!answer) return;
+        setText("");
+        onSubmit(answer);
+      }}
+    >
+      <div className="trust-question-head">
+        <span className="trust-question-mark" aria-hidden="true">
+          <Icon name="bot" size={13} />
+        </span>
+        <div>
+          <strong>Answer to continue</strong>
+          <p>{question}</p>
+        </div>
+      </div>
+      <div className="trust-question-fields">
+        <label>
+          <span>Your answer</span>
+          <input
+            ref={inputRef}
+            value={text}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="Type your answer"
+            onChange={(event) => setText(event.target.value)}
+          />
+        </label>
+      </div>
+      <div className="trust-question-foot">
+        <span>Goes to the model as your reply.</span>
+        <div>
+          <button type="submit" className="trust-question-send" disabled={!text.trim()}>
             <Icon name="arrowUp" size={12} />
             Continue
           </button>

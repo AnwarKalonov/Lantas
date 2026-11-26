@@ -4,7 +4,8 @@
   "description": "Capabilities for the Lantas main window",
   "windows": [
     "main",
-    "screen-overlay"
+    "screen-overlay",
+    "screen-assistant"
   ],
   "permissions": [
     "core:default",

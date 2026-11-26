@@ -428,10 +428,10 @@ export function Composer({
                 notify(
                   state.settings.computerControl
                     ? "Computer control off"
-                    : "Computer control on — pointer and keyboard",
+                    : "Computer control on — Lantas can click and type in the browser",
                 );
               }}
-              title="Pointer and keyboard control"
+              title="Let Lantas click, type and scroll in the browser"
               aria-label="Computer control"
             >
               <Icon name="cursor" size={14} />

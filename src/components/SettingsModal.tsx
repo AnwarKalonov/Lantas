@@ -728,7 +728,7 @@ export function SettingsModal({
               />
               <Toggle
                 label="Computer control"
-                description="Click, type and scroll in the browser. macOS asks for Accessibility on first use."
+                description="Lets Lantas click, type and scroll inside Lantas Browser. It does not move your Mac pointer or control other apps."
                 checked={settings.computerControl}
                 onChange={(next) => setSettings({ computerControl: next })}
               />

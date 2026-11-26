@@ -130,6 +130,8 @@ export function ApprovalCard({
     ([key]) => key !== "action" && key !== "slug" && key !== "toolkit",
   );
   const shown = fields.slice(0, 6);
+  const browserAction =
+    approval.call.name === "browser" ? String(approval.call.args.action ?? "").toLowerCase() : "";
 
   return (
     <div className="overlay" onMouseDown={() => onSettle(false)}>
@@ -179,8 +181,9 @@ export function ApprovalCard({
         </div>
 
         <p className="approval-note">
-          Allow once runs only this step. Always allow remembers this action and stops asking;
-          remove it later in Settings → Permissions.
+          {browserAction
+            ? `Allow once runs only this step. Always allow stops asking for every browser ${browserAction}; remove it later in Settings → Permissions.`
+            : "Allow once runs only this step. Always allow remembers this exact action and stops asking; remove it later in Settings → Permissions."}
         </p>
 
         <div className="approval-actions">

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "../lib/store";
 import {
+  hideScreenAssistant,
   inTauri,
   openPrivacySettings,
   overlayHide,
@@ -10,7 +11,7 @@ import {
   screenPermission,
 } from "../lib/native";
 import { acquireScreen, captureFrame, captureNativeScreen, currentScreen } from "../lib/screen";
-import { isConfigured, streamChat, type ChatTurn } from "../lib/providers";
+import { canSeeImages, isConfigured, streamChat, type ChatTurn } from "../lib/providers";
 import { Icon } from "./Icons";
 import { cx } from "../lib/util";
 
@@ -58,13 +59,14 @@ function splitPoint(text: string): { clean: string; point: ScreenPoint | null } 
   return { clean, point };
 }
 
-export function ScreenShare() {
-  const { state, notify } = useStore();
-  const [open, setOpen] = useState(false);
+export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
+  const { state, notify, setSettings } = useStore();
+  const [open, setOpen] = useState(standalone);
   const [frame, setFrame] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState("");
+  const [problem, setProblem] = useState("");
   const [hint, setHint] = useState<ScreenPoint | null>(null);
   // null means "not checked yet" (or an older build without the command).
   const [allowed, setAllowed] = useState<boolean | null>(null);
@@ -144,6 +146,7 @@ export function ScreenShare() {
   }, [native, open]);
 
   useEffect(() => {
+    if (standalone) return;
     const onOpen = () => setOpen(true);
     const onClose = () => {
       controller.current?.abort();
@@ -156,7 +159,7 @@ export function ScreenShare() {
       window.removeEventListener("lantas:screen-open", onOpen);
       window.removeEventListener("lantas:screen-close", onClose);
     };
-  }, []);
+  }, [standalone]);
 
   const draw = useCallback(
     async (point: ScreenPoint) => {
@@ -194,29 +197,36 @@ export function ScreenShare() {
     const question = text.trim();
     if (!question || busy || !open) return;
     if (native && allowed === false) {
+      setProblem("Allow Lantas in Screen Recording first.");
       notify("Allow Lantas in Screen Recording first", "error");
       return;
     }
-    const provider = state.settings.defaultProvider;
+    const session = state.sessions.find((item) => item.id === state.activeId);
+    const provider = session?.provider ?? state.settings.defaultProvider;
     const config = state.settings.providers[provider];
-    const model = state.settings.defaultModel;
+    const model = session?.model || state.settings.defaultModel;
     if (!isConfigured(provider, config)) {
+      setProblem("Connect a model in Settings → Providers, then ask again.");
       notify("Connect a model in Settings to ask about your screen", "error");
+      return;
+    }
+    if (!canSeeImages(provider, model)) {
+      setProblem("This model cannot see images. Choose a vision model for screen questions.");
       return;
     }
 
     setBusy(true);
+    setProblem("");
     setAnswer("");
     setDraft("");
     const shot = await grab().catch(() => null);
     if (!shot) {
       setBusy(false);
-      notify(
-        native
-          ? "Screen capture failed. Allow Lantas in System Settings › Privacy & Security › Screen Recording."
-          : "No screen is shared. Press the screen button again and pick a window.",
-        "error",
-      );
+      const message = native
+        ? "Screen capture failed. Allow Lantas in System Settings › Privacy & Security › Screen Recording."
+        : "No screen is shared. Press the screen button again and pick a window.";
+      setProblem(message);
+      notify(message, "error");
       return;
     }
 
@@ -257,18 +267,35 @@ export function ScreenShare() {
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      notify(error instanceof Error ? error.message : "The screen question failed", "error");
+      const message = error instanceof Error ? error.message : "The screen question failed";
+      setProblem(message);
+      notify(message, "error");
     } finally {
       setBusy(false);
       controller.current = null;
     }
   };
 
+  /** Closing the floating card is also stopping the share, not just hiding it. */
+  const close = () => {
+    controller.current?.abort();
+    setAnswer("");
+    if (standalone) {
+      setSettings({ screenAccess: false });
+      void hideScreenAssistant();
+    } else {
+      window.dispatchEvent(new CustomEvent("lantas:screen-close"));
+    }
+  };
+
   if (!open) return null;
 
   return (
-    <aside className="screen-share" aria-label="Lantas screen assistant">
-      <header className="ss-head">
+    <aside
+      className={cx("screen-share", standalone && "is-standalone")}
+      aria-label="Lantas screen assistant"
+    >
+      <header className="ss-head" data-tauri-drag-region>
         <span className={cx("ss-dot", busy && "is-busy")} />
         <span className="ss-title">Lantas Screen</span>
         <span className="ss-beta">Beta</span>
@@ -285,7 +312,7 @@ export function ScreenShare() {
         <button
           type="button"
           className="ss-icon"
-          onClick={() => window.dispatchEvent(new CustomEvent("lantas:screen-close"))}
+          onClick={close}
           title="Close and stop sharing"
           aria-label="Close"
         >
@@ -370,6 +397,7 @@ export function ScreenShare() {
         )}
         {busy && !answer && <p className="ss-thinking">Looking at your screen…</p>}
         {answer && <p className="ss-answer">{answer}</p>}
+        {problem && <p className="ss-problem">{problem}</p>}
       </div>
 
       <form

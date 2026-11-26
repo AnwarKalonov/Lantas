@@ -72,7 +72,26 @@ export function GooglePanel() {
         )}
       </div>
 
-      {!connected && (
+      {!connected && inTauri() && (
+        <div className="gh-connect">
+          <p className="page-note">
+            Gmail in the desktop app is connected through the Composio card at the top of this
+            page. Google's direct sign-in needs a hosted redirect, which the packaged app does
+            not have.
+          </p>
+          <div className="gh-connect-actions">
+            <button
+              type="button"
+              className="button-primary"
+              onClick={() => window.dispatchEvent(new CustomEvent("lantas:gmail-card"))}
+            >
+              Open the Gmail card
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!connected && !inTauri() && (
         <div className="gh-connect">
           <label className="field">
             <span>OAuth client ID (Web application)</span>
@@ -119,12 +138,6 @@ export function GooglePanel() {
             Add <code>{window.location.origin}{window.location.pathname}</code> as an authorised
             redirect URI, and enable the Gmail API.
           </p>
-          {inTauri() && (
-            <p className="page-note">
-              In the desktop app, use the Composio Gmail card instead. Google sign-in needs a
-              hosted redirect, which the packaged app does not have.
-            </p>
-          )}
         </div>
       )}
 

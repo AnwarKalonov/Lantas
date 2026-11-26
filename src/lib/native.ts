@@ -55,6 +55,16 @@ export async function overlayHide(): Promise<void> {
   await command("overlay_hide", {});
 }
 
+/** The floating screen card, above other apps. False outside the desktop app. */
+export async function showScreenAssistant(): Promise<boolean> {
+  await command("screen_assistant_show", {});
+  return lastNativeOk;
+}
+
+export async function hideScreenAssistant(): Promise<void> {
+  await command("screen_assistant_hide", {});
+}
+
 export async function elNavigate(url: string): Promise<void> {
   await command("el_navigate", { url });
 }

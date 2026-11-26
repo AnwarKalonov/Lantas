@@ -3216,3 +3216,26 @@
   background: var(--raised-2);
   color: var(--err);
 }
+
+/* A question answered in the rail: the suggestion card becomes the field. */
+.trust-panel .trust-question.is-inline {
+  width: auto;
+  margin: 0 14px 10px;
+  box-shadow: none;
+}
+
+.trust-question.is-inline .trust-question-head p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.trust-question.is-inline .trust-question-foot {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.trust-question.is-inline .trust-question-foot > div {
+  margin-left: auto;
+}

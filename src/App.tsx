@@ -1451,6 +1451,12 @@ export function App() {
                 ]
               : [
                   ...defaultRules(state.settings.permissionMode, agent === "build"),
+                  // Computer control is the grant for browser actions. Once it
+                  // is on, asking again for every click is a second consent for
+                  // the same permission; the saved rules can still deny one.
+                  ...(state.settings.computerControl
+                    ? [{ tool: "browser", pattern: "*", effect: "allow" as const }]
+                    : []),
                   ...(state.settings.allowedRules ?? []),
                 ],
             only: browserMode ? ["browser", "ask_user"] : undefined,

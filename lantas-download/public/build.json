@@ -1,15 +1,16 @@
 {
-  "label": "Lantas 1.5.1 development build",
+  "label": "Lantas 1.6.0 development build",
   "dev": true,
-  "builtAt": "2026-11-26T20:32:30Z",
-  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.5.1-arm64.dmg",
-  "size": 10350050,
-  "sha256": "cc7bb616ddaaa774ba6b692d8b73572043c635da4bcd8cee9db536b1fc6ec2e6",
+  "builtAt": "2026-11-26T21:27:00Z",
+  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.6.0-arm64.dmg",
+  "size": 10354879,
+  "sha256": "e2d41e4ecb45900154adfb1e12d285be3483fc5215ad68bc1ee14b7baa70717b",
   "changes": [
-    "Permissions: a proper approval card shows what Lantas will do, the details that matter and three choices — Decline, Allow once or Always allow. Always allow stops asking for that exact action and can be removed in Settings → Permissions.",
-    "Screen: Lantas asks macOS for Screen Recording itself, so it appears in the switch list instead of being missing. The screen card has Allow, Settings and Finder buttons and re-checks on its own.",
-    "Sign-in: a credential question opens one popup with username and password fields, over any chat, and stays put while you move between tabs.",
-    "Chat: thinking is grouped with the steps it explains, so a long turn is one collapsed line with a duration and step count instead of a column of Thought rows.",
-    "Storage: the browser mirror keeps a trimmed recent copy instead of every session, so the storage-full warning stops appearing."
+    "Approvals: reading a page, an inbox or a connected app no longer asks. Computer control is the grant for browser actions, so Chat turns can click and type without a card, and Always allow on a browser action covers that action instead of asking again on the next click.",
+    "Screen: the screen assistant is now its own floating window that stays above your other windows and follows you across Spaces. Closing it stops sharing and turns the screen button off.",
+    "Computer control is now described plainly: it lets Lantas click, type and scroll inside Lantas Browser, not move your Mac's pointer or control other apps.",
+    "Answers: when Lantas needs something, the quick suggestions become an answer field with the question above it. When it is not asking, suggestions are written for the page and the conversation instead of being the same three lines.",
+    "Gmail: connected accounts are found even after the browser profile changes, inbox calls use the connection's own account, and coming back from the Google tab checks the connection immediately. The direct Google card now points desktop users to the Gmail marketplace card.",
+    "Text-only models: browser turns read the page's DOM and numbered controls instead of screenshots. Screenshots, screen frames and image attachments are skipped when the model cannot see images."
   ]
 }

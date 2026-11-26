@@ -1,12 +1,14 @@
 {
-  "label": "Lantas 1.2.0",
-  "dev": false,
-  "builtAt": "2026-11-26T01:42:21Z",
-  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/v1.2.0/Lantas-1.2.0-arm64.dmg",
+  "label": "Lantas 1.3.0 development build",
+  "dev": true,
+  "builtAt": "2026-11-26T18:30:00Z",
+  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.3.0-arm64.dmg",
   "size": 0,
   "sha256": "",
   "changes": [
-    "No developer build has been published here yet; this points at the public 1.2.0 release.",
-    "Add a short line for each fix here whenever you replace this file."
+    "Browser: the agent can run JavaScript in the live page and keep the tab session between calls.",
+    "Browser: page screenshots now reach the model. Chrome captures over CDP; the native engine captures the live webview.",
+    "Code: prompts carry the open file, the current selection and the editor's diagnostics.",
+    "Chat: reasoning collapses, Stop interrupts a run, ask-you bubbles, inline Compare, and side chats follow light mode."
   ]
 }

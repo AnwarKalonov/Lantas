@@ -15,7 +15,7 @@
 import { inTauri } from "./native";
 
 /** The version compiled into this build. Keep in step with src-tauri/tauri.conf.json. */
-export const APP_VERSION = "1.2.0";
+export const APP_VERSION = "1.3.0";
 
 export const RELEASES_REPO = "AnwarKalonov/Lantas";
 export const RELEASES_URL = `https://github.com/${RELEASES_REPO}/releases`;

@@ -31,13 +31,16 @@ Everything the page shows comes from `public/build.json`:
 
 ```json
 {
-  "label": "Lantas 1.3.0 dev",
+  "label": "Lantas 1.3.0 development build",
   "dev": true,
   "builtAt": "2026-11-26T18:20:00Z",
-  "url": "https://…/Lantas-1.3.0-dev.dmg",
+  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.3.0-arm64.dmg",
   "size": 20971520,
   "sha256": "…",
-  "notes": "Browser execute + screenshot, IDE editor context."
+  "changes": [
+    "Browser: the agent can run page scripts and take screenshots.",
+    "Code: prompts carry the open file, selection and diagnostics."
+  ]
 }
 ```
 

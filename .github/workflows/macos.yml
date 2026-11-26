@@ -2,6 +2,11 @@ name: Build macOS app
 
 on:
   workflow_dispatch:
+    inputs:
+      dev_release:
+        description: Publish this build as the dev-latest prerelease
+        type: boolean
+        default: true
   push:
     tags: ["v*"]
 
@@ -226,6 +231,29 @@ jobs:
           name: Lantas-macOS
           path: release-assets/*
           if-no-files-found: error
+
+      # A manual run publishes a prerelease instead of a release. Prereleases
+      # are skipped by `releases/latest`, so installed apps are never offered
+      # one: this is the private download link's build, nothing more.
+      - name: Publish the development build
+        if: github.event_name == 'workflow_dispatch' && inputs.dev_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          NOTES="Development build of \`${GITHUB_SHA:0:7}\` from \`${GITHUB_REF_NAME}\`. Not offered to installed apps."
+          if gh release view dev-latest --repo "$RELEASES_REPO" >/dev/null 2>&1; then
+            gh release upload dev-latest release-assets/* --repo "$RELEASES_REPO" --clobber
+            gh release edit dev-latest --repo "$RELEASES_REPO" --notes "$NOTES" --prerelease
+          else
+            gh release create dev-latest release-assets/* \
+              --repo "$RELEASES_REPO" \
+              --title "Lantas ${VERSION} development build" \
+              --notes "$NOTES" \
+              --prerelease \
+              --latest=false
+          fi
+          echo "::notice::dev build available at https://github.com/${RELEASES_REPO}/releases/tag/dev-latest"
 
       - name: Publish the release
         if: startsWith(github.ref, 'refs/tags/v')

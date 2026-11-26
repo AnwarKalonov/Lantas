@@ -1173,7 +1173,7 @@ function initAgentLoop() {
 /* ---------- release: one source of truth for every download link ---------- */
 
 const RELEASE_API =
-  "https://api.github.com/repos/AnwarKalonov/Lantas-download/releases/latest";
+  "https://api.github.com/repos/AnwarKalonov/Lantas/releases/latest";
 
 const ASSET_KINDS = {
   dmg: (name) => name.endsWith(".dmg"),

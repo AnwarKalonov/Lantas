@@ -161,9 +161,9 @@ Lantas is not a Chromium fork and does not vendor or reproduce Dao source code. 
 
 ## Install
 
-Download the current macOS build from the [website](https://lantas-phi.vercel.app/download.html) or the [releases page](https://github.com/AnwarKalonov/Lantas-download/releases). Unzip it and drag **Lantas.app** to Applications.
+Download the current macOS build from the [website](https://lantas-phi.vercel.app/download.html) or the [releases page](https://github.com/AnwarKalonov/Lantas/releases). Unzip it and drag **Lantas.app** to Applications.
 
-The release repository must be **public** for those links and for the in-app updater to work: GitHub refuses anonymous downloads of assets on a private repository. It holds only the published site, the README, the licence and the signed binaries — never the application source.
+Releases and the source live in the same public repository, so those links and the in-app updater work without an account.
 
 The app is ad-hoc signed and not notarized. On first launch, macOS may ask you to approve it once:
 
@@ -171,7 +171,7 @@ The app is ad-hoc signed and not notarized. On first launch, macOS may ask you t
 2. Find the Lantas notice and click **Open Anyway**.
 3. Authenticate.
 
-The current source tree is version **1.2.0**. The tagged macOS workflow builds the `.dmg`, app zip, Chrome extension and updater assets; release publication requires the repository's `LANTAS_RELEASE_TOKEN` secret.
+The current source tree is version **1.2.0**. The tagged macOS workflow builds the `.dmg`, app zip, Chrome extension and updater assets, then publishes them with the workflow's built-in GitHub token.
 
 ### Run from source
 
@@ -257,7 +257,7 @@ On top of the grants, tool calls are checked against ordered rules. **Settings �
 
 No usage telemetry is sent anywhere. Provider requests go directly to the provider. Browser page content is sent only to the model you chose when you ask the agent to work on it. The full data-flow list is the site's [privacy policy](Website/site/privacy.html).
 
-The application source is not published. Nothing in this repository is licensed for redistribution; see [Licence and credit](#licence-and-credit).
+The source is public for transparency, but it remains under the source-available Lantas License 1.0 rather than an open-source licence; see [Licence and credit](#licence-and-credit).
 
 ## Project layout
 
@@ -269,7 +269,7 @@ src-tauri/      Tauri 2 shell: macOS window, terminal, HTTP bridge, updater
 cli/            dependency-free terminal agent
 chrome-extension/ Chrome bridge: background service worker, content script, side panel
 Website/site/   source for the public website
-public-repo/    the files published to Lantas-download
+public-repo/    the static site deployed to the website
 docs/           screenshots used here
 scripts/        launch, build and release helpers
 ```
@@ -314,13 +314,11 @@ Tagged releases are built by `.github/workflows/macos.yml` on an Apple Silicon r
 3. verifies the app signature;
 4. packages the `.dmg`, app zip, Chrome extension and updater assets;
 5. uploads the build as an artifact;
-6. publishes to `Lantas-download` only when `LANTAS_RELEASE_TOKEN` is configured.
+6. publishes the release in `AnwarKalonov/Lantas` with the workflow's built-in `GITHUB_TOKEN`.
 
-`LANTAS_RELEASE_TOKEN` must be a classic GitHub PAT with `contents: write` on `AnwarKalonov/Lantas-download`. It is a repository Actions secret, never a file in this tree. Without it, the build succeeds and the publish step is skipped.
+The public site is generated from `public-repo/`. Vercel deploys that folder from the same repository; no separate download repository or release token is involved.
 
-The public site is generated from `public-repo/`. The `site-deploy.yml` workflow copies it to the public repository. It uses the same token; without it, the site job fails at the token check instead of publishing a partial site.
-
-The release repository has to be public for any of this to reach people: GitHub does not serve release assets, the `latest.json` updater feed or Pages content from a private repository to anonymous visitors. Keep the application repository private and make `Lantas-download` public — that repository contains the published site and the signed binaries only.
+The repository is public, so GitHub serves release assets and the `latest.json` updater feed to anyone.
 
 Download links on the site never need editing. Every button points at `releases/latest` and carries a `data-dl` kind (`dmg`, `app`, `extension`); `assets/site.js` reads the latest release from the GitHub API on load and swaps in that build's real asset URLs, name and version. If the API is unreachable the buttons still land on the newest release page instead of a dead file.
 
@@ -348,7 +346,7 @@ Use **System Settings → Privacy & Security → Open Anyway** once. The app is 
 
 ### The release or website did not update
 
-Check the Actions run. If the publish step was skipped, `LANTAS_RELEASE_TOKEN` is missing or expired. Add the secret in **Settings → Secrets and variables → Actions**, then rerun the workflow. Never paste the token into a chat, source file or commit.
+Check the Actions run. The publish step uses the workflow's built-in `GITHUB_TOKEN`; make sure the workflow has `contents: write` permission. Never paste a token into a chat, source file or commit.
 
 ## Credits
 
@@ -368,4 +366,4 @@ Lantas is free to download and use, but it is **not open source**. It is covered
 
 That last rule is the one that matters: a fork cannot go closed, cannot drop the credit and cannot be sold. [`NOTICE`](NOTICE) has the credit line to reproduce, and the site's [terms page](Website/site/terms.html#licence) has the same licence in readable form.
 
-This is a source-available licence, which is why the source stays private. A copyleft licence such as AGPL would require publishing the source to everyone who receives the app, which is the opposite of the goal here. Have a lawyer look at it before you rely on it commercially.
+This is a source-available licence: the source is public, but redistribution and closed forks are still restricted. Have a lawyer look at it before you rely on it commercially.

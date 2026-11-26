@@ -1,7 +1,7 @@
 # Lantas website
 
 Source for the public Lantas site and download pages. The app source lives in the
-private `Lantas` repository; this folder only contains the static site.
+same public `AnwarKalonov/Lantas` repository; this folder contains the static site.
 
 ## Files
 
@@ -16,13 +16,12 @@ site/                the published site
   assets/site.css    the light/dark design
   assets/site.js     theme, copy buttons, scrubbed sections, reveals
   assets/img/        product screenshots and site art
-public-repo/         generated copy uploaded to Lantas-download
+public-repo/         generated static build deployed by Vercel
 ```
 
 `index.html`, `docs.html` and `download.html` link to release downloads at
-`github.com/AnwarKalonov/Lantas-download`. The version shown on the site is
-**1.0.6**; update the copy and the pinned fallback links together when a new
-build ships. `assets/site.js` still rewrites those links from the GitHub API on
+`github.com/AnwarKalonov/Lantas`. The version shown on the site is a pinned
+fallback; `assets/site.js` rewrites the version and links from the GitHub API on
 load, so the pinned URLs only matter when the API is unreachable.
 
 Every page ends with the same footer: Docs, Download, Versions, GitHub,
@@ -46,22 +45,18 @@ python3 -m http.server 8080
 
 ## Publish
 
-`public-repo/` is the only thing that goes to the public repository. It contains
-no app source, no build tooling and no private git history.
+`public-repo/` is the static build Vercel deploys from the main branch. It
+contains no app source, no build tooling and no private git history.
 
 ```bash
 bash scripts/sync-public-repo.sh
-rsync -a public-repo/ /tmp/lantas-public/
-cd /tmp/lantas-public
-git init -b main
-git add .
-git commit -m "Lantas download site"
-git remote add origin https://github.com/AnwarKalonov/Lantas-download.git
-git push -u origin main
+bash scripts/check-public-repo.sh
+git add -A && git commit -m "Update the Lantas site" && git push
 ```
 
-GitHub Pages serves `Lantas-download` from `main` at the repository root. See
-`PUBLISH.md` in the private repository for signing, releases and updater details.
+The Vercel project's root directory is `public-repo`. A new GitHub release is
+picked up by the site's release feed without a redeploy. See `PUBLISH.md` for
+signing, releases and updater details.
 
 ## Screenshots
 

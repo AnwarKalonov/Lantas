@@ -30,7 +30,7 @@ if (!version) {
   process.exit(1);
 }
 
-const repo = process.env.LANTAS_RELEASES_REPO || "AnwarKalonov/Lantas-download";
+const repo = process.env.LANTAS_RELEASES_REPO || "AnwarKalonov/Lantas";
 const tag = process.env.LANTAS_TAG || `v${version}`;
 const notes = process.env.LANTAS_NOTES || `Lantas ${version}`;
 const arch = process.env.LANTAS_ARCH || "aarch64";

@@ -1,11 +1,11 @@
 /* Lantas — versions page.
  *
- * The release list comes from the public download repository on GitHub: free,
+ * The release list comes from the public Lantas repository on GitHub: free,
  * anonymous, no server of our own. Publish a release and this page picks it up.
  * The response is cached for ten minutes so a visit costs one API call at most.
  */
 
-const REPO = "AnwarKalonov/Lantas-download";
+const REPO = "AnwarKalonov/Lantas";
 const API = `https://api.github.com/repos/${REPO}/releases?per_page=30`;
 const RELEASES = `https://github.com/${REPO}/releases`;
 const CACHE_KEY = "lantas:releases:v1";

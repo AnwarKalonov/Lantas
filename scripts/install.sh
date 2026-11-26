@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install the newest Lantas release from the public download repository.
 #
-#   curl -fsSL https://raw.githubusercontent.com/AnwarKalonov/Lantas-download/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/AnwarKalonov/Lantas/main/install.sh | bash
 #   # or, from a checkout:
 #   bash scripts/install.sh
 #
@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-REPO="${LANTAS_REPO:-AnwarKalonov/Lantas-download}"
+REPO="${LANTAS_REPO:-AnwarKalonov/Lantas}"
 API="https://api.github.com/repos/$REPO/releases/latest"
 
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }

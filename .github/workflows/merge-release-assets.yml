@@ -1,0 +1,71 @@
+name: Merge download releases
+
+# One-off migration: copy every release asset from the retired
+# Lantas-download repository into this repository, and rewrite the updater
+# manifests to point at this repository. Safe to re-run; assets are clobbered.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/merge-release-assets.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE: AnwarKalonov/Lantas-download
+      TARGET: ${{ github.repository }}
+    steps:
+      - name: Copy releases and updater manifests
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/lantas-releases"
+          mkdir -p "$work"
+
+          mapfile -t tags < <(
+            gh release list --repo "$SOURCE" --limit 100 \
+              --json tagName,createdAt \
+              --jq 'sort_by(.createdAt) | .[].tagName'
+          )
+
+          for tag in "${tags[@]}"; do
+            echo "::group::$tag"
+            dir="$work/$tag"
+            notes="$work/$tag-notes.md"
+            mkdir -p "$dir"
+
+            gh release download "$tag" --repo "$SOURCE" --dir "$dir" --clobber
+
+            # The updater must fetch future bundles from this repository, not
+            # the retired one. The signature covers the bundle, not this URL.
+            if [ -f "$dir/latest.json" ]; then
+              sed -i "s#github.com/${SOURCE}#github.com/${TARGET}#g" "$dir/latest.json"
+            fi
+
+            gh release view "$tag" --repo "$SOURCE" --json name,body \
+              --jq '.body // ""' > "$notes"
+            title="$(gh release view "$tag" --repo "$SOURCE" --json name --jq '.name // ""')"
+            [ -n "$title" ] || title="Lantas ${tag#v}"
+
+            if gh release view "$tag" --repo "$TARGET" >/dev/null 2>&1; then
+              gh release edit "$tag" --repo "$TARGET" --title "$title" --notes-file "$notes"
+              gh release upload "$tag" "$dir"/* --repo "$TARGET" --clobber
+            else
+              gh release create "$tag" "$dir"/* \
+                --repo "$TARGET" \
+                --title "$title" \
+                --notes-file "$notes"
+            fi
+
+            rm -rf "$dir" "$notes"
+            echo "::endgroup::"
+          done
+
+          gh release edit "v1.1.3" --repo "$TARGET" --latest
+          echo "::notice::All download releases now live in $TARGET."

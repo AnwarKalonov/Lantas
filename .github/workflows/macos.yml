@@ -6,16 +6,14 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: read
+  contents: write
 
 env:
-  RELEASES_REPO: AnwarKalonov/Lantas-download
+  RELEASES_REPO: AnwarKalonov/Lantas
   # Set these under Settings → Secrets and variables → Actions.
   # Without the signing key the app still builds; it just cannot update itself.
   TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-  # Classic PAT with `contents: write` on RELEASES_REPO, to publish the release.
-  LANTAS_RELEASE_TOKEN: ${{ secrets.LANTAS_RELEASE_TOKEN }}
   # Apple Developer ID signing is optional. When all six secrets below are
   # present, the build is signed, notarized and stapled; otherwise it stays
   # ad-hoc signed and macOS will warn on first launch. The workflow exports
@@ -230,9 +228,9 @@ jobs:
           if-no-files-found: error
 
       - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/v') && env.LANTAS_RELEASE_TOKEN != ''
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
-          GH_TOKEN: ${{ secrets.LANTAS_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
           FILES=(release-assets/*)
@@ -248,8 +246,3 @@ jobs:
               "${NOTES[@]}" \
               --latest
           fi
-
-      - name: Say how to finish by hand
-        if: startsWith(github.ref, 'refs/tags/v') && env.LANTAS_RELEASE_TOKEN == ''
-        run: |
-          echo "::notice title=Release not published::Add LANTAS_RELEASE_TOKEN to publish automatically, or download the Lantas-macOS artifact and attach its files to a release tagged $GITHUB_REF_NAME in $RELEASES_REPO."

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Guard the public surface. Runs on public-repo/, which is the only folder that
-# is ever pushed to the download repository. It fails on application source,
-# build tooling, secrets and local links that point at files that do not exist.
+# Guard the static website build. Runs on public-repo/, which is what gets
+# deployed. It fails on application source, build tooling, secrets and local
+# links that point at files that do not exist.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -42,10 +42,10 @@ if grep -rIlE 'src-tauri/|src/lib/|/Website/|node_modules/|LANTAS_RELEASE_TOKEN|
 else
   note "ok   no private paths"
 fi
-if grep -rIlE 'github\.com/AnwarKalonov/Lantas([^a-z-]|$)' "$PUBLIC" >/dev/null 2>&1; then
-  bad "a link points at the private application repository"
+if grep -rIlE 'github\.com/AnwarKalonov/Lantas-download([^a-z-]|$)' "$PUBLIC" >/dev/null 2>&1; then
+  bad "a link points at the retired download repository"
 else
-  note "ok   no links to the application repository"
+  note "ok   links use the main Lantas repository"
 fi
 
 echo "Local links resolve"

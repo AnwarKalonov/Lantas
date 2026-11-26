@@ -1,12 +1,12 @@
 {
-  "label": "Lantas 1.7.0 development build",
+  "label": "Lantas 1.7.1 development build",
   "dev": true,
-  "builtAt": "2026-11-26T22:56:00Z",
-  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.7.0-arm64.dmg",
-  "size": 10395153,
-  "sha256": "26708524bedb267da8758382c31ae14a626bb410e046113a908dfbfa7eb956b5",
+  "builtAt": "2026-11-26T23:02:00Z",
+  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.7.1-arm64.dmg",
+  "size": 10398259,
+  "sha256": "ed56f24e5827f308cf21d22e1256ae9fcb3ae9e2a4ad5d13f5f0ff015843969b",
   "changes": [
-    "Screen: the floating screen card reads the front window as a tree of controls, so text-only models work without screenshots, and it can drive the real pointer, keyboard, scroll, drag and window focus with a blue Lantas cursor. Turn on Accessibility for control; Screen Recording is only needed for pixels.",
+    "Screen: the floating screen card reads the front window as a tree of controls, so text-only models work without screenshots, and it can drive the real pointer, keyboard, scroll, drag and window focus with a blue Lantas cursor. The card and its pointer are skipped as targets, so Lantas Browser itself can be read and controlled too. Turn on Accessibility for control; Screen Recording is only needed for pixels.",
     "Reopen: after closing the side AI, the browser keeps an Ask Lantas button in the footer plus Cmd+J, and Code keeps Assistant buttons in the header and status bar, so the panel comes back even when the page fills the window.",
     "Take over: a Take over button in the page toolbar pauses a running browser turn and hands you control. The takeover watcher now ignores Lantas's own synthetic clicks and keys, so it no longer claims you interrupted when you didn't, and paused is a quiet label instead of a red warning.",
     "Questions: when Lantas needs a name and age or another detail, the ask card shows a titled box for each field; when the answer is a fixed choice, it shows clickable options instead of a blank line."

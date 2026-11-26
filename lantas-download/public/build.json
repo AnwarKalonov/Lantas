@@ -1,13 +1,15 @@
 {
-  "label": "Lantas 1.5.0 development build",
+  "label": "Lantas 1.5.1 development build",
   "dev": true,
-  "builtAt": "2026-11-26T20:07:30Z",
-  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.5.0-arm64.dmg",
-  "size": 10348649,
-  "sha256": "990da22d028845d3fb3312cd2302faba76f0cee1b769181796720a7895924e92",
+  "builtAt": "2026-11-26T20:32:30Z",
+  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.5.1-arm64.dmg",
+  "size": 10350050,
+  "sha256": "cc7bb616ddaaa774ba6b692d8b73572043c635da4bcd8cee9db536b1fc6ec2e6",
   "changes": [
-    "Screen: Lantas now asks macOS for Screen Recording, so it appears in the switch list instead of being missing from it. The screen card has Allow, Settings and Finder buttons and re-checks on its own.",
-    "Sign-in: a credential question opens one popup with username and password fields, over whatever chat you are in. You no longer have to type a password into a message.",
-    "Chat: thinking is grouped with the steps it explains, so a long turn is one collapsed line with a duration and step count instead of a column of Thought rows."
+    "Permissions: a proper approval card shows what Lantas will do, the details that matter and three choices — Decline, Allow once or Always allow. Always allow stops asking for that exact action and can be removed in Settings → Permissions.",
+    "Screen: Lantas asks macOS for Screen Recording itself, so it appears in the switch list instead of being missing. The screen card has Allow, Settings and Finder buttons and re-checks on its own.",
+    "Sign-in: a credential question opens one popup with username and password fields, over any chat, and stays put while you move between tabs.",
+    "Chat: thinking is grouped with the steps it explains, so a long turn is one collapsed line with a duration and step count instead of a column of Thought rows.",
+    "Storage: the browser mirror keeps a trimmed recent copy instead of every session, so the storage-full warning stops appearing."
   ]
 }

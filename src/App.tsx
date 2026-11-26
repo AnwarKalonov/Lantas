@@ -81,6 +81,7 @@ import { Home } from "./components/Home";
 import { IntegrationsView } from "./components/IntegrationsView";
 import { SessionView } from "./components/SessionView";
 import { PermissionsSheet } from "./components/PermissionsSheet";
+import { ApprovalCard } from "./components/ApprovalCard";
 import { SettingsModal, type SettingsTab } from "./components/SettingsModal";
 import { Sidebar } from "./components/Sidebar";
 import { SkillsView } from "./components/SkillsView";
@@ -172,6 +173,12 @@ export function App() {
     label: string;
   } | null>(null);
   const approvalResolve = useRef<((allowed: boolean) => void) | null>(null);
+  const approvalRef = useRef(approval);
+  approvalRef.current = approval;
+  const allowedRulesRef = useRef(state.settings.allowedRules ?? []);
+  allowedRulesRef.current = state.settings.allowedRules ?? [];
+  /** Actions allowed for the rest of this turn, before settings round-trip. */
+  const autoAllowed = useRef(new Set<string>());
   const [limitAsk, setLimitAsk] = useState(false);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const limitResolve = useRef<((more: boolean) => void) | null>(null);
@@ -476,12 +483,45 @@ export function App() {
     }
   }, [notify, openFolder, setWorkspace, state.workspace, state.workspaceName, state.workspaceRoot]);
 
-  /** Resolves a pending tool approval, allowing the loop to continue. */
-  const settleApproval = useCallback((allowed: boolean) => {
-    approvalResolve.current?.(allowed);
-    approvalResolve.current = null;
-    setApproval(null);
-  }, []);
+  /**
+   * Resolves a pending tool approval, allowing the loop to continue.
+   *
+   * `remember` saves this exact action as an allow rule, so the next identical
+   * call runs without the sheet. The pattern is literal: a saved command
+   * containing `*` never becomes a wildcard.
+   */
+  const settleApproval = useCallback(
+    (allowed: boolean, remember = false) => {
+      const current = approvalRef.current;
+      if (allowed && remember && current) {
+        const rule = {
+          tool: current.call.name,
+          pattern: current.resource,
+          effect: "allow" as const,
+          literal: true,
+        };
+        const next = [
+          ...allowedRulesRef.current.filter(
+            (entry) =>
+              !(
+                entry.tool === rule.tool &&
+                entry.literal &&
+                entry.pattern === rule.pattern
+              ),
+          ),
+          rule,
+        ];
+        allowedRulesRef.current = next;
+        autoAllowed.current.add(`${rule.tool}\u0000${rule.pattern}`);
+        setSettings({ allowedRules: next });
+        notify("Always allowed — manage it in Settings → Permissions");
+      }
+      approvalResolve.current?.(allowed);
+      approvalResolve.current = null;
+      setApproval(null);
+    },
+    [notify, setSettings],
+  );
 
   const requestMoreSteps = useCallback(() => {
     // Once the user says Continue, later six-round boundaries in the same
@@ -502,8 +542,14 @@ export function App() {
   }, []);
 
   const requestApproval = useCallback(
-    (call: ToolCall, resource: string) =>
-      new Promise<boolean>((resolve) => {
+    (call: ToolCall, resource: string) => {
+      // “Always allow” is saved for later turns, and this keeps the rest of
+      // the current turn from asking about the same action again.
+      if (autoAllowed.current.has(`${call.name}\u0000${resource}`)) {
+        recordAudit({ tool: call.name, resource, decision: "allowed" });
+        return Promise.resolve(true);
+      }
+      return new Promise<boolean>((resolve) => {
         approvalResolve.current = (allowed) => {
           recordAudit({
             tool: call.name,
@@ -513,7 +559,8 @@ export function App() {
           resolve(allowed);
         };
         setApproval({ call, resource, label: describeAction(call.name, resource) });
-      }),
+      });
+    },
     [],
   );
 
@@ -1318,9 +1365,11 @@ export function App() {
             rules: browserMode
               ? [
                   ...defaultRules(state.settings.permissionMode, agent === "build"),
+                  ...(state.settings.allowedRules ?? []),
                   // The browser panel has its own Ask/Act switch. Respect it
                   // instead of the coding agent's read-only rules, so Act in a
-                  // Chat thread can still click and type.
+                  // Chat thread can still click and type. It stays after the
+                  // saved rules, so “Always allow” cannot override it.
                   {
                     tool: "browser",
                     pattern: "*",
@@ -1332,7 +1381,10 @@ export function App() {
                   // not need the computer-control approval sheet.
                   { tool: "ask_user", pattern: "*", effect: "allow" },
                 ]
-              : defaultRules(state.settings.permissionMode, agent === "build"),
+              : [
+                  ...defaultRules(state.settings.permissionMode, agent === "build"),
+                  ...(state.settings.allowedRules ?? []),
+                ],
             only: browserMode ? ["browser", "ask_user"] : undefined,
             maxSteps: browserMode ? 10 : 6,
             signal: controller.signal,
@@ -1951,31 +2003,7 @@ export function App() {
         </div>
       )}
 
-      {approval && (
-        <div className="overlay" onMouseDown={() => settleApproval(false)}>
-          <div
-            className="confirm-card tool-approval"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Tool approval"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <p className="confirm-kicker">Lantas wants to act</p>
-            <h2>{approval.label}</h2>
-            <pre className="tool-approval-args">
-              {JSON.stringify(approval.call.args, null, 2).slice(0, 1400)}
-            </pre>
-            <div className="confirm-actions">
-              <button type="button" className="button-quiet" onClick={() => settleApproval(false)}>
-                Decline
-              </button>
-              <button type="button" className="button-primary" onClick={() => settleApproval(true)}>
-                Allow once
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {approval && <ApprovalCard approval={approval} onSettle={settleApproval} />}
 
       {limitAsk && (
         <div className="overlay" onMouseDown={() => settleLimit(false)}>

@@ -244,30 +244,74 @@ async function writeDiskState(snapshot: ReturnType<typeof stateForDisk>): Promis
   await diskChain;
 }
 
+type DiskSnapshot = ReturnType<typeof stateForDisk>;
+
+/**
+ * One message small enough for the browser mirror: no screenshots, no undo
+ * snapshots, and the long tool output capped. The disk copy is untouched.
+ */
+function trimMessageForStorage(message: Message): Message {
+  return {
+    ...message,
+    attachments: message.attachments?.filter((attachment) => attachment.kind !== "image"),
+    parts: message.parts.map((part) => {
+      switch (part.kind) {
+        case "text":
+          return { ...part, text: part.text.slice(0, 12_000) };
+        case "reasoning":
+          return { ...part, text: part.text.slice(0, 2_000) };
+        case "shell":
+          return {
+            ...part,
+            output: part.output.slice(-40).map((line) => line.slice(0, 400)),
+          };
+        case "diff":
+          return { ...part, lines: part.lines.slice(0, 120) };
+        case "tool":
+          return part.detail ? { ...part, detail: part.detail.slice(0, 300) } : part;
+        default:
+          return part;
+      }
+    }),
+  };
+}
+
 /**
  * A mirror small enough to fit localStorage's ~5 MB budget.
  *
- * Sessions carry screenshots and undo snapshots, which is what pushed the
- * browser mirror over the cap and made every later save fail. The disk copy
- * keeps the full state; this one drops image bodies (keeping the caption) and
- * the past/future copies, so a reload still restores the conversation.
+ * The previous version only dropped images, so a long session still carried
+ * every terminal line and reasoning block and the quota error came back. This
+ * keeps the recent conversations and trims each message; the disk copy holds
+ * the whole thing.
  */
-function slimForStorage(snapshot: ReturnType<typeof stateForDisk>) {
+function compactForStorage(snapshot: DiskSnapshot) {
   return {
     ...snapshot,
-    sessions: snapshot.sessions.map((session) => ({
+    sessions: snapshot.sessions.slice(0, 12).map((session) => ({
       ...session,
       past: undefined,
       future: undefined,
-      messages: session.messages.map((message) => ({
-        ...message,
-        attachments: message.attachments
-          ?.filter((attachment) => attachment.kind !== "image")
-          .map((attachment) =>
-            attachment.body?.startsWith("data:") ? { ...attachment, body: "" } : attachment,
-          ),
-      })),
+      messages: session.messages.slice(-40).map(trimMessageForStorage),
     })),
+  };
+}
+
+/** Last resort: the open conversation only, so a reload is never blank. */
+function minimalForStorage(snapshot: DiskSnapshot) {
+  const active =
+    snapshot.sessions.find((session) => session.id === snapshot.activeId) ?? snapshot.sessions[0];
+  return {
+    ...snapshot,
+    sessions: active
+      ? [
+          {
+            ...active,
+            past: undefined,
+            future: undefined,
+            messages: active.messages.slice(-10).map(trimMessageForStorage),
+          },
+        ]
+      : [],
   };
 }
 
@@ -337,23 +381,31 @@ export function LantasProvider({ children }: { children: ReactNode }) {
     if (!hydrated) return;
     const timer = window.setTimeout(() => {
       const snapshot = stateForDisk(state);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-      } catch {
-        // Full-size failed; a slim mirror still restores the conversation
-        // after a reload, so only warn when even that does not fit.
+      // Desktop has the full JSON on disk, so the mirror only needs to be a
+      // recent, trimmed copy. Always replacing the old value frees whatever
+      // the oversized snapshot was holding. Fall back once more to the open
+      // conversation, and never interrupt a desktop turn over a mirror.
+      const candidates = isDesktop()
+        ? [compactForStorage(snapshot), minimalForStorage(snapshot)]
+        : [snapshot, compactForStorage(snapshot), minimalForStorage(snapshot)];
+      let mirrored = false;
+      for (const candidate of candidates) {
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(slimForStorage(snapshot)));
+          localStorage.removeItem(STORAGE_KEY);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(candidate));
+          mirrored = true;
+          break;
         } catch {
-          if (!diskWarned.current) {
-            diskWarned.current = true;
-            setToast({
-              id: uid("toast"),
-              text: "Browser storage is full; sessions may not survive a reload.",
-              tone: "error",
-            });
-          }
+          // The next candidate is smaller; try it.
         }
+      }
+      if (!mirrored && !isDesktop() && !diskWarned.current) {
+        diskWarned.current = true;
+        setToast({
+          id: uid("toast"),
+          text: "Browser storage is full; this tab will keep the conversation until it closes.",
+          tone: "error",
+        });
       }
 
       void writeDiskState(snapshot).catch((error) => {

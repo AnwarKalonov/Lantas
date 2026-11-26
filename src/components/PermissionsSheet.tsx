@@ -147,6 +147,17 @@ export function PermissionsSheet({ onClose }: { onClose: () => void }) {
     onClose();
   };
 
+  const savedRules = state.settings.allowedRules ?? [];
+
+  const forgetRule = (tool: string, pattern: string) => {
+    setSettings({
+      allowedRules: savedRules.filter(
+        (rule) => !(rule.tool === tool && rule.pattern === pattern),
+      ),
+    });
+    notify("That action will ask again next time");
+  };
+
   return (
     <div className="overlay" onMouseDown={notNow}>
       <div
@@ -219,6 +230,37 @@ export function PermissionsSheet({ onClose }: { onClose: () => void }) {
               )}
             </div>
             {screenTest.message && <p className="perm-mac-note">{screenTest.message}</p>}
+          </div>
+        )}
+
+        {savedRules.length > 0 && (
+          <div className="perm-always">
+            <div className="perm-always-head">
+              <Icon name="shield" size={13} />
+              <span>Always allowed</span>
+              <span className="perm-always-count">{savedRules.length}</span>
+            </div>
+            <div className="perm-always-list">
+              {savedRules.map((rule) => (
+                <div className="perm-always-row" key={`${rule.tool}:${rule.pattern}`}>
+                  <span className="perm-always-name" title={rule.pattern}>
+                    {rule.pattern || rule.tool}
+                  </span>
+                  <span className="perm-always-tool">{rule.tool}</span>
+                  <button
+                    type="button"
+                    onClick={() => forgetRule(rule.tool, rule.pattern)}
+                    aria-label={`Stop always allowing ${rule.pattern}`}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="perm-always-note">
+              These skip the approval sheet. “Always allow” adds them, and removing one brings
+              the question back.
+            </p>
           </div>
         )}
 

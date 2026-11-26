@@ -6,6 +6,11 @@ export interface PermissionRule {
   /** Resource pattern: a path, a browser action, or `*`. */
   pattern: string;
   effect: PermissionEffect;
+  /**
+   * Compare `pattern` as one exact string. A saved “always allow” for the
+   * command `rm *` must not turn into a wildcard that matches every command.
+   */
+  literal?: boolean;
 }
 
 export interface PermissionDecision {
@@ -39,7 +44,9 @@ export function decide(
   let winner: PermissionRule | undefined;
   for (const rule of rules) {
     if (!matchesPattern(rule.tool, tool)) continue;
-    if (!matchesPattern(rule.pattern, resource)) continue;
+    if (rule.literal ? rule.pattern !== resource : !matchesPattern(rule.pattern, resource)) {
+      continue;
+    }
     winner = rule;
   }
   return { effect: winner?.effect ?? "ask", rule: winner };

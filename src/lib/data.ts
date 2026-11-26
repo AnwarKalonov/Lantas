@@ -192,6 +192,7 @@ export const DEFAULT_SETTINGS: Settings = {
   screenAccess: false,
   computerControl: false,
   permissionsReviewed: false,
+  allowedRules: [],
   telemetry: false,
   notifications: true,
   favoriteModels: [],

@@ -1,6 +1,6 @@
 [package]
 name = "lantas"
-version = "1.5.0"
+version = "1.5.1"
 description = "Lantas desktop"
 authors = ["Lantas"]
 edition = "2021"

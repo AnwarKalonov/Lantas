@@ -1,3 +1,5 @@
+import type { PermissionRule } from "./permissions";
+
 export type ProviderId =
   | "anthropic"
   | "openai"
@@ -249,6 +251,8 @@ export interface Settings {
   notifications: boolean;
   /** "provider/model" keys pinned to the top of every model list. */
   favoriteModels: string[];
+  /** Actions the user chose to stop asking about, from the approval sheet. */
+  allowedRules: PermissionRule[];
   providers: Record<ProviderId, ProviderConfig>;
   editor: EditorSettings;
 }

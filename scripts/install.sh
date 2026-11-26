@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the newest Lantas release from the public download repository.
+# Install the newest Lantas release from the main Lantas repository.
 #
 #   curl -fsSL https://raw.githubusercontent.com/AnwarKalonov/Lantas/main/install.sh | bash
 #   # or, from a checkout:

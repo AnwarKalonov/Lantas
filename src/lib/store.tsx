@@ -244,6 +244,33 @@ async function writeDiskState(snapshot: ReturnType<typeof stateForDisk>): Promis
   await diskChain;
 }
 
+/**
+ * A mirror small enough to fit localStorage's ~5 MB budget.
+ *
+ * Sessions carry screenshots and undo snapshots, which is what pushed the
+ * browser mirror over the cap and made every later save fail. The disk copy
+ * keeps the full state; this one drops image bodies (keeping the caption) and
+ * the past/future copies, so a reload still restores the conversation.
+ */
+function slimForStorage(snapshot: ReturnType<typeof stateForDisk>) {
+  return {
+    ...snapshot,
+    sessions: snapshot.sessions.map((session) => ({
+      ...session,
+      past: undefined,
+      future: undefined,
+      messages: session.messages.map((message) => ({
+        ...message,
+        attachments: message.attachments
+          ?.filter((attachment) => attachment.kind !== "image")
+          .map((attachment) =>
+            attachment.body?.startsWith("data:") ? { ...attachment, body: "" } : attachment,
+          ),
+      })),
+    })),
+  };
+}
+
 function stateForDisk(state: AppState) {
   return {
     savedAt: Date.now(),
@@ -313,13 +340,19 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
       } catch {
-        if (!diskWarned.current) {
-          diskWarned.current = true;
-          setToast({
-            id: uid("toast"),
-            text: "Browser storage is full; sessions may not survive a reload.",
-            tone: "error",
-          });
+        // Full-size failed; a slim mirror still restores the conversation
+        // after a reload, so only warn when even that does not fit.
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(slimForStorage(snapshot)));
+        } catch {
+          if (!diskWarned.current) {
+            diskWarned.current = true;
+            setToast({
+              id: uid("toast"),
+              text: "Browser storage is full; sessions may not survive a reload.",
+              tone: "error",
+            });
+          }
         }
       }
 

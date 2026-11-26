@@ -69,6 +69,7 @@ import type {
 import { cx, titleFrom, uid } from "./lib/util";
 import { BrowserView } from "./components/BrowserView";
 import { BrowserActivityDock } from "./components/BrowserActivityDock";
+import { ScreenShare } from "./components/ScreenShare";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { IdeView } from "./components/IdeView";
 import { setEngineModel } from "./lib/browserSidecar";
@@ -175,9 +176,7 @@ export function App() {
   const limitResolve = useRef<((more: boolean) => void) | null>(null);
   /** The last time the user approved extra rounds, so the prompt is not spam. */
   const lastLimitGrant = useRef(0);
-  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const runs = useRef<Record<string, AbortController>>({});
-  const screenRef = useRef<HTMLVideoElement | null>(null);
 
   const streaming = Boolean(activeSession?.messages.at(-1)?.streaming);
 
@@ -268,13 +267,6 @@ export function App() {
       unwatch?.();
     };
   }, [notify, patchWorkspaceFile, state.workspace.length, state.workspaceRoot]);
-
-  useEffect(() => {
-    if (screenRef.current && screenStream) {
-      screenRef.current.srcObject = screenStream;
-      void screenRef.current.play().catch(() => {});
-    }
-  }, [screenStream]);
 
   useEffect(() => () => {
     Object.values(runs.current).forEach((controller) => controller.abort());
@@ -423,8 +415,7 @@ export function App() {
       return;
     }
     try {
-      const stream = await acquireScreen();
-      setScreenStream(stream);
+      await acquireScreen();
       setSettings({ screenAccess: true });
       notify("Screen shared — the next turn includes a frame");
     } catch (error) {
@@ -434,15 +425,20 @@ export function App() {
 
   const stopScreen = useCallback(() => {
     releaseScreen();
-    setScreenStream(null);
     setSettings({ screenAccess: false });
     notify("Screen sharing stopped");
   }, [notify, setSettings]);
 
   const handleScreenToggle = useCallback(() => {
+    // The popup is the screen feature: sharing turns it on, stopping hides it.
     // Native capture has no stream to inspect, so the setting is the truth.
-    if (state.settings.screenAccess) stopScreen();
-    else void startScreen();
+    if (state.settings.screenAccess) {
+      stopScreen();
+      window.dispatchEvent(new CustomEvent("lantas:screen-close"));
+    } else {
+      void startScreen();
+      window.dispatchEvent(new CustomEvent("lantas:screen-open"));
+    }
   }, [startScreen, state.settings.screenAccess, stopScreen]);
 
   const openFolder = useCallback(async () => {
@@ -1858,18 +1854,7 @@ export function App() {
         />
       )}
 
-      {screenStream && (
-        <div className="screen-dock">
-          <video ref={screenRef} muted playsInline />
-          <div className="screen-dock-bar">
-            <span className="screen-dock-dot" />
-            <span>Screen shared</span>
-            <button type="button" className="text-button" onClick={stopScreen}>
-              Stop
-            </button>
-          </div>
-        </div>
-      )}
+      <ScreenShare />
 
       <CommandPalette
         open={paletteOpen}

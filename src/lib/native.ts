@@ -42,8 +42,17 @@ export async function elOpen(url: string, box: ElBox): Promise<boolean> {
   return lastNativeOk;
 }
 
-export async function elBounds(box: ElBox): Promise<void> {
-  await command("el_bounds", { ...box });
+export async function elBounds(box: ElBox, zoom?: number): Promise<void> {
+  await command("el_bounds", { ...box, zoom });
+}
+
+/** The click-through layer the assistant draws on. No-op outside the app. */
+export async function overlayShow(): Promise<void> {
+  await command("overlay_show", {});
+}
+
+export async function overlayHide(): Promise<void> {
+  await command("overlay_hide", {});
 }
 
 export async function elNavigate(url: string): Promise<void> {

@@ -3,7 +3,8 @@
   "identifier": "default",
   "description": "Capabilities for the Lantas main window",
   "windows": [
-    "main"
+    "main",
+    "screen-overlay"
   ],
   "permissions": [
     "core:default",

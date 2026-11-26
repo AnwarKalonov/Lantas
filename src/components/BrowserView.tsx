@@ -10,6 +10,7 @@ import {
   elVisible,
   elWindow,
   inTauri,
+  runInPage,
 } from "../lib/native";
 import {
   browserEngine,
@@ -98,6 +99,8 @@ export function BrowserView({
   const [engineTick, setEngineTick] = useState(0);
   const [clickTarget, setClickTarget] = useState("");
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [pendingAsk, setPendingAsk] = useState(getActiveUserAsk);
+  const [takeover, setTakeover] = useState<{ type: string; x: number; y: number } | null>(null);
   // The assistant is part of the browser, not a mode you discover: it opens
   // beside the page on a wide window and remembers being closed.
   const [aiOpen, setAiOpen] = useState<boolean>(() => {
@@ -210,6 +213,10 @@ export function BrowserView({
     return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
   };
 
+  // The dock is a fraction of the page area, so the page is zoomed out to fit
+  // instead of reflowing into a phone layout and being cropped.
+  const miniZoom = (width: number) => Math.max(0.2, Math.min(1, width / 980));
+
   // Attach or detach the native engine as tabs, modes and URLs change.
   useEffect(() => {
     if (!native) return;
@@ -242,9 +249,9 @@ export function BrowserView({
     if (nativeReady && openedUrl.current === active.url) {
       if (visible) {
         void elVisible(true);
-        if (visibleBox) void elBounds(visibleBox);
+        if (visibleBox) void elBounds(visibleBox, 1);
       } else if (wantsMini && miniRect) {
-        void elBounds(miniRect);
+        void elBounds(miniRect, miniZoom(miniRect.width));
         void elVisible(true);
       } else {
         void elVisible(false);
@@ -257,7 +264,7 @@ export function BrowserView({
         setNativeReady(ok);
         if (ok) openedUrl.current = active.url;
         if (ok && wantsMini && miniRect) {
-          void elBounds(miniRect);
+          void elBounds(miniRect, miniZoom(miniRect.width));
           void elVisible(true);
         } else if (ok && !visible) {
           void elVisible(false);
@@ -314,7 +321,7 @@ export function BrowserView({
     if (!node) return;
     const sync = () => {
       const rect = node.getBoundingClientRect();
-      void elBounds({ x: rect.left, y: rect.top, width: rect.width, height: rect.height });
+      void elBounds({ x: rect.left, y: rect.top, width: rect.width, height: rect.height }, 1);
     };
     const observer = new ResizeObserver(sync);
     observer.observe(node);
@@ -505,6 +512,17 @@ export function BrowserView({
     window.dispatchEvent(new CustomEvent("lantas:ask", { detail: { text: prompt } }));
   };
 
+  /** Pick the task back up from the page the user left behind. */
+  const resumeAfterTakeover = () => {
+    const where = takeover
+      ? `a ${takeover.type} at about ${takeover.x}% across and ${takeover.y}% down the page`
+      : "the page";
+    setTakeover(null);
+    void ask(
+      `While you were working I took over and did ${where}. Read the page as it is now, work out what my action changed, and continue the task from there. Do not repeat what I just did.`,
+    );
+  };
+
   const click = async (target = clickTarget) => {
     if (!target.trim()) return;
     if (!native) {
@@ -615,6 +633,7 @@ export function BrowserView({
   // blocked behind a component that no longer exists.
   useEffect(() => {
     const unsubscribe = subscribeUserAsk((question) => {
+      setPendingAsk(question);
       if (question) setAiOpen(true);
     });
     return () => {
@@ -646,6 +665,43 @@ export function BrowserView({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [aiStreaming]);
+
+  // Watch for the person at the keyboard while the agent drives the page.
+  // The agent acts through element methods, which raise no pointer or key
+  // events, so any counted input is a takeover: stop the turn, then let the
+  // model read the page the user left before it continues.
+  useEffect(() => {
+    if (!aiStreaming || !native) return;
+    let cancelled = false;
+    let baseline: number | null = null;
+    const timer = window.setInterval(() => {
+      void runInPage<{ seq: number; type: string; x: number; y: number } | null>(
+        "return window.__lantasInput || null",
+      )
+        .then((input) => {
+          if (cancelled || !input) return;
+          if (baseline === null) {
+            baseline = input.seq;
+            return;
+          }
+          if (input.seq <= baseline) return;
+          baseline = input.seq;
+          const rect = viewportRef.current?.getBoundingClientRect();
+          window.dispatchEvent(new CustomEvent("lantas:stop"));
+          setTakeover({
+            type: input.type,
+            x: rect && rect.width ? Math.round((input.x / rect.width) * 100) : 0,
+            y: rect && rect.height ? Math.round((input.y / rect.height) * 100) : 0,
+          });
+          notify("You took over — Lantas paused to see what you did");
+        })
+        .catch(() => undefined);
+    }, 850);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [aiStreaming, native, notify]);
 
   const typeInto = async (value: string, selector?: string) => {
     if (!native) {
@@ -1227,26 +1283,42 @@ export function BrowserView({
                         <span>{driving ? "Can act" : "Read only"}</span>
                       </span>
                     </div>
-                    <div className="trust-qr">
-                      <button type="button" onClick={() => ask()}>
-                        Summarize this page
-                        <Icon name="chevronRight" size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => ask("What are the main actions available on this page?")}
-                      >
-                        Find what I can do here
-                        <Icon name="chevronRight" size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => ask("Do the main action on this page.")}
-                      >
-                        Do the main action
-                        <Icon name="chevronRight" size={13} />
-                      </button>
-                    </div>
+                    {pendingAsk ? (
+                      // A sign-in form is the one thing worth showing here: the
+                      // suggestions are in the way exactly when the turn is
+                      // blocked on a detail only the user has.
+                      <div className="trust-ask">
+                        <span className="trust-ask-mark">
+                          <Icon name="key" size={13} />
+                        </span>
+                        <div className="trust-ask-copy">
+                          <strong>Lantas needs a detail</strong>
+                          <p>{pendingAsk.question}</p>
+                          <span>Fill it in below to continue.</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="trust-qr">
+                        <button type="button" onClick={() => ask()}>
+                          Summarize this page
+                          <Icon name="chevronRight" size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => ask("What are the main actions available on this page?")}
+                        >
+                          Find what I can do here
+                          <Icon name="chevronRight" size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => ask("Do the main action on this page.")}
+                        >
+                          Do the main action
+                          <Icon name="chevronRight" size={13} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 }
               />
@@ -1261,6 +1333,16 @@ export function BrowserView({
                 }}
                 onDismiss={() => setPromptOpen(false)}
               />
+            )}
+
+            {takeover && (
+              <div className="trust-takeover">
+                <span className="trust-takeover-dot" />
+                <span>You took over — Lantas paused.</span>
+                <button type="button" onClick={resumeAfterTakeover}>
+                  Pick it up
+                </button>
+              </div>
             )}
 
             <AgentQuestion />

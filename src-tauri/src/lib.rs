@@ -40,6 +40,35 @@ const SEARCH_RECOVERY: &str = r#"
 })();
 "#;
 
+/// Records the user's own input inside the child browser.
+///
+/// The agent drives the page by calling element methods, which dispatch no
+/// pointer or key events, so anything counted here came from the person at the
+/// keyboard. The app polls it while a browser turn runs and pauses the turn
+/// when the count moves.
+const INPUT_WATCH: &str = r#"
+(() => {
+  let seq = 0;
+  const note = (type, event) => {
+    seq += 1;
+    window.__lantasInput = {
+      seq,
+      type,
+      x: Math.round(Number(event && event.clientX) || 0),
+      y: Math.round(Number(event && event.clientY) || 0),
+      at: Date.now(),
+    };
+  };
+  addEventListener('pointerdown', (event) => note('click', event), true);
+  addEventListener('keydown', (event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    note('key', event);
+  }, true);
+  addEventListener('wheel', (event) => note('scroll', event), { capture: true, passive: true });
+  addEventListener('submit', (event) => note('submit', event), true);
+})();
+"#;
+
 fn parse_url(input: &str) -> Result<tauri::Url, String> {
     input
         .parse::<tauri::Url>()
@@ -117,7 +146,8 @@ fn el_open(
 
     let builder = tauri::webview::WebviewBuilder::new("el", WebviewUrl::External(parsed))
         .user_agent(BROWSER_AGENT)
-        .initialization_script(SEARCH_RECOVERY);
+        .initialization_script(SEARCH_RECOVERY)
+        .initialization_script(INPUT_WATCH);
     let view = window
         .add_child(
             builder,
@@ -137,6 +167,7 @@ fn el_bounds(
     y: f64,
     width: f64,
     height: f64,
+    zoom: Option<f64>,
 ) -> Result<(), String> {
     remember_view(x, y, width.max(1.0), height.max(1.0));
     if let Some(view) = window.get_webview("el") {
@@ -144,6 +175,70 @@ fn el_bounds(
             .map_err(|error| error.to_string())?;
         view.set_size(LogicalSize::new(width.max(1.0), height.max(1.0)))
             .map_err(|error| error.to_string())?;
+        // The chat dock is far smaller than the page area. Shrinking the
+        // webview alone reflows the site into a phone layout and crops it, so
+        // the mini window also zooms the page out to show the whole thing.
+        if let Some(scale) = zoom {
+            view.set_zoom(scale.clamp(0.2, 1.0))
+                .map_err(|error| error.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+/// A click-through, always-on-top layer the assistant can point on.
+///
+/// Drawing over other apps is only possible from a window that covers the
+/// display, takes no clicks and never steals focus. The page inside is a
+/// transparent canvas; the app sends it normalised points and it animates a
+/// ring there, then clears it. Nothing is captured or stored.
+#[tauri::command]
+fn overlay_show(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("screen-overlay") {
+        window.show().map_err(|error| error.to_string())?;
+        return Ok(());
+    }
+
+    let monitor = app
+        .primary_monitor()
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "No display is available.".to_string())?;
+    let scale = monitor.scale_factor();
+    let size = monitor.size().to_logical::<f64>(scale);
+    let position = monitor.position().to_logical::<f64>(scale);
+
+    let window = tauri::WebviewWindowBuilder::new(
+        &app,
+        "screen-overlay",
+        WebviewUrl::App("index.html".into()),
+    )
+    // A query string in a bundled asset path is not reliable across platforms;
+    // the flag is set before any app code runs instead.
+    .initialization_script("window.__lantasOverlay = true;")
+    .title("Lantas pointer")
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .resizable(false)
+    .shadow(false)
+    .focused(false)
+    .visible(false)
+    .inner_size(size.width, size.height)
+    .position(position.x, position.y)
+    .build()
+    .map_err(|error| format!("overlay: {error}"))?;
+
+    // The layer is a pointer, not a window: clicks reach the app underneath.
+    let _ = window.set_ignore_cursor_events(true);
+    window.show().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn overlay_hide(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("screen-overlay") {
+        window.hide().map_err(|error| error.to_string())?;
     }
     Ok(())
 }
@@ -409,8 +504,11 @@ fn screen_capture() -> Result<String, String> {
         use base64::{engine::general_purpose::STANDARD, Engine as _};
 
         let path = std::env::temp_dir().join(format!("lantas-screen-{}.jpg", std::process::id()));
+        // -D 1 pins the capture to the main display, which is the screen the
+        // pointing overlay covers; a merged multi-display image would put
+        // every coordinate on the wrong pixel.
         let status = std::process::Command::new("/usr/sbin/screencapture")
-            .args(["-x", "-t", "jpg"])
+            .args(["-x", "-D", "1", "-t", "jpg"])
             .arg(&path)
             .status()
             .map_err(|error| format!("Could not start screen capture: {error}"))?;
@@ -726,6 +824,8 @@ pub fn run() {
             screen_capture,
             screen_capture_window,
             el_screenshot,
+            overlay_show,
+            overlay_hide,
             git::git_status,
             git::git_diff,
             git::git_stage,

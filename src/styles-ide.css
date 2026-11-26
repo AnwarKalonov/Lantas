@@ -732,8 +732,16 @@
 
 .ide-welcome-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 24px;
+  max-width: 100%;
+}
+
+/* Four buttons do not fit one row in a narrow editor; they used to run past
+   the card's right edge. Wrapping keeps every action inside the card. */
+.ide-welcome-actions > button {
+  flex: 0 0 auto;
 }
 
 .ide-welcome-keys {

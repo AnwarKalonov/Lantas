@@ -18,6 +18,7 @@ export function ModelPicker({
   onConnect,
   className,
   align = "left",
+  placement = "up",
 }: {
   provider: ProviderId;
   model: string;
@@ -25,6 +26,8 @@ export function ModelPicker({
   onConnect: () => void;
   className?: string;
   align?: "left" | "right";
+  /** Open below the trigger for pickers that sit at the top of a panel. */
+  placement?: "up" | "down";
 }) {
   const { state, setSettings } = useStore();
   const [open, setOpen] = useState(false);
@@ -134,7 +137,14 @@ export function ModelPicker({
       </button>
 
       {open && (
-        <div className={cx("mp-menu", align === "right" && "is-right")} role="listbox">
+        <div
+          className={cx(
+            "mp-menu",
+            align === "right" && "is-right",
+            placement === "down" && "is-down",
+          )}
+          role="listbox"
+        >
           <label className="mp-search">
             <Icon name="search" size={12} />
             <input

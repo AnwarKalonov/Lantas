@@ -5,7 +5,7 @@ import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
 import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
-import { monacoLanguage } from "../lib/ide";
+import { monacoLanguage, type EditorContext } from "../lib/ide";
 import type { EditorSettings } from "../lib/types";
 
 /**
@@ -156,6 +156,8 @@ interface MonacoEditorProps {
   onChange: (value: string) => void;
   onSave: () => void;
   onCursor: (line: number, column: number) => void;
+  /** Cursor, selection and Monaco diagnostics, for prompts sent from here. */
+  onContext?: (context: EditorContext) => void;
 }
 
 export function MonacoEditor({
@@ -167,12 +169,13 @@ export function MonacoEditor({
   onChange,
   onSave,
   onCursor,
+  onContext,
 }: MonacoEditorProps) {
   const host = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const lastValue = useRef(value);
-  const handlers = useRef({ onChange, onSave, onCursor });
-  handlers.current = { onChange, onSave, onCursor };
+  const handlers = useRef({ onChange, onSave, onCursor, onContext });
+  handlers.current = { onChange, onSave, onCursor, onContext };
 
   useEffect(() => {
     if (!host.current) return undefined;
@@ -220,9 +223,46 @@ export function MonacoEditor({
       handlers.current.onSave(),
     );
 
+    // The same context a language server hands a coding agent: where the
+    // cursor is, what is selected, and the problems Monaco already knows.
+    const publish = () => {
+      const model = editor.getModel();
+      if (!model) return;
+      const position = editor.getPosition();
+      const selection = editor.getSelection();
+      const markers = monaco.editor.getModelMarkers({ resource: model.uri });
+      const pick = (severity: monaco.MarkerSeverity) =>
+        markers
+          .filter((marker) => marker.severity === severity)
+          .slice(0, 8)
+          .map((marker) => ({
+            line: marker.startLineNumber,
+            message: marker.message.slice(0, 300),
+          }));
+      handlers.current.onContext?.({
+        line: position?.lineNumber ?? 1,
+        column: position?.column ?? 1,
+        selection:
+          selection && !selection.isEmpty()
+            ? model.getValueInRange(selection).slice(0, 4_000)
+            : "",
+        selectionStartLine: selection?.startLineNumber ?? 1,
+        selectionEndLine: selection?.endLineNumber ?? 1,
+        errors: pick(monaco.MarkerSeverity.Error),
+        warnings: pick(monaco.MarkerSeverity.Warning),
+      });
+    };
+    const select = editor.onDidChangeCursorSelection(() => publish());
+    // A marker can arrive a moment after the model changes, when the worker
+    // finishes checking the file.
+    const markers = monaco.editor.onDidChangeMarkers(() => publish());
+    publish();
+
     return () => {
       change.dispose();
       cursor.dispose();
+      select.dispose();
+      markers.dispose();
       editor.dispose();
       editorRef.current = null;
     };

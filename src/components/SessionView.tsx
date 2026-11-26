@@ -71,6 +71,7 @@ export function SessionView({
         const body = message.parts
           .map((part) => {
             if (part.kind === "text") return part.text;
+            if (part.kind === "reasoning") return "";
             if (part.kind === "tool") return `[${part.tool}] ${part.label}`;
             if (part.kind === "diff") return `[diff] ${part.path} +${part.added} −${part.removed}`;
             if (part.kind === "shell") return `$ ${part.command}\n${part.output.join("\n")}`;

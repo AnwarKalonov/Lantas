@@ -2647,3 +2647,572 @@
   font-size: 14px;
   line-height: 1.5;
 }
+
+/* ── compact thought process ─────────────────────────────────────────────
+   Provider reasoning is kept separate from the answer. One quiet line says
+   what happened; Show opens the full trace in place when it is wanted. */
+
+.reasoning-block {
+  margin: 0 0 10px;
+}
+
+.reasoning-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 2px 5px 2px 2px;
+  border-radius: 5px;
+  color: var(--text-3);
+  font-size: 11.5px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.reasoning-head:hover {
+  background: var(--sel);
+  color: var(--text-2);
+}
+
+.reasoning-mark {
+  opacity: 0.85;
+}
+
+.reasoning-toggle {
+  margin-left: 2px;
+  color: var(--text-4);
+  font-size: 10.5px;
+}
+
+.reasoning-caret {
+  color: var(--text-4);
+  transition: transform 140ms ease;
+}
+
+.reasoning-caret.is-open {
+  transform: rotate(180deg);
+}
+
+.reasoning-body {
+  max-height: 260px;
+  margin: 4px 0 2px 8px;
+  padding: 7px 0 7px 11px;
+  overflow-y: auto;
+  border-left: 1px solid var(--line-strong);
+  color: var(--text-3);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+}
+
+.trust-panel .reasoning-block {
+  margin-bottom: 8px;
+}
+
+.trust-panel .reasoning-head {
+  max-width: calc(100% - 4px);
+  font-size: 11px;
+}
+
+.trust-panel .reasoning-body {
+  max-height: 220px;
+  color: #a8a8a8;
+  font-size: 11.5px;
+}
+
+.trust-panel .trust-send.is-stop {
+  background: #242424;
+  color: #dd8b82;
+}
+
+/* ── agent question bubble ──────────────────────────────────────────────── */
+
+.trust-question {
+  flex: 0 0 auto;
+  margin: 0 14px 9px;
+  padding: 12px;
+  border: 1px solid #3a3a3a;
+  border-radius: 10px;
+  background: #161616;
+  box-shadow: 0 12px 30px -22px rgba(0, 0, 0, 0.9);
+}
+
+.trust-question-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.trust-question-mark {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: #242424;
+  color: #d4d4d4;
+}
+
+.trust-question-head strong {
+  display: block;
+  color: #ececec;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.trust-question-head p {
+  margin: 2px 0 0;
+  color: #a8a8a8;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.trust-question-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.trust-question-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #8a8a8a;
+  font-size: 10.5px;
+}
+
+.trust-question-fields input {
+  width: 100%;
+  height: 31px;
+  padding: 0 9px;
+  border: 1px solid #3a3a3a;
+  border-radius: 7px;
+  outline: 0;
+  background: #101010;
+  color: #ececec;
+  font-family: var(--font-ui);
+  font-size: 12px;
+}
+
+.trust-question-fields input:focus {
+  border-color: #666666;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.06);
+}
+
+.trust-question-fields input::placeholder {
+  color: #777777;
+}
+
+.trust-question-secret {
+  position: relative;
+  display: block;
+}
+
+.trust-question-secret input {
+  padding-right: 34px;
+}
+
+.trust-question-eye {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: #8a8a8a;
+}
+
+.trust-question-eye:hover {
+  background: #242424;
+  color: #ececec;
+}
+
+.trust-question-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 9px;
+  color: #777777;
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+.trust-question-foot > div {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+
+.trust-question-skip {
+  height: 26px;
+  padding: 0 7px;
+  border-radius: 6px;
+  color: #9a9a9a;
+  font-size: 10.5px;
+}
+
+.trust-question-skip:hover {
+  background: #242424;
+  color: #ececec;
+}
+
+.trust-question-send {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 6px;
+  background: #ededed;
+  color: #111111;
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.trust-question-send:disabled {
+  background: #242424;
+  color: #555555;
+}
+
+/* ── Compare inside the Chat surface ──────────────────────────────────── */
+
+.compare-sheet.compare-inline {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none;
+  background: var(--chat-bg);
+}
+
+.compare-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+  padding: 0 7px 0 4px;
+  border-radius: 6px;
+  color: #a8a8a8;
+  font-size: 11px;
+}
+
+.compare-back:hover {
+  background: #1b1b1b;
+  color: #ececec;
+}
+
+.compare-back svg {
+  transform: rotate(180deg);
+}
+
+.compare-inline .compare-pane-head .mp-menu {
+  z-index: 60;
+}
+
+/* ── light side chats ─────────────────────────────────────────────────── */
+
+[data-theme="light"] .trust-panel.ide-assistant,
+[data-theme="light"] .el .trust-panel.el-ai {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+
+[data-theme="light"] .trust-panel .trust-head {
+  border-bottom-color: var(--line);
+  background: var(--surface);
+}
+
+[data-theme="light"] .trust-panel .trust-head-title,
+[data-theme="light"] .trust-panel .trust-empty p,
+[data-theme="light"] .trust-panel .md p,
+[data-theme="light"] .trust-panel .md li,
+[data-theme="light"] .trust-panel .assistant-block,
+[data-theme="light"] .trust-panel .user-card p {
+  color: var(--text);
+}
+
+[data-theme="light"] .trust-panel .trust-bot,
+[data-theme="light"] .trust-panel .trust-chev,
+[data-theme="light"] .trust-panel .trust-icon,
+[data-theme="light"] .trust-panel .trust-comp-icon,
+[data-theme="light"] .trust-panel .trust-model .mp-trigger {
+  color: var(--text-2);
+}
+
+[data-theme="light"] .trust-panel .trust-icon:hover,
+[data-theme="light"] .trust-panel .trust-comp-icon:hover,
+[data-theme="light"] .trust-panel .trust-model .mp-trigger:hover,
+[data-theme="light"] .trust-panel .trust-model .mp-trigger.is-open {
+  background: var(--raised-2);
+  color: var(--text);
+}
+
+[data-theme="light"] .trust-panel .trust-log,
+[data-theme="light"] .el .el-ai-log,
+[data-theme="light"] .trust-panel .transcript {
+  background: var(--surface);
+}
+
+[data-theme="light"] .trust-panel .trust-fade,
+[data-theme="light"] .trust-panel .ide-assistant-empty p,
+[data-theme="light"] .trust-panel .trust-empty p {
+  color: var(--text-2);
+}
+
+[data-theme="light"] .trust-panel .ide-assistant-empty h3,
+[data-theme="light"] .trust-panel .md h1,
+[data-theme="light"] .trust-panel .md h2,
+[data-theme="light"] .trust-panel .md h3,
+[data-theme="light"] .trust-panel .md h4,
+[data-theme="light"] .trust-panel .md strong {
+  color: var(--text);
+}
+
+[data-theme="light"] .trust-panel .trust-chip,
+[data-theme="light"] .trust-panel .trust-qr button,
+[data-theme="light"] .trust-panel .trust-pal {
+  border-color: var(--line-strong);
+  background: var(--raised);
+  color: var(--text-2);
+}
+
+[data-theme="light"] .trust-panel .trust-qr button:hover,
+[data-theme="light"] .trust-panel .trust-pal li button:hover,
+[data-theme="light"] .trust-panel .trust-icon:hover,
+[data-theme="light"] .trust-panel .trust-pal-x:hover {
+  background: var(--raised-2);
+  color: var(--text);
+}
+
+[data-theme="light"] .trust-panel .trust-pal-top,
+[data-theme="light"] .trust-panel .trust-pal li button,
+[data-theme="light"] .trust-panel .trust-kbd,
+[data-theme="light"] .trust-panel .trust-foot,
+[data-theme="light"] .trust-panel .assistant-foot,
+[data-theme="light"] .trust-panel .run-head,
+[data-theme="light"] .trust-panel .tool-row,
+[data-theme="light"] .trust-panel .reasoning-head {
+  color: var(--text-3);
+}
+
+[data-theme="light"] .trust-panel .trust-kbd {
+  border-color: var(--line-strong);
+  background: var(--raised-2);
+}
+
+[data-theme="light"] .trust-panel .trust-composer,
+[data-theme="light"] .trust-panel .ide-assistant-composer {
+  border-color: var(--line-strong);
+  background: var(--bg);
+}
+
+[data-theme="light"] .trust-panel .trust-composer:focus-within {
+  border-color: var(--text-4);
+}
+
+[data-theme="light"] .trust-panel .trust-composer textarea,
+[data-theme="light"] .trust-panel .ide-assistant-composer textarea {
+  color: var(--text);
+}
+
+[data-theme="light"] .trust-panel .trust-composer textarea::placeholder,
+[data-theme="light"] .trust-panel .ide-assistant-composer textarea::placeholder {
+  color: var(--text-3);
+}
+
+[data-theme="light"] .trust-panel .trust-send {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+[data-theme="light"] .trust-panel .trust-send.is-stop {
+  background: var(--raised-2);
+  color: var(--err);
+}
+
+[data-theme="light"] .trust-panel .user-card,
+[data-theme="light"] .trust-panel.ide-assistant .user-card,
+[data-theme="light"] .trust-panel.el-ai .user-card,
+[data-theme="light"] .trust-panel .ide-assistant .user-card {
+  background: var(--raised-2);
+}
+
+[data-theme="light"] .trust-panel .md-code {
+  border-color: var(--line);
+  background: var(--bg);
+}
+
+[data-theme="light"] .trust-panel .md-code-head {
+  border-bottom-color: var(--line);
+  background: var(--raised-2);
+  color: var(--text-3);
+}
+
+[data-theme="light"] .trust-panel .md-code pre {
+  color: var(--text-2);
+}
+
+[data-theme="light"] .trust-panel .reasoning-body {
+  color: var(--text-2);
+  border-left-color: var(--line-strong);
+}
+
+[data-theme="light"] .trust-panel .trust-question {
+  border-color: var(--line-strong);
+  background: var(--bg);
+  box-shadow: 0 12px 30px -24px rgba(30, 29, 25, 0.24);
+}
+
+[data-theme="light"] .trust-panel .trust-question-mark {
+  background: var(--raised-2);
+  color: var(--text-2);
+}
+
+[data-theme="light"] .trust-panel .trust-question-head strong {
+  color: var(--text);
+}
+
+[data-theme="light"] .trust-panel .trust-question-head p,
+[data-theme="light"] .trust-panel .trust-question-fields label,
+[data-theme="light"] .trust-panel .trust-question-foot {
+  color: var(--text-3);
+}
+
+[data-theme="light"] .trust-panel .trust-question-fields input {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+}
+
+[data-theme="light"] .trust-panel .trust-question-eye:hover,
+[data-theme="light"] .trust-panel .trust-question-skip:hover {
+  background: var(--raised-2);
+  color: var(--text);
+}
+
+[data-theme="light"] .trust-panel .trust-question-send {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+[data-theme="light"] .trust-panel .trust-question-send:disabled {
+  background: var(--raised-2);
+  color: var(--text-4);
+}
+
+/* ── light Compare ────────────────────────────────────────────────────── */
+
+[data-theme="light"] .compare-sheet.compare-inline {
+  background: var(--chat-bg);
+}
+
+[data-theme="light"] .compare-head,
+[data-theme="light"] .compare-pane-head,
+[data-theme="light"] .compare-meta,
+[data-theme="light"] .compare-vs,
+[data-theme="light"] .compare-ask {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+[data-theme="light"] .compare-count {
+  border-color: var(--line-strong);
+  background: var(--raised-2);
+  color: var(--text-2);
+}
+
+[data-theme="light"] .compare-new,
+[data-theme="light"] .compare-pref,
+[data-theme="light"] .compare-pref button,
+[data-theme="light"] .compare-pane-head .mp-trigger {
+  border-color: var(--line-strong);
+  background: var(--raised);
+  color: var(--text-2);
+}
+
+[data-theme="light"] .compare-new:hover,
+[data-theme="light"] .compare-back:hover,
+[data-theme="light"] .compare-pane-head .mp-trigger:hover,
+[data-theme="light"] .compare-pane-head .mp-trigger.is-open,
+[data-theme="light"] .compare-pref button.is-on {
+  background: var(--raised-2);
+  color: var(--text);
+}
+
+[data-theme="light"] .compare-pane,
+[data-theme="light"] .compare-grid,
+[data-theme="light"] .compare-q,
+[data-theme="light"] .compare-text code,
+[data-theme="light"] .compare-fail,
+[data-theme="light"] .compare-fail-mark,
+[data-theme="light"] .compare-fail button {
+  border-color: var(--line);
+  background: var(--chat-bg);
+  color: var(--text-2);
+}
+
+[data-theme="light"] .compare-fail button,
+[data-theme="light"] .compare-fail-mark {
+  background: var(--raised-2);
+}
+
+[data-theme="light"] .compare-text,
+[data-theme="light"] .compare-title h2,
+[data-theme="light"] .compare-back,
+[data-theme="light"] .compare-vs-note,
+[data-theme="light"] .compare-fail-title {
+  color: var(--text);
+}
+
+[data-theme="light"] .compare-idle,
+[data-theme="light"] .compare-wait,
+[data-theme="light"] .compare-vs-label,
+[data-theme="light"] .compare-meta,
+[data-theme="light"] .compare-stat,
+[data-theme="light"] .compare-models,
+[data-theme="light"] .compare-fail-text {
+  color: var(--text-3);
+}
+
+[data-theme="light"] .compare-input {
+  border-color: var(--line-strong);
+  background: var(--bg);
+}
+
+[data-theme="light"] .compare-input textarea {
+  color: var(--text);
+}
+
+[data-theme="light"] .compare-input textarea::placeholder {
+  color: var(--text-4);
+}
+
+[data-theme="light"] .compare-send {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+[data-theme="light"] .compare-send:disabled {
+  background: var(--raised-2);
+  color: var(--text-4);
+}
+
+[data-theme="light"] .compare-send.is-stop {
+  background: var(--raised-2);
+  color: var(--err);
+}

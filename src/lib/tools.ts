@@ -10,11 +10,14 @@ import {
   agentEnter,
   agentCheck,
   agentEvaluate,
+  agentExecute,
+  agentScreenshot,
   agentCloseTab,
   agentHistory,
   agentHover,
   agentNavigate,
   agentNewTab,
+  agentPage,
   agentSwitchTab,
   agentTabs,
   agentPress,
@@ -31,6 +34,7 @@ import {
   waitForNavigation,
 } from "./browserAgent";
 import { engineHealth, engineTask } from "./browserSidecar";
+import type { ChatImage } from "./providers";
 import { openInChrome } from "./chrome";
 import { aiDriving, getElContext } from "./el";
 import { runTerminalCommand } from "./terminal";
@@ -89,6 +93,14 @@ export interface ToolContext {
     terminal: boolean;
     control: boolean;
   };
+  /**
+   * Pauses the browser turn for a detail only the user knows, such as a login
+   * email or a one-time code. Resolves with the answer, or throws AbortError.
+   */
+  askUser?: (
+    question: string,
+    kind?: "text" | "email" | "password" | "credentials",
+  ) => Promise<string>;
 }
 
 export interface ToolCall {
@@ -109,6 +121,12 @@ export interface ToolOutcome {
   shell?: { command: string; output: string[]; state: "done" | "error" };
   /** A finished file the transcript offers as a download. */
   artifact?: { id: string; name: string; format: string; bytes: number };
+  /**
+   * Pixels the model should see with this result, such as a page screenshot.
+   * The loop attaches them to the tool-result turn; only the newest frames are
+   * kept so a long browser task does not spend its context on old images.
+   */
+  images?: ChatImage[];
   /** Resource the permission engine should check. */
   resource: string;
 }
@@ -124,6 +142,7 @@ export const TOOL_NAMES = [
   "settings",
   "terminal",
   "browser",
+  "ask_user",
   "integrations",
   "deliver",
 ] as const;
@@ -142,6 +161,7 @@ export const TOOL_LABELS: Record<string, string> = {
   settings: "Settings",
   terminal: "Terminal",
   browser: "Browser",
+  ask_user: "Ask you",
   integrations: "Connected apps",
   deliver: "Deliver file",
 };
@@ -687,6 +707,31 @@ export async function runTool(
       case "browser":
         return await runBrowserTool(call.args, context.drive, context.task);
 
+      case "ask_user": {
+        const question = String(call.args.question ?? "").trim();
+        if (!question) throw new Error("A question is required.");
+        if (!context.askUser) {
+          return {
+            ok: false,
+            summary: "Cannot ask in this panel",
+            content:
+              "This panel has no reply box. Ask the user in your answer instead; do not guess a missing detail.",
+            resource: question,
+          };
+        }
+        const requestedKind = String(call.args.kind ?? "text").toLowerCase();
+        const kind = ["text", "email", "password", "credentials"].includes(requestedKind)
+          ? (requestedKind as "text" | "email" | "password" | "credentials")
+          : "text";
+        const answer = await context.askUser(question, kind);
+        return {
+          ok: true,
+          summary: "Answered your question",
+          content: `The user answered your question. Use this answer for the step you were on and do not repeat it back to them.\n\n${answer.slice(0, 4_000)}`,
+          resource: question,
+        };
+      }
+
       case "integrations":
         return await runIntegrationTool(call.args);
 
@@ -699,6 +744,9 @@ export async function runTool(
         };
     }
   } catch (error) {
+    // Stopping is not a failed tool. Let the abort reach the agent loop so it
+    // can end the turn quietly instead of feeding "aborted" back to the model.
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
     return {
       ok: false,
       summary: error instanceof Error ? error.message : String(error),
@@ -917,7 +965,7 @@ async function runBrowserTool(
     resource,
   });
 
-  const readOnly = ["snapshot", "extract", "find"].includes(action);
+  const readOnly = ["snapshot", "extract", "find", "screenshot"].includes(action);
   if (!readOnly && !(drive ?? aiDriving())) {
     return fail(
       "The user has control of the browser. Ask them to switch to Act mode before changing the page.",
@@ -1188,6 +1236,64 @@ async function runBrowserTool(
             resource,
           }
         : fail(`Could not change “${target}”. It may need a click by ref instead.`);
+    }
+
+    case "screenshot": {
+      const shot = await agentScreenshot();
+      if (!shot.ok || !shot.image) {
+        return fail(
+          shot.error ||
+            "Could not capture the page. In the desktop app the Browser tab must be on screen and Screen Recording allowed.",
+        );
+      }
+      const page = await agentPage().catch(() => null);
+      return {
+        ok: true,
+        summary: page?.title ? `Saw ${page.title}` : "Captured the page",
+        content: [
+          "Screenshot of the live page is attached to this result.",
+          page?.url ? `URL: ${page.url}` : "",
+          "Use it to check what the page actually shows; the DOM text alone cannot show overlays, canvases or layout.",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        images: [shot.image],
+        resource,
+      };
+    }
+
+    case "execute":
+    case "run":
+    case "js": {
+      const code = String(args.code ?? args.script ?? args.js ?? "").trim();
+      if (!code) return fail("execute needs code to run in the live page.");
+      const timeoutMs = Math.min(60_000, Math.max(1_000, Number(args.timeoutMs ?? 12_000) || 12_000));
+      const result = await agentExecute(code, timeoutMs);
+      const images: ChatImage[] = [];
+      if (args.screenshot) {
+        const shot = await agentScreenshot();
+        if (shot.ok && shot.image) images.push(shot.image);
+      }
+      const value = result.value === undefined ? "undefined" : JSON.stringify(result.value, null, 2);
+      return {
+        ok: result.ok,
+        summary: result.ok ? "Ran page code" : "Page code failed",
+        content: truncate(
+          [
+            result.ok
+              ? "Page code finished. The session stays open for the next call."
+              : `Page code failed: ${result.error ?? "unknown error"}`,
+            `Value:\n${value}`,
+            result.logs.length ? `Console:\n${result.logs.join("\n")}` : "",
+            images.length ? "A screenshot of the page is attached." : "",
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+          16_000,
+        ),
+        images: images.length ? images : undefined,
+        resource,
+      };
     }
 
     case "evaluate": {
@@ -1617,7 +1723,9 @@ export const TOOL_MANUAL = [
   '- skill {"name"} — load the full instructions of an enabled skill when the task matches it.',
   '- settings {"action","value"?,"flag"?,"panel"?} — the app itself: get, theme {"value":"light|dark|system"}, flag {"flag":"reduceMotion|notifications|sendOnEnter","value":true|false}, open {"panel":"appearance|providers|models|agents|permissions|general"}. Use it when the user asks for a change in how Lantas looks or behaves; it applies at once, so confirm in one line instead of telling them to open Settings.',
   '- terminal {"command","timeoutMs?"} — run a command in the open workspace and return its real stdout and stderr. Use this for tests, builds, git and shell commands. Never claim a command ran without a terminal result.',
-  '- browser {"action",...} — actions: snapshot, extract, find {"query"}, wait {"text","timeoutMs?","gone?"}, click {"target"|"ref"}, click_at {"x","y"}, hover {"target"}, type/fill {"text","selector?","submit?"}, select {"target","value"}, check {"target","checked?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, steps {"steps":[...]}, tabs, switch_tab {"id"|"index"}, new_tab {"url"}, close_tab {"id"|"index"}, navigate {"url"}, task {"task","maxSteps?"}, open_in_chrome {"url"}, back, forward, reload.',
+  '- browser {"action",...} — actions: snapshot, extract, screenshot, find {"query"}, wait {"text","timeoutMs?","gone?"}, click {"target"|"ref"}, click_at {"x","y"}, hover {"target"}, type/fill {"text","selector?","submit?"}, select {"target","value"}, check {"target","checked?"}, execute {"code","timeoutMs?","screenshot?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, steps {"steps":[...]}, tabs, switch_tab {"id"|"index"}, new_tab {"url"}, close_tab {"id"|"index"}, navigate {"url"}, task {"task","maxSteps?"}, open_in_chrome {"url"}, back, forward, reload.',
+  "- browser execute is the unbounded browser step: write async JavaScript for the live page (`await`, loops, `fetch`, `return` a compact value) and get the value plus console logs back. The page session stays alive, so a later execute sees the same tab, cookies and DOM. Use it instead of many single actions when the work is mechanical, and add \"screenshot\":true when you also need to see the result.",
+  "- browser screenshot returns the page as an image you can see. Take one for layout, canvas or overlay questions, or when the DOM says something happened but the page looks wrong.",
   '- browser steps batches up to 12 actions into one call and returns one fresh snapshot at the end: {"action":"steps","steps":[{"action":"click","ref":12},{"action":"type","text":"2x + 4"},{"action":"press","key":"Enter"}]}. Use it when you already know the sequence, so a task does not lose the thread between round trips. Element refs come from a fresh snapshot and stay tied to their element; a ref that is gone fails instead of clicking whatever took its place.',
   "- browser task hands the whole job to the local browser-use engine in its own Chromium (trusted input, real downloads, saved logins). Prefer it for \"open X and do Y\" requests that span pages; use the single actions when you need to stay in the embedded tab. If it reports that no engine is running, tell the user to run bash engine/run.sh once and keep going with single actions.",
   "",

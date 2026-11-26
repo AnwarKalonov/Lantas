@@ -130,8 +130,11 @@ function RunBlock({
   const running = parts.some(partRunning);
   const [open, setOpen] = useState(running);
 
+  // Open while the steps are live, then fold them back into one quiet line.
+  // The details are still one click away, but a finished turn is not a wall
+  // of tool output.
   useEffect(() => {
-    if (running) setOpen(true);
+    setOpen(running);
   }, [running]);
 
   return (
@@ -513,6 +516,38 @@ function ShellBlock({ part }: { part: Extract<Part, { kind: "shell" }> }) {
   );
 }
 
+function ReasoningBlock({ part }: { part: Extract<Part, { kind: "reasoning" }> }) {
+  const [open, setOpen] = useState(false);
+  const running = part.state === "run";
+  const seconds = part.durationMs ? Math.max(1, Math.round(part.durationMs / 1000)) : null;
+  const label = running
+    ? "Thinking…"
+    : seconds
+      ? `Thought for ${seconds}s`
+      : "Thought process";
+
+  return (
+    <div className={cx("reasoning-block", running && "is-running")}>
+      <button
+        type="button"
+        className="reasoning-head"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        <Icon
+          name={running ? "loader" : "sparkle"}
+          size={12}
+          className={running ? "spin" : "reasoning-mark"}
+        />
+        <span>{label}</span>
+        <span className="reasoning-toggle">{open ? "Hide" : "Show"}</span>
+        <Icon name="chevronDown" size={11} className={cx("reasoning-caret", open && "is-open")} />
+      </button>
+      {open && <div className="reasoning-body">{part.text}</div>}
+    </div>
+  );
+}
+
 function AssistantPart({
   part,
   onOpenFile,
@@ -523,6 +558,8 @@ function AssistantPart({
   switch (part.kind) {
     case "text":
       return <Markdown text={part.text} onOpenFile={onOpenFile} />;
+    case "reasoning":
+      return <ReasoningBlock part={part} />;
     case "tool":
       return <ToolRow part={part} onOpenFile={onOpenFile} />;
     case "diff":
@@ -658,9 +695,11 @@ function AssistantMessage({
             ? `[${part.tool}] ${part.label}`
             : part.kind === "diff"
               ? `[diff] ${part.path}`
-              : part.kind === "artifact"
-                ? `[file] ${part.name}`
-                : `$ ${part.command}\n${part.output.join("\n")}`,
+                              : part.kind === "artifact"
+                  ? `[file] ${part.name}`
+                  : part.kind === "reasoning"
+                    ? ""
+                    : `$ ${part.command}\n${part.output.join("\n")}`,
       )
       .join("\n\n");
     navigator.clipboard?.writeText(text).catch(() => {});
@@ -682,6 +721,7 @@ function AssistantMessage({
             ),
           )}
           {message.streaming && <span className="stream-caret" aria-hidden="true" />}
+          {message.interrupted && <span className="interrupted">interrupted</span>}
         </div>
       </div>
     );

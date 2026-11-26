@@ -108,6 +108,8 @@ export interface StreamOptions {
   messages: ChatTurn[];
   signal: AbortSignal;
   onDelta: (text: string) => void;
+  /** Thinking/reasoning deltas, kept separate from the visible answer. */
+  onReasoning?: (text: string) => void;
   onUsage?: (usage: StreamUsage) => void;
 }
 
@@ -213,6 +215,13 @@ async function streamAnthropic(options: StreamOptions): Promise<void> {
       if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
         options.onDelta(event.delta.text ?? "");
       }
+      if (
+        event.type === "content_block_delta" &&
+        event.delta?.type === "thinking_delta" &&
+        typeof event.delta.thinking === "string"
+      ) {
+        options.onReasoning?.(event.delta.thinking);
+      }
       if (event.type === "message_start") {
         options.onUsage?.({ input: event.message?.usage?.input_tokens });
       }
@@ -271,7 +280,15 @@ async function streamOpenAI(options: StreamOptions): Promise<void> {
     }),
   });
 
-  if (!response.ok) throw await httpError(response);
+  if (!response.ok) {
+    const error = await httpError(response);
+    if (options.provider === "opencode" && response.status === 403) {
+      throw new Error(
+        `OpenCode refused this model. Free-tier models only work inside the OpenCode app, so choose a pay-as-you-go model, or verify the key at opencode.ai/console. ${error.message}`,
+      );
+    }
+    throw error;
+  }
 
   await readLines(
     response,
@@ -284,8 +301,20 @@ async function streamOpenAI(options: StreamOptions): Promise<void> {
       } catch {
         return;
       }
-      const delta = event.choices?.[0]?.delta?.content;
+      const choice = event.choices?.[0]?.delta;
+      const delta = choice?.content;
       if (typeof delta === "string" && delta) options.onDelta(delta);
+      const reasoning =
+        choice?.reasoning_content ??
+        choice?.reasoning ??
+        (Array.isArray(choice?.reasoning_details)
+          ? choice.reasoning_details
+              .map((detail: any) => detail?.text ?? detail?.summary ?? "")
+              .join("")
+          : "");
+      if (typeof reasoning === "string" && reasoning) {
+        options.onReasoning?.(reasoning);
+      }
       if (event.usage) {
         options.onUsage?.({
           input: event.usage.prompt_tokens,
@@ -363,6 +392,12 @@ async function streamGoogleInteractions(options: StreamOptions): Promise<void> {
       const delta = event.delta;
       if (
         (event.event_type === "step.delta" || event.event_type === "content.delta") &&
+        (delta?.type === "thought" || delta?.type === "thinking") &&
+        typeof delta.text === "string"
+      ) {
+        options.onReasoning?.(delta.text);
+      } else if (
+        (event.event_type === "step.delta" || event.event_type === "content.delta") &&
         delta?.type === "text" &&
         typeof delta.text === "string"
       ) {
@@ -432,10 +467,17 @@ async function streamGoogle(options: StreamOptions): Promise<void> {
       } catch {
         return;
       }
-      const text = event.candidates?.[0]?.content?.parts
-        ?.map((part: any) => part.text ?? "")
+      const parts = event.candidates?.[0]?.content?.parts ?? [];
+      const text = parts
+        .filter((part: any) => !part.thought)
+        .map((part: any) => part.text ?? "")
         .join("");
       if (text) options.onDelta(text);
+      const thought = parts
+        .filter((part: any) => part.thought)
+        .map((part: any) => part.text ?? "")
+        .join("");
+      if (thought) options.onReasoning?.(thought);
       if (event.usageMetadata) {
         options.onUsage?.({
           input: event.usageMetadata.promptTokenCount,
@@ -484,6 +526,8 @@ async function streamOllama(options: StreamOptions): Promise<void> {
       }
       const chunk = event.message?.content;
       if (typeof chunk === "string" && chunk) options.onDelta(chunk);
+      const thinking = event.message?.thinking;
+      if (typeof thinking === "string" && thinking) options.onReasoning?.(thinking);
       if (event.error) throw new Error(event.error);
       if (event.done) {
         options.onUsage?.({ input: event.prompt_eval_count, output: event.eval_count });
@@ -536,6 +580,7 @@ export async function streamChat(options: StreamOptions): Promise<void> {
         started = true;
         options.onDelta(clean);
       },
+      onReasoning: options.onReasoning,
     };
 
     try {
@@ -582,6 +627,16 @@ export function isFreeModel(provider: ProviderId, model: string): boolean {
 
 /** The cheapest thing worth spending on a connection test. */
 export function pickTestModel(provider: ProviderId, models: string[]): string {
+  // OpenCode's live catalog includes free ids that only work inside its own
+  // app. Testing one of those would fail every otherwise-valid paid key.
+  if (provider === "opencode") {
+    return (
+      models.find((model) => /(^|-)flash($|-)/i.test(model)) ??
+      models.find((model) => /glm|kimi|deepseek|qwen|minimax/i.test(model)) ??
+      models.find((model) => !isFreeModel(provider, model)) ??
+      models[0]
+    );
+  }
   return (
     models.find((model) => isFreeModel(provider, model)) ??
     models.find((model) => !/pro|opus|sonnet/i.test(model)) ??
@@ -661,7 +716,9 @@ export async function listModels(
           ? !/(embed|embedqa|nvclip|gliner|safety|guard|nemoguard|detector|retriever|riva|arctic-embed|calibration)/i.test(
               name,
             )
-          : true,
+          : id === "opencode"
+            ? !isFreeModel(id, name)
+            : true,
       )
       .sort((a: string, b: string) => {
         if (id === "openrouter") {

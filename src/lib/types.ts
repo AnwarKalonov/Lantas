@@ -69,6 +69,14 @@ export interface DiffLine {
 
 export type Part =
   | { id: string; kind: "text"; text: string }
+  | {
+      id: string;
+      kind: "reasoning";
+      /** The model's own thinking, when the provider streams it. */
+      text: string;
+      state: "run" | "done";
+      durationMs?: number;
+    }
   | { id: string; kind: "tool"; tool: ToolKind; label: string; detail?: string; state: ToolState }
   | { id: string; kind: "diff"; path: string; added: number; removed: number; lines: DiffLine[] }
   | { id: string; kind: "shell"; command: string; output: string[]; state: ToolState }

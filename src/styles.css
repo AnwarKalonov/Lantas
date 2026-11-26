@@ -5415,6 +5415,21 @@ html[data-runtime="tauri"] .titlebar {
   right: 0;
 }
 
+/* Compare's pickers sit at the top of the panel. Opening upward put the menu
+   under the title bar and clipped it, so these open into the answer area. */
+.mp-menu.is-down {
+  top: calc(100% + 7px);
+  bottom: auto;
+  animation: mp-drop 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes mp-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
 @keyframes mp-rise {
   from {
     opacity: 0;

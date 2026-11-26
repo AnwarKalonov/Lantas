@@ -57,21 +57,23 @@ export const PROVIDERS: ProviderMeta[] = [
   {
     id: "opencode",
     name: "OpenCode Zen",
-    description: "The opencode.ai gateway · free models need the OpenCode app",
+    description: "The opencode.ai gateway · pay-as-you-go models",
     kind: "openai",
     baseUrl: "https://opencode.ai/inference/openai/v1",
     needsKey: true,
     local: false,
-    // Model ids as published by the Zen catalog. Free-tier ids are listed so
-    // they are visible; OpenCode's policy answers 403 for them outside its own
-    // client, so the paid and Go rows are the ones that work here.
+    // These are pay-as-you-go rows from the Zen catalog, which accept ordinary
+    // personal API keys. The free-tier ids are intentionally absent: OpenCode
+    // answers 403 for those outside its own client, even with a valid key.
+    // Test connection replaces this list with the key's live /models catalog.
     models: [
-      "big-pickle",
-      "deepseek-v4.1-flash-free",
-      "mimo-v2.6-flash-free",
-      "nemotron-3.5-lightning-free",
+      "deepseek-v4-pro",
+      "glm-5.3",
+      "kimi-k3",
+      "minimax-m3",
+      "qwen3.8-max",
     ],
-    docs: "opencode.ai/console · personal API key (oc_sk_…)",
+    docs: "opencode.ai/console · paid API key (oc_sk_…)",
   },
   {
     id: "groq",

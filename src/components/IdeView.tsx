@@ -10,7 +10,11 @@ import {
   searchWorkspace,
   type TreeNode,
 } from "../lib/ide";
-import { monacoLanguage } from "../lib/ide";
+import {
+  describeEditorContext,
+  monacoLanguage,
+  type EditorContext,
+} from "../lib/ide";
 import {
   createWorkspaceFile,
   createWorkspaceFolder,
@@ -24,7 +28,7 @@ import {
 import { inTauri, openInVsCode } from "../lib/native";
 import { readAttachments } from "../lib/attachments";
 import type { Attachment, ProviderId, Session, WorkspaceFile } from "../lib/types";
-import { cx } from "../lib/util";
+import { cx, uid } from "../lib/util";
 import { GitPanel } from "./GitPanel";
 import { ExtensionsPanel } from "./ExtensionsPanel";
 import { ModelPicker } from "./ModelPicker";
@@ -194,6 +198,14 @@ export function IdeView({
   const [active, setActive] = useState<string | null>(() => bufferCache.active);
   const [drafts, setDrafts] = useState<Record<string, string>>(() => ({ ...bufferCache.drafts }));
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
+  const [editorContext, setEditorContext] = useState<EditorContext | null>(null);
+  // Monaco publishes on every marker pass; identical context must not redraw
+  // the whole workbench.
+  const receiveEditorContext = useCallback((next: EditorContext) => {
+    setEditorContext((previous) =>
+      previous && JSON.stringify(previous) === JSON.stringify(next) ? previous : next,
+    );
+  }, []);
   const [search, setSearch] = useState("");
   const [quick, setQuick] = useState<string | null>(null);
   const [askDraft, setAskDraft] = useState("");
@@ -556,12 +568,26 @@ export function IdeView({
     const text = askDraft.trim();
     if ((!text && askFiles.length === 0) || streaming) return;
     const files = askFiles;
-    onAsk(text, files.length ? files : undefined);
+    // The Code panel knows more than the sentence the user typed: which file
+    // is open, what is selected and what the editor already flags. Send that
+    // with the prompt so the agent starts where the user is looking.
+    const contextText = describeEditorContext(active, editorContext);
+    const contextFile: Attachment | null = contextText
+      ? {
+          id: uid("ctx"),
+          name: `${(active ?? "editor").split("/").pop() ?? "editor"}-context.md`,
+          size: contextText.length,
+          kind: "text",
+          body: contextText,
+        }
+      : null;
+    const attached = contextFile ? [...files, contextFile] : files;
+    onAsk(text, attached.length ? attached : undefined);
     setAskDraft("");
     setAskFiles([]);
     notify(
-      files.length
-        ? `Sent to Lantas with ${files.length} file${files.length === 1 ? "" : "s"}`
+      attached.length
+        ? `Sent to Lantas with ${attached.length} attachment${attached.length === 1 ? "" : "s"}`
         : "Sent to Lantas",
     );
   };
@@ -1254,6 +1280,7 @@ export function IdeView({
                   onChange={(text) => updateDraft(activeFile.path, text)}
                   onSave={saveActive}
                   onCursor={(line, column) => setCursor({ line, column })}
+                  onContext={receiveEditorContext}
                 />
               )}
             </>
@@ -1346,6 +1373,7 @@ export function IdeView({
         {assistantOpen && (
           <aside className="ide-assistant trust-panel">
             <TrustPanelHead
+              title={session?.title || "New chat"}
               onNewChat={() => {
                 createSession();
                 notify("New thread ready");
@@ -1555,7 +1583,7 @@ export function IdeView({
               </div>
             </div>
 
-            <div className="trust-foot">ReUI Chat can browse the web. Check important info.</div>
+            <div className="trust-foot">Lantas can edit this folder. Review each change before keeping it.</div>
           </aside>
         )}
       </div>
@@ -1592,6 +1620,15 @@ export function IdeView({
               <span className="ide-status-item">
                 Ln {cursor.line}, Col {cursor.column}
               </span>
+              {editorContext &&
+                (editorContext.errors.length > 0 || editorContext.warnings.length > 0) && (
+                  <span className="ide-status-item">
+                    {editorContext.errors.length} error
+                    {editorContext.errors.length === 1 ? "" : "s"}, {" "}
+                    {editorContext.warnings.length} warning
+                    {editorContext.warnings.length === 1 ? "" : "s"}
+                  </span>
+                )}
             </>
           )}
           {!activeFile && <span className="ide-status-item dim">UTF-8</span>}

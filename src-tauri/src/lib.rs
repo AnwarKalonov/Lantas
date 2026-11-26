@@ -6,6 +6,7 @@ mod vscode;
 mod workspace;
 
 use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
 
 use tauri::{LogicalPosition, LogicalSize, Manager, WebviewUrl};
 
@@ -45,6 +46,50 @@ fn parse_url(input: &str) -> Result<tauri::Url, String> {
         .map_err(|error| error.to_string())
 }
 
+/// Where the child browser sits and whether it is on screen.
+///
+/// A screenshot of a native webview is a screenshot of the screen, so the app
+/// has to know the exact rectangle the page occupies. `screencapture -R` also
+/// captures whatever is in front when the page is hidden, which would hand the
+/// model another window's pixels, so the visible flag is checked first.
+#[derive(Clone, Copy)]
+struct ViewState {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    visible: bool,
+}
+
+static VIEW_STATE: OnceLock<Mutex<ViewState>> = OnceLock::new();
+
+fn view_state() -> &'static Mutex<ViewState> {
+    VIEW_STATE.get_or_init(|| {
+        Mutex::new(ViewState {
+            x: 0.0,
+            y: 0.0,
+            width: 0.0,
+            height: 0.0,
+            visible: false,
+        })
+    })
+}
+
+fn remember_view(x: f64, y: f64, width: f64, height: f64) {
+    if let Ok(mut state) = view_state().lock() {
+        state.x = x;
+        state.y = y;
+        state.width = width;
+        state.height = height;
+    }
+}
+
+fn remember_visible(visible: bool) {
+    if let Ok(mut state) = view_state().lock() {
+        state.visible = visible;
+    }
+}
+
 /// Opens (or reuses) the Lantas Browser webview. A child webview is a real
 /// browser engine, so Google and other frame-blocking sites work and the model
 /// can click through the page.
@@ -58,6 +103,7 @@ fn el_open(
     height: f64,
 ) -> Result<(), String> {
     let parsed = parse_url(&url)?;
+    remember_view(x, y, width, height);
     if let Some(view) = window.get_webview("el") {
         view.navigate(parsed).map_err(|error| error.to_string())?;
         view.set_position(LogicalPosition::new(x, y))
@@ -65,6 +111,7 @@ fn el_open(
         view.set_size(LogicalSize::new(width, height))
             .map_err(|error| error.to_string())?;
         view.show().map_err(|error| format!("show: {error}"))?;
+        remember_visible(true);
         return Ok(());
     }
 
@@ -79,6 +126,7 @@ fn el_open(
         )
         .map_err(|error| format!("create: {error}"))?;
     view.show().map_err(|error| format!("show: {error}"))?;
+    remember_visible(true);
     Ok(())
 }
 
@@ -90,6 +138,7 @@ fn el_bounds(
     width: f64,
     height: f64,
 ) -> Result<(), String> {
+    remember_view(x, y, width.max(1.0), height.max(1.0));
     if let Some(view) = window.get_webview("el") {
         view.set_position(LogicalPosition::new(x, y))
             .map_err(|error| error.to_string())?;
@@ -110,6 +159,7 @@ fn el_navigate(window: tauri::Window, url: String) -> Result<(), String> {
 
 #[tauri::command]
 fn el_visible(window: tauri::Window, visible: bool) -> Result<(), String> {
+    remember_visible(visible);
     if let Some(view) = window.get_webview("el") {
         if visible {
             view.show().map_err(|error| error.to_string())?;
@@ -419,6 +469,78 @@ fn screen_capture_window() -> Result<String, String> {
     }
 }
 
+/// One still frame of the child browser, as base64 JPEG.
+///
+/// The model checks its work against what the page actually looks like: a
+/// screenshot catches a cookie wall, an off-screen control or a layout the DOM
+/// text cannot describe. macOS captures screen pixels, so the child webview
+/// must be on screen and the app must have Screen Recording permission.
+#[tauri::command]
+fn el_screenshot(window: tauri::Window) -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+        let state = *view_state()
+            .lock()
+            .map_err(|_| "The browser view state is unavailable.".to_string())?;
+
+        if !state.visible {
+            return Err(
+                "The browser page is not on screen, so a screenshot would capture another window. Open the Browser tab, then take the screenshot again."
+                    .to_string(),
+            );
+        }
+        // Screen capture reads pixels, not the webview. Another app in front
+        // would be photographed instead of the page, so refuse rather than
+        // hand the model a picture of something else.
+        if !window.is_focused().unwrap_or(true) {
+            return Err(
+                "Lantas is not the frontmost window, so a page screenshot would capture another app. Bring Lantas to the front and take the screenshot again."
+                    .to_string(),
+            );
+        }
+        if state.width < 2.0 || state.height < 2.0 {
+            return Err("The browser has no visible area yet. Open a page, then try again.".to_string());
+        }
+
+        let scale = window.scale_factor().map_err(|error| error.to_string())?;
+        let inner = window.inner_position().map_err(|error| error.to_string())?;
+        let x = inner.x as f64 / scale + state.x;
+        let y = inner.y as f64 / scale + state.y;
+        let rect = format!(
+            "{},{},{},{}",
+            x.round() as i64,
+            y.round() as i64,
+            state.width.round() as i64,
+            state.height.round() as i64
+        );
+
+        let path = std::env::temp_dir().join(format!("lantas-page-{}.jpg", std::process::id()));
+        let status = std::process::Command::new("/usr/sbin/screencapture")
+            .args(["-x", "-R", &rect, "-t", "jpg"])
+            .arg(&path)
+            .status()
+            .map_err(|error| format!("Could not start the page capture: {error}"))?;
+        if !status.success() {
+            return Err("The page capture was refused. Allow Lantas in System Settings › Privacy & Security › Screen Recording, then try again.".to_string());
+        }
+        let bytes = std::fs::read(&path)
+            .map_err(|error| format!("Could not read the page capture: {error}"))?;
+        let _ = std::fs::remove_file(&path);
+        if bytes.is_empty() {
+            return Err("The page capture was empty. Check Screen Recording permission.".to_string());
+        }
+        Ok(STANDARD.encode(bytes))
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = window;
+        Err("Page screenshots are available in the macOS build.".to_string())
+    }
+}
+
 fn open_in_browser(url: &str, prefer_chrome: bool) -> Result<(), String> {
     let parsed = parse_url(url)?;
     let target = parsed.as_str();
@@ -489,6 +611,13 @@ fn chrome_bridge_state() -> String {
 #[tauri::command]
 fn chrome_bridge_send(payload: String) -> Result<usize, String> {
     bridge::send(&payload)
+}
+
+/// Releases a result the app has already read, so a page screenshot is not
+/// carried by every later status read.
+#[tauri::command]
+fn chrome_bridge_forget(id: String) -> bool {
+    bridge::forget(&id)
 }
 
 /// Finds the shipped extension folder, whether running from source or a bundle.
@@ -587,6 +716,7 @@ pub fn run() {
             el_window,
             chrome_bridge_state,
             chrome_bridge_send,
+            chrome_bridge_forget,
             chrome_extension_dir,
             chrome_extension_reveal,
             open_external,
@@ -595,6 +725,7 @@ pub fn run() {
             open_privacy_settings,
             screen_capture,
             screen_capture_window,
+            el_screenshot,
             git::git_status,
             git::git_diff,
             git::git_stage,

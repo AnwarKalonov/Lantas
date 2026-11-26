@@ -257,6 +257,10 @@ export async function chromeCommand<T extends ChromeEvent = ChromeEvent>(
     const status = await chromeStatus();
     const hit = status.events.find((event) => event.id === id);
     if (hit) {
+      // Results are one-shot. Freeing this one keeps the bridge snapshot small,
+      // which matters most for screenshots: an image left in the event buffer
+      // was re-serialized by every later status read.
+      void call<boolean>("chrome_bridge_forget", { id }).catch(() => {});
       if (hit.ok === false) {
         throw new Error(hit.error || "Chrome could not do that.");
       }

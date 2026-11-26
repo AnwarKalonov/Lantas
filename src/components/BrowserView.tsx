@@ -53,6 +53,8 @@ import { cx, timeAgo, uid } from "../lib/util";
 import { AppLogo } from "./AppLogo";
 import { Icon } from "./Icons";
 import { Transcript } from "./Transcript";
+import { getActiveUserAsk, skipUserAsk, subscribeUserAsk } from "../lib/userAsk";
+import { AgentQuestion } from "./AgentQuestion";
 import { TrustPalette, TrustPanelHead } from "./TrustPanelHead";
 
 const SHORTCUTS = [
@@ -607,6 +609,44 @@ export function BrowserView({
     aiLogRef.current?.scrollTo({ top: aiLogRef.current.scrollHeight, behavior: "smooth" });
   }, [aiOpen, aiMessages.length, activeSession?.messages.at(-1)?.parts]);
 
+  // A question is useless behind a closed panel. Open the side chat when the
+  // agent pauses for a login detail. If the browser surface goes away while a
+  // pending question is still waiting, release it rather than leaving the run
+  // blocked behind a component that no longer exists.
+  useEffect(() => {
+    const unsubscribe = subscribeUserAsk((question) => {
+      if (question) setAiOpen(true);
+    });
+    return () => {
+      const pending = getActiveUserAsk();
+      if (pending) skipUserAsk(pending.id);
+      unsubscribe();
+    };
+  }, []);
+
+  // If the page is no longer on screen, a hidden question cannot be answered.
+  // Release the wait when the browser surface hides instead of stranding the
+  // turn in another mode.
+  useEffect(() => {
+    if (visible) return;
+    const pending = getActiveUserAsk();
+    if (pending) skipUserAsk(pending.id);
+  }, [visible]);
+
+  // Escape interrupts the same run the main composer stops, without making the
+  // user find the thread again.
+  useEffect(() => {
+    if (!aiStreaming) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent("lantas:stop"));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [aiStreaming]);
+
   const typeInto = async (value: string, selector?: string) => {
     if (!native) {
       notify("Typing needs the desktop app", "error");
@@ -1143,7 +1183,10 @@ export function BrowserView({
         {aiOpen && (
           <aside className="el-ai trust-panel" aria-label="Lantas">
             <TrustPanelHead
+              title={activeSession?.title || "New chat"}
               onNewChat={() => {
+                const pending = getActiveUserAsk();
+                if (pending) skipUserAsk(pending.id);
                 createSession();
                 notify("Started a new browser chat");
               }}
@@ -1152,7 +1195,13 @@ export function BrowserView({
                   new CustomEvent("lantas:settings", { detail: { tab: "providers" } }),
                 )
               }
-              onClose={() => setAiOpen(false)}
+              onClose={() => {
+                // Closing the rail while Lantas is waiting cancels the wait so
+                // the turn can finish instead of hanging behind a hidden bubble.
+                const pending = getActiveUserAsk();
+                if (pending) skipUserAsk(pending.id);
+                setAiOpen(false);
+              }}
             />
 
             <div className="el-ai-log trust-log" ref={aiLogRef}>
@@ -1203,7 +1252,7 @@ export function BrowserView({
               />
             </div>
 
-            {promptOpen && (
+            {promptOpen && !aiStreaming && (
               <TrustPalette
                 items={browserPrompts}
                 onPick={(text) => {
@@ -1213,6 +1262,8 @@ export function BrowserView({
                 onDismiss={() => setPromptOpen(false)}
               />
             )}
+
+            <AgentQuestion />
 
             <form className="trust-composer" onSubmit={submitAsk}>
               {aiFiles.length > 0 && (
@@ -1298,17 +1349,23 @@ export function BrowserView({
                 </button>
                 <span className="trust-comp-sp" />
                 <button
-                  type="submit"
-                  className="trust-send"
-                  disabled={!aiDraft.trim() && aiFiles.length === 0}
-                  aria-label="Send"
+                  type={aiStreaming ? "button" : "submit"}
+                  className={cx("trust-send", aiStreaming && "is-stop")}
+                  onClick={
+                    aiStreaming
+                      ? () => window.dispatchEvent(new CustomEvent("lantas:stop"))
+                      : undefined
+                  }
+                  disabled={!aiStreaming && !aiDraft.trim() && aiFiles.length === 0}
+                  aria-label={aiStreaming ? "Stop the assistant" : "Send"}
+                  title={aiStreaming ? "Stop the assistant" : "Send"}
                 >
-                  <Icon name="arrowUp" size={15} />
+                  <Icon name={aiStreaming ? "stop" : "arrowUp"} size={15} />
                 </button>
               </div>
             </form>
 
-            <div className="trust-foot">ReUI Chat can browse the web. Check important info.</div>
+            <div className="trust-foot">Lantas can browse this page. Verify important details before acting.</div>
           </aside>
         )}
       </div>

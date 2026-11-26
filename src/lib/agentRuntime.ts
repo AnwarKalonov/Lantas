@@ -1,6 +1,6 @@
 import { recordAudit } from "./audit";
 import { decide, type PermissionEffect, type PermissionRule } from "./permissions";
-import { streamChat, type ChatTurn, type StreamUsage } from "./providers";
+import { streamChat, type ChatImage, type ChatTurn, type StreamUsage } from "./providers";
 import {
   runTool,
   toolLabel,
@@ -41,6 +41,8 @@ export interface ToolLoopOptions {
   signal: AbortSignal;
   approve: (call: ToolCall, resource: string, effect: PermissionEffect) => Promise<boolean>;
   onText: (delta: string) => void;
+  /** Separate thinking stream; never mixed into the visible answer. */
+  onReasoning?: (delta: string) => void;
   onToolStart: (id: string, call: ToolCall, label: string) => void;
   onToolDone: (
     id: string,
@@ -313,6 +315,9 @@ const BROWSER_ACTIONS = new Set([
   "forward",
   "reload",
   "evaluate",
+  "execute",
+  "js",
+  "screenshot",
   "open_in_chrome",
   "steps",
   "run",
@@ -508,6 +513,7 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
         raw += chunk;
         stream.push(chunk);
       },
+      onReasoning: options.onReasoning,
       onUsage: options.onUsage,
     });
     stream.end();
@@ -544,6 +550,7 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
     turns.push({ role: "assistant", content: raw.slice(0, 16_000) });
 
     const results: string[] = [];
+    const images: ChatImage[] = [];
     for (const call of parsed.calls) {
       const resource = toolResource(call);
       const decision = decide(options.rules, call.name, resource);
@@ -635,6 +642,16 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
       try {
         outcome = await runTool(call, options.ctx);
       } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          // The stop button can land while a tool is waiting on the user or
+          // the browser. Close its row, then let the turn end as interrupted.
+          options.onToolDone(
+            id,
+            { ok: true, summary: "Stopped", content: "Stopped by the user.", resource },
+            "done",
+          );
+          throw error;
+        }
         outcome = {
           ok: false,
           summary: error instanceof Error ? error.message : String(error),
@@ -645,6 +662,7 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
       seen.set(signature, { outcome, step });
       options.onToolDone(id, outcome, outcome.ok ? "done" : "error");
       results.push(encodeResult(call, outcome));
+      if (outcome.images?.length) images.push(...outcome.images.slice(0, 2));
     }
 
     turns.push({
@@ -654,7 +672,19 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
         ...results,
         "Continue the task. If it is finished, answer the user directly with no tool call.",
       ].join("\n\n"),
+      ...(images.length ? { images: images.slice(-2) } : {}),
     });
+
+    // Screenshots are the most expensive part of the context. Keep the two the
+    // model just received and drop older frames, exactly like chat history does.
+    if (images.length) {
+      let kept = 0;
+      for (let index = turns.length - 1; index >= 0; index -= 1) {
+        if (!turns[index].images?.length) continue;
+        kept += 1;
+        if (kept > 2) delete turns[index].images;
+      }
+    }
 
     if (step === budget - 1 && options.onLimit && (await options.onLimit())) {
       budget += 6;

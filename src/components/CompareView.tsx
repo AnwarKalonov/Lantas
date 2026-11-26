@@ -257,17 +257,20 @@ export function CompareView({
     answer.input + answer.output || estimateTokens(answer.text);
 
   return (
-    <div className="overlay compare-overlay" onMouseDown={onClose}>
-      <section
-        className="compare-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Compare models"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
+    <section className="compare-sheet compare-inline" aria-label="Compare models">
         <header className="compare-head">
           <div className="compare-title">
-            <h2>Compare Models</h2>
+            <button
+              type="button"
+              className="compare-back"
+              onClick={onClose}
+              aria-label="Back to chat"
+              title="Back to chat"
+            >
+              <Icon name="chevronRight" size={13} />
+              Chat
+            </button>
+            <h2>Compare</h2>
             <span className="compare-count">
               {round} {round === 1 ? "exchange" : "exchanges"}
             </span>
@@ -311,6 +314,7 @@ export function CompareView({
                     <ModelPicker
                       provider={side.provider}
                       model={side.model}
+                      placement="down"
                       onPick={(provider, model) => {
                         const next: [Side, Side] = [{ ...sides[0] }, { ...sides[1] }];
                         next[index as 0 | 1] = { provider, model };
@@ -472,7 +476,6 @@ export function CompareView({
           </div>
         </div>
       </section>
-    </div>
   );
 }
 

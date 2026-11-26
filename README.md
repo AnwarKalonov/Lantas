@@ -67,7 +67,7 @@ A browser with two engines:
 - **Lantas Browser** uses a native child webview controlled by the app.
 - **Chrome** uses the Lantas Browser Bridge extension to read and drive a tab in the user's own Chrome profile.
 
-Both engines expose the same `browser` tool to the model. The agent reads the DOM — roles, labels, values, visibility and enabled state — instead of guessing from a screenshot. It can click by label or ref, type, fill, select, check, hover, wait, scroll, navigate, list tabs, switch tabs, open tabs and close tabs.
+Both engines expose the same `browser` tool to the model. The agent reads the DOM — roles, labels, values, visibility and enabled state — and can also take a screenshot when the question is visual. It can click by label or ref, type, fill, select, check, hover, wait, scroll, navigate, list tabs, switch tabs, open tabs and close tabs, or run a page script.
 
 ![Lantas Browser](docs/screenshots/browser.png)
 
@@ -105,6 +105,8 @@ The action set covers reading and acting:
 | `navigate` | Open a complete `https://` URL. |
 | `back` / `forward` / `reload` | Browser history and refresh. |
 | `evaluate` | Run page JavaScript for a site API or a verification read. |
+| `execute` | Run async, multi-statement page JavaScript and return its value plus console output; the session stays alive between calls. |
+| `screenshot` | Return the page as an image the model can see. Chrome captures through CDP; the native engine captures the live webview. |
 | `open_in_chrome` | Hand a login page to the user's real Chrome profile. |
 
 ### The model owns destinations
@@ -148,7 +150,7 @@ Lantas is not a Chromium fork and does not vendor or reproduce Dao source code. 
 ## What is in the app
 
 - **Build, Plan and Chat agents.** Build can write and run; Plan and Chat are read-only. Plan approval and max-step continuation keep long tasks predictable.
-- **Any model, and two at once.** Anthropic, OpenAI, OpenRouter, Groq, Google, NVIDIA NIM, Ollama, LM Studio and any OpenAI-compatible endpoint. Test a connection and fetch its model list from Settings. **Compare** asks two models the same question in two columns, with time, tokens and a Faster mark.
+- **Any model, and two at once.** Anthropic, OpenAI, OpenRouter, OpenCode Zen, Groq, Google, NVIDIA NIM, Ollama, LM Studio and any OpenAI-compatible endpoint. Test a connection and fetch its model list from Settings. **Compare** lives inside Chat, asks two models the same question in two columns, and shows time, tokens and a Faster mark.
 - **A small, explicit toolset.** `read`, `glob`, `grep`, `semantic_search`, `write`, `edit`, `terminal`, `browser`, `skill` and connected-app tools. Writes are verified against disk.
 - **Diffs you approve.** Assistant edits in Code mode are staged. Review a side-by-side diff and Keep or Discard each file, or all of them, from the review bar.
 - **A real terminal, and the real Terminal.** Run commands in the workspace, see live stdout/stderr in the terminal panel, and get the same output in the transcript. **CLI in Terminal** opens Terminal.app already running `lantas` in the open folder, and the title-bar terminal button does the same on the desktop.

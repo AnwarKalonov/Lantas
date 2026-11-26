@@ -12,7 +12,7 @@
 
 const PORT = 47654;
 const ENDPOINT = `ws://127.0.0.1:${PORT}/lantas`;
-const VERSION = "0.7.0";
+const VERSION = "0.8.0";
 /** Agent work lives in its own tab group so it never buries the user's tabs. */
 const AGENT_GROUP = "agents";
 
@@ -689,6 +689,107 @@ async function execute(message) {
             `Chrome did not allow real input: ${String(error?.message || error)}. Reload the extension and try again.`,
           );
         }
+      }
+
+      case "screenshot": {
+        // The model gets the page as pixels, the way browser-use does: the DOM
+        // text cannot show a cookie wall, an overlay, or a broken layout.
+        const tab = await targetTab(message.tabId);
+        if (!tab) throw new Error("No Chrome tab is available. Open Chrome first.");
+        if (!isWebTab(tab)) throw new Error("Open a website in Chrome first — browser pages cannot be captured.");
+        try {
+          const shot = await cdp(tab.id, "Page.captureScreenshot", {
+            format: "jpeg",
+            quality: 70,
+            captureBeyondViewport: false,
+          });
+          return {
+            ok: true,
+            data: shot?.data || "",
+            mime: "image/jpeg",
+            detail: `Captured ${tab.title || tab.url}`,
+          };
+        } catch (error) {
+          // The debugger may be blocked by DevTools; the visible tab is still
+          // real pixels taken by Chrome itself.
+          const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
+            format: "jpeg",
+            quality: 70,
+          });
+          const data = String(dataUrl || "").split(",")[1] || "";
+          if (!data) throw error;
+          return { ok: true, data, mime: "image/jpeg", detail: "Captured the visible tab" };
+        }
+      }
+
+      case "execute": {
+        // One primitive, an unbounded step: JavaScript runs in the live page and
+        // comes back as a value plus its console output. This is browsercode's
+        // browser_execute — the session stays alive between calls.
+        const tab = await targetTab(message.tabId);
+        if (!tab) throw new Error("No Chrome tab is available.");
+        await actOnTab(tab);
+        const code = String(message.code || "");
+        if (!code.trim()) throw new Error("No page code was given.");
+        const expression = `(async () => {
+  const logs = [];
+  const safe = (value) => {
+    try {
+      const text = JSON.stringify(value);
+      return text === undefined ? String(value) : JSON.parse(text);
+    } catch (error) {
+      return String(value);
+    }
+  };
+  const record = (level) => (...args) => {
+    if (logs.length >= 60) return;
+    try {
+      logs.push((level + ": " + args.map((arg) => typeof arg === "string" ? arg : JSON.stringify(arg)).join(" ")).slice(0, 600));
+    } catch (error) {
+      logs.push(level + ": [unserializable]");
+    }
+  };
+  const saved = { log: console.log, warn: console.warn, error: console.error, info: console.info };
+  console.log = record("log");
+  console.warn = record("warn");
+  console.error = record("error");
+  console.info = record("info");
+  try {
+    const value = await (async () => {
+${code}
+    })();
+    return { ok: true, value: safe(value), logs };
+  } catch (error) {
+    return { ok: false, error: String(error && error.message ? error.message : error), logs };
+  } finally {
+    console.log = saved.log;
+    console.warn = saved.warn;
+    console.error = saved.error;
+    console.info = saved.info;
+  }
+})()`;
+        const result = await cdp(tab.id, "Runtime.evaluate", {
+          expression,
+          awaitPromise: true,
+          returnByValue: true,
+          userGesture: true,
+        });
+        const payload = result?.result?.value;
+        if (payload && payload.ok === false) {
+          return { ok: false, error: payload.error, logs: payload.logs || [] };
+        }
+        if (!payload) {
+          return {
+            ok: false,
+            error: result?.exceptionDetails?.text || "The page did not return a value.",
+          };
+        }
+        return {
+          ok: true,
+          value: payload.value,
+          logs: payload.logs || [],
+          detail: "Ran page code",
+        };
       }
 
       case "chat": {

@@ -6,20 +6,23 @@ import { Icon } from "./Icons";
  * the same surface, not two different products.
  */
 export function TrustPanelHead({
+  title,
   onNewChat,
   onSettings,
   onClose,
 }: {
+  /** The current thread's own title, exactly as it appears in history. */
+  title?: string;
   onNewChat: () => void;
   onSettings: () => void;
   onClose: () => void;
 }) {
+  const name = title?.trim() || "New chat";
   return (
     <header className="trust-head">
-      <div className="trust-head-title">
+      <div className="trust-head-title" title={name}>
         <Icon name="bot" size={15} className="trust-bot" />
-        <span>Trust in AI replies</span>
-        <Icon name="chevronDown" size={12} className="trust-chev" />
+        <span>{name}</span>
       </div>
       <div className="trust-head-actions">
         <button type="button" className="trust-icon" onClick={onNewChat} aria-label="New chat" title="New chat">

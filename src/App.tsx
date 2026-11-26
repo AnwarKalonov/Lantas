@@ -53,6 +53,7 @@ import {
 import { looksLikePath } from "./lib/paths";
 import { gitStatus } from "./lib/git";
 import { recordAudit } from "./lib/audit";
+import { askUser } from "./lib/userAsk";
 import type { ChromeEvent } from "./lib/chrome";
 import type {
   AgentId,
@@ -172,6 +173,8 @@ export function App() {
   const [limitAsk, setLimitAsk] = useState(false);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const limitResolve = useRef<((more: boolean) => void) | null>(null);
+  /** The last time the user approved extra rounds, so the prompt is not spam. */
+  const lastLimitGrant = useRef(0);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const runs = useRef<Record<string, AbortController>>({});
   const screenRef = useRef<HTMLVideoElement | null>(null);
@@ -483,16 +486,19 @@ export function App() {
     setApproval(null);
   }, []);
 
-  const requestMoreSteps = useCallback(
-    () =>
-      new Promise<boolean>((resolve) => {
-        limitResolve.current = resolve;
-        setLimitAsk(true);
-      }),
-    [],
-  );
+  const requestMoreSteps = useCallback(() => {
+    // Once the user says Continue, later six-round boundaries in the same
+    // three-minute window keep going without showing the same dialog again.
+    // A refusal is never remembered: the next run asks normally.
+    if (Date.now() - lastLimitGrant.current < 3 * 60_000) return Promise.resolve(true);
+    return new Promise<boolean>((resolve) => {
+      limitResolve.current = resolve;
+      setLimitAsk(true);
+    });
+  }, []);
 
   const settleLimit = useCallback((more: boolean) => {
+    if (more) lastLimitGrant.current = Date.now();
     limitResolve.current?.(more);
     limitResolve.current = null;
     setLimitAsk(false);
@@ -1011,6 +1017,51 @@ export function App() {
       const patch = (updater: (message: Message) => Message) =>
         patchMessage(sessionId, assistantId, updater);
 
+      // Thinking arrives on its own provider channel. Keep it in one collapsed
+      // part per stretch so it never crowds the answer or looks like output.
+      let reasoningPartId: string | null = null;
+      let reasoningStartedAt = 0;
+      const closeReasoning = () => {
+        if (!reasoningPartId) return;
+        const id = reasoningPartId;
+        const durationMs = reasoningStartedAt ? Date.now() - reasoningStartedAt : undefined;
+        reasoningPartId = null;
+        reasoningStartedAt = 0;
+        patch((message) => ({
+          ...message,
+          parts: message.parts.map((part) =>
+            part.id === id && part.kind === "reasoning"
+              ? { ...part, state: "done" as const, durationMs }
+              : part,
+          ),
+        }));
+      };
+      const appendReasoning = (chunk: string) => {
+        if (!chunk) return;
+        if (!reasoningPartId) {
+          const id = uid("part");
+          reasoningPartId = id;
+          reasoningStartedAt = Date.now();
+          patch((message) => ({
+            ...message,
+            parts: [
+              ...message.parts,
+              { id, kind: "reasoning", text: chunk, state: "run" as const },
+            ],
+          }));
+          return;
+        }
+        const id = reasoningPartId;
+        patch((message) => ({
+          ...message,
+          parts: message.parts.map((part) =>
+            part.id === id && part.kind === "reasoning"
+              ? { ...part, text: part.text + chunk }
+              : part,
+          ),
+        }));
+      };
+
       try {
         if (live) {
           let textPartId: string | null = null;
@@ -1156,6 +1207,12 @@ export function App() {
             agent,
             skills: state.skills,
             task: text,
+            // Only Browser mounts the reply bubble. Elsewhere the tool returns
+            // its "ask in the answer instead" message rather than hanging.
+            askUser:
+              state.mode === "browser"
+                ? (question, kind) => askUser({ question, kind }, controller.signal)
+                : undefined,
             settings: {
               theme: state.settings.theme,
               reduceMotion: state.settings.reduceMotion,
@@ -1232,6 +1289,7 @@ export function App() {
           };
 
           const appendText = (chunk: string) => {
+            closeReasoning();
             if (!textPartId) {
               const id = uid("part");
               textPartId = id;
@@ -1276,14 +1334,19 @@ export function App() {
                   },
                   { tool: "browser", pattern: "snapshot", effect: "allow" },
                   { tool: "browser", pattern: "extract", effect: "allow" },
+                  // A question is a reply prompt, not a page action, so it does
+                  // not need the computer-control approval sheet.
+                  { tool: "ask_user", pattern: "*", effect: "allow" },
                 ]
               : defaultRules(state.settings.permissionMode, agent === "build"),
-            only: browserMode ? ["browser"] : undefined,
+            only: browserMode ? ["browser", "ask_user"] : undefined,
             maxSteps: browserMode ? 10 : 6,
             signal: controller.signal,
             approve: (call, resource) => requestApproval(call, resource),
             onText: appendText,
+            onReasoning: appendReasoning,
             onToolStart: (id, call, label) => {
+              closeReasoning();
               if (call.name === "browser") {
                 browserToolRan = true;
                 browserToolIds.add(id);
@@ -1412,6 +1475,7 @@ export function App() {
             },
             onLimit: requestMoreSteps,
           }).finally(() => {
+            closeReasoning();
             if (browserToolRan) finishBrowserActivity("Browser task finished");
           });
 
@@ -1454,6 +1518,7 @@ export function App() {
           }
         }
       } catch (error) {
+        closeReasoning();
         const aborted = error instanceof DOMException && error.name === "AbortError";
         const detail =
           error instanceof Error ? error.message.slice(0, 400) : String(error).slice(0, 400);
@@ -1522,6 +1587,15 @@ export function App() {
     if (!activeSession) return;
     runs.current[activeSession.id]?.abort();
   }, [activeSession]);
+
+  // The browser side chat shares this thread and its run. Its stop control, and
+  // Escape while it is streaming, reach the same AbortController as the main
+  // composer.
+  useEffect(() => {
+    const stop = () => handleStop();
+    window.addEventListener("lantas:stop", stop);
+    return () => window.removeEventListener("lantas:stop", stop);
+  }, [handleStop]);
 
   const approvePlan = useCallback(
     (sessionId: string) => {
@@ -1642,21 +1716,26 @@ export function App() {
   }, [notify, setMode, state.workspaceRoot]);
 
   // Compare is reachable from the composer, the thread header and the rail.
+  // It lives in Chat, so open that surface first if the user came from another
+  // view or from the browser.
   useEffect(() => {
-    const open = () => setCompareOpen(true);
+    const open = () => {
+      setView("chats");
+      setMode("chat");
+      setCompareOpen(true);
+    };
     window.addEventListener("lantas:compare", open);
     return () => window.removeEventListener("lantas:compare", open);
-  }, []);
+  }, [setMode, setView]);
 
-  // Compare is a chat overlay, not a fourth workspace tab. Leaving Chat closes
-  // it instead of letting the comparison sit on top of Code or Browser.
+  // Compare lives inside the Chat surface, not on top of the app. Leaving Chat
+  // still closes it so Code and Browser are never covered by an old comparison.
   useEffect(() => {
     if (state.mode !== "chat") setCompareOpen(false);
   }, [state.mode]);
 
   const overlayOpen =
     paletteOpen ||
-    compareOpen ||
     settingsOpen ||
     permissionsOpen ||
     helpOpen ||
@@ -1711,7 +1790,7 @@ export function App() {
             >
               <BrowserView
                 visible={state.mode === "browser" && !overlayOpen}
-                miniVisible={state.mode === "chat" && !overlayOpen}
+                miniVisible={state.mode === "chat" && !overlayOpen && !compareOpen}
                 onOpenFile={openFile}
               />
             </div>
@@ -1721,7 +1800,15 @@ export function App() {
                 {state.view === "skills" && <SkillsView />}
                 {state.view === "integrations" && <IntegrationsView />}
                 {state.view === "chats" &&
-                  (activeSession && activeSession.messages.length > 0 ? (
+                  (compareOpen ? (
+                    <ErrorBoundary label="Compare">
+                      <CompareView
+                        session={activeSession}
+                        seed={compareSeed}
+                        onClose={() => setCompareOpen(false)}
+                      />
+                    </ErrorBoundary>
+                  ) : activeSession && activeSession.messages.length > 0 ? (
                     <ErrorBoundary key={activeSession.id} label="Chat">
                       <SessionView
                         session={activeSession}
@@ -1761,7 +1848,7 @@ export function App() {
         </div>
       )}
 
-      {state.mode === "chat" && (
+      {state.mode === "chat" && !compareOpen && (
         <BrowserActivityDock
           onOpen={(url) => {
             if (url) setBrowserUrl(url);
@@ -1782,16 +1869,6 @@ export function App() {
             </button>
           </div>
         </div>
-      )}
-
-      {compareOpen && (
-        <ErrorBoundary label="Compare">
-          <CompareView
-            session={activeSession}
-            seed={compareSeed}
-            onClose={() => setCompareOpen(false)}
-          />
-        </ErrorBoundary>
       )}
 
       <CommandPalette
@@ -1925,7 +2002,7 @@ export function App() {
             <h2>Continue with six more tool rounds?</h2>
             <p className="confirm-copy">
               The work so far is saved. Continuing lets the agent finish the verification or
-              stop where it is.
+              stop where it is. You will not be asked again for three minutes.
             </p>
             <div className="confirm-actions">
               <button type="button" className="button-quiet" onClick={() => settleLimit(false)}>

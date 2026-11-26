@@ -28,13 +28,16 @@ import {
 import {
   elClick,
   elHistory,
+  elLastError,
   elNavigate,
   elOpen,
   elReload,
+  elScreenshot,
   elVisible,
   inTauri,
   runInPage,
 } from "./native";
+import type { ChatImage } from "./providers";
 
 /**
  * One surface for browser actions, so the assistant does not care whether the
@@ -104,6 +107,9 @@ export function parseBrowserAddress(raw: string): BrowserAddress {
 export const BROWSER_GUIDE = [
   "Browser playbook (follow this instead of guessing):",
   "- Work in one step at a time: navigate, then snapshot the live page, then click/type using the controls you actually see. When you already know the sequence, send up to 12 of those actions at once with `browser {\"action\":\"steps\",\"steps\":[...]}`; it runs them in order and returns one fresh snapshot.",
+  "- When one step needs more than a click — read several values, loop over rows, wait for a selector, combine a site's own API — write JavaScript and send it as `browser {\"action\":\"execute\",\"code\":\"...\"}`. The code runs async in the live page with the session intact, and returns its value plus console output. Use `return` for the data you want back. This is the same primitive browser-use and browsercode build on: prefer one script over ten round trips when the work is mechanical.",
+  "- `browser {\"action\":\"screenshot\"}` returns the page as an image you can actually see. Take one when the question is visual (a layout, a canvas, an overlay, a cookie wall) or when the DOM text says the action landed but the result looks wrong.",
+  "- A page script that worked is worth keeping: save it with `write` under `.lantas/browser/<name>.js` and say where it went. A later turn can read and adapt it instead of rediscovering the page.",
   "- \"Open X\", \"go to X\" and \"take me to X\" mean X's real home page. Decide the address and navigate straight there (https://github.com, https://www.youtube.com, https://notion.so). Never route an open request through a search engine, and never replace it with a query, unless the user actually said search.",
   "- A bare domain is a valid address: `github.com` becomes https://github.com. Only ask for a full URL when the value is not a domain at all.",
   "- You choose every destination. The app does not know product names, infer a route, repair an address or search for you. Send a complete `https://` URL. If you only have a name, decide the real site yourself; if you only have a page name inside a site, open the site and click its visible control.",
@@ -744,6 +750,195 @@ export async function agentWaitForText(
     await sleep(300);
   }
   return false;
+}
+
+/**
+ * One unconstrained step of page JavaScript, the browsercode primitive.
+ *
+ * The single-value `evaluate` above is enough to read a field. Real work often
+ * needs more: wait for a selector, loop over rows, call a site API, then return
+ * a compact result. `execute` runs the whole body async inside the live page,
+ * keeps the session (cookies, tab, DOM) between calls, and returns the value
+ * plus everything the code logged, so the model can debug its own script
+ * instead of guessing why nothing happened.
+ */
+export interface AgentExecution {
+  ok: boolean;
+  value?: unknown;
+  logs: string[];
+  error?: string;
+}
+
+export async function agentExecute(
+  code: string,
+  timeoutMs = 12_000,
+): Promise<AgentExecution> {
+  const source = String(code ?? "").trim();
+  if (!source) return { ok: false, logs: [], error: "No page code was given." };
+
+  if (activeEngine() === "chrome") {
+    try {
+      const result = await chromeCommand<ChromeEvent & { value?: unknown; logs?: string[] }>(
+        "execute",
+        { code: source },
+        Math.max(9_000, Math.min(30_000, timeoutMs + 3_000)),
+      );
+      return { ok: true, value: result.value, logs: result.logs ?? [] };
+    } catch (error) {
+      return {
+        ok: false,
+        logs: [],
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  if (!inTauri()) {
+    return {
+      ok: false,
+      logs: [],
+      error: "Running page code needs the desktop app or the Chrome engine.",
+    };
+  }
+
+  // WKWebView's eval does not await a promise, so the body starts in the page
+  // and parks its result on a global the app polls. Navigation clears it, which
+  // is why the poll has a deadline instead of waiting forever.
+  //
+  // `${source}` is a template substitution, which inserts text verbatim: the
+  // model's backticks, `${}` and backslashes must not be escaped again or the
+  // page receives a syntax error instead of the script.
+  const install = `
+    const state = { done: false, ok: false, value: null, logs: [], error: "" };
+    window.__lantasExec = state;
+    const safe = (value) => {
+      try {
+        const text = JSON.stringify(value);
+        return text === undefined ? String(value) : JSON.parse(text);
+      } catch (error) {
+        return String(value);
+      }
+    };
+    const record = (level) => (...args) => {
+      if (state.logs.length >= 60) return;
+      try {
+        state.logs.push(
+          (level + ": " + args.map((arg) => (typeof arg === "string" ? arg : JSON.stringify(arg))).join(" ")).slice(0, 600),
+        );
+      } catch (error) {
+        state.logs.push(level + ": [unserializable]");
+      }
+    };
+    const saved = { log: console.log, warn: console.warn, error: console.error, info: console.info };
+    console.log = record("log");
+    console.warn = record("warn");
+    console.error = record("error");
+    console.info = record("info");
+    (async () => {
+      try {
+        const value = await (async () => {
+${source}
+        })();
+        state.ok = true;
+        state.value = safe(value);
+      } catch (error) {
+        state.ok = false;
+        state.error = String(error && error.message ? error.message : error);
+      } finally {
+        console.log = saved.log;
+        console.warn = saved.warn;
+        console.error = saved.error;
+        console.info = saved.info;
+        state.done = true;
+      }
+    })();
+    return state;
+  `;
+
+  try {
+    await runInPage(install);
+  } catch (error) {
+    return {
+      ok: false,
+      logs: [],
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  const deadline = Date.now() + Math.max(1_000, Math.min(60_000, timeoutMs));
+  while (Date.now() < deadline) {
+    await sleep(160);
+    try {
+      const current = await runInPage<{
+        done?: boolean;
+        ok?: boolean;
+        value?: unknown;
+        logs?: string[];
+        error?: string;
+      }>("return window.__lantasExec && window.__lantasExec.done ? window.__lantasExec : null;");
+      if (current?.done) {
+        return {
+          ok: Boolean(current.ok),
+          value: current.value,
+          logs: current.logs ?? [],
+          error: current.error || undefined,
+        };
+      }
+    } catch {
+      // The page is mid-navigation; keep polling until the deadline.
+    }
+  }
+
+  return {
+    ok: false,
+    logs: [],
+    error: `The page code did not finish within ${Math.round(timeoutMs / 1000)}s.`,
+  };
+}
+
+/**
+ * What the page actually looks like, as JPEG the model can see.
+ *
+ * browser-use sends a screenshot with every step because DOM text cannot show
+ * a cookie wall, an overlay or a canvas. Lantas captures the live page from
+ * either engine: Chrome through CDP, or the child webview from the screen.
+ */
+export interface AgentScreenshot {
+  ok: boolean;
+  image?: ChatImage;
+  error?: string;
+}
+
+export async function agentScreenshot(): Promise<AgentScreenshot> {
+  if (activeEngine() === "chrome") {
+    try {
+      const result = await chromeCommand<ChromeEvent & { data?: string; mime?: string }>(
+        "screenshot",
+      );
+      if (!result.data) {
+        return { ok: false, error: result.error || "Chrome returned no image." };
+      }
+      return { ok: true, image: { mime: result.mime || "image/jpeg", data: result.data } };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  if (!inTauri()) {
+    return {
+      ok: false,
+      error: "A page screenshot needs the desktop app or the Chrome engine.",
+    };
+  }
+
+  const encoded = await elScreenshot();
+  if (!encoded) {
+    return { ok: false, error: elLastError() || "The page could not be captured." };
+  }
+  return { ok: true, image: { mime: "image/jpeg", data: encoded } };
 }
 
 /** Run page JavaScript (a site's own API or a verification read). */

@@ -142,6 +142,16 @@ export async function elReload(): Promise<void> {
 }
 
 /**
+ * A still frame of the Lantas Browser page as base64 JPEG.
+ *
+ * Null means the capture did not happen; `elLastError()` has the reason (the
+ * page is off screen, or macOS withheld Screen Recording).
+ */
+export async function elScreenshot(): Promise<string | null> {
+  return command<string>("el_screenshot", {});
+}
+
+/**
  * Opens a URL outside the app. Tauri webviews swallow `target="_blank"`, so the
  * desktop build hands the URL to the OS (Chrome when asked, for OAuth).
  */

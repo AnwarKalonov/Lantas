@@ -224,3 +224,46 @@ export function fileInitials(path: string): string {
 export function countLines(text: string): number {
   return text ? text.split("\n").length : 0;
 }
+
+/**
+ * What the editor knows about the place the user is working: the cursor, the
+ * selected text and the TypeScript/CSS/JSON diagnostics Monaco already holds.
+ *
+ * A coding agent that only gets the typed sentence has to spend a round trip
+ * reading the file to find the line the user is pointing at. OpenCode sends
+ * the open file and selection with the prompt; this is the same idea.
+ */
+export interface EditorContext {
+  line: number;
+  column: number;
+  selection: string;
+  selectionStartLine: number;
+  selectionEndLine: number;
+  errors: Array<{ line: number; message: string }>;
+  warnings: Array<{ line: number; message: string }>;
+}
+
+/** A compact text block attached to a prompt sent from the Code tab. */
+export function describeEditorContext(
+  path: string | null,
+  context: EditorContext | null,
+): string {
+  if (!path || !context) return "";
+  const problems = [
+    ...context.errors.map((item) => `- line ${item.line}: error: ${item.message}`),
+    ...context.warnings.map((item) => `- line ${item.line}: warning: ${item.message}`),
+  ];
+  return [
+    `# Editor context`,
+    `Open file: ${path}`,
+    `Cursor: line ${context.line}, column ${context.column}`,
+    context.selection
+      ? `Selection (lines ${context.selectionStartLine}-${context.selectionEndLine}):\n\`\`\`\n${context.selection}\n\`\`\``
+      : "Selection: none",
+    problems.length
+      ? `Diagnostics reported by the editor:\n${problems.join("\n")}`
+      : "Diagnostics: none",
+    "",
+    "This is where the user is looking. Read the file before editing it; the selection is context, not a complete patch.",
+  ].join("\n");
+}

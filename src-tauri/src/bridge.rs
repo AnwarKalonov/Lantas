@@ -265,6 +265,22 @@ pub fn send(payload: &str) -> Result<usize, String> {
     }
 }
 
+/// Drops one result after the app has read it.
+///
+/// Results are one-shot: leaving them in the buffer made every status read
+/// re-serialize old payloads, and a screenshot is hundreds of kilobytes.
+pub fn forget(id: &str) -> bool {
+    let mut guard = match inner().lock() {
+        Ok(guard) => guard,
+        Err(_) => return false,
+    };
+    let before = guard.events.len();
+    guard
+        .events
+        .retain(|event| event.get("id").and_then(Value::as_str) != Some(id));
+    guard.events.len() != before
+}
+
 /// Snapshot for the UI: connection, live tab, page, elements and recent results.
 pub fn state_json() -> String {
     let guard = match inner().lock() {

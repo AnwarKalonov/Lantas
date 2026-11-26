@@ -69,9 +69,9 @@ export function buildSystemPrompt(
 }
 
 /**
- * Browser mode gets its own manual and one tool. A coding prompt full of file
- * tools makes small models answer with prose or malformed calls instead of
- * stepping through the page.
+ * Browser mode gets its own manual and only the browser tools. A coding prompt
+ * full of file tools makes small models answer with prose or malformed calls
+ * instead of stepping through the page.
  */
 export function buildBrowserSystemPrompt(session: Session, page: ElPage | null): string {
   const where = page?.url
@@ -83,8 +83,9 @@ export function buildBrowserSystemPrompt(session: Session, page: ElPage | null):
     where,
     "You make every navigation decision. The app does not recognise site names, infer a route, repair an address or search for you.",
     "",
-    "You have exactly one tool:",
+    "You have two tools: browser and ask_user.",
     '<tool_call>{"name":"browser","arguments":{"action":"navigate","url":"https://example.com"}}</tool_call>',
+    '<tool_call>{"name":"ask_user","arguments":{"question":"Which email should I use?","kind":"email"}}</tool_call>',
     "",
     "Actions:",
     '  snapshot {} — read the current page and its numbered controls',
@@ -108,6 +109,8 @@ export function buildBrowserSystemPrompt(session: Session, page: ElPage | null):
     '  evaluate {"code":"document.title"} — run page JavaScript for a site API or verification',
     '  back {}, forward {}, reload {}',
     "",
+    "ask_user — pause and ask the user for a detail you cannot read from the page. Use kind text, email, password, or credentials (email + password). The panel shows a reply bubble and the turn continues with their answer. Never guess a credential, verification code or personal detail. Ask one thing at a time; for a sign-in use kind credentials. Never repeat the answer in your visible reply.",
+    "",
     BROWSER_GUIDE,
     "",
     "How to work:",
@@ -117,7 +120,8 @@ export function buildBrowserSystemPrompt(session: Session, page: ElPage | null):
     "4. Never navigate to a search-results URL to satisfy “open X”. Decide the site the user means and open it; use a site's own search box only when the user asked to search. The tool refuses a search address when the request did not ask for one.",
     "5. Verify the outcome on the page before saying it worked. If the result is not what the user asked for, try one different supported action.",
     "6. You cannot edit files, run commands or use integrations in this mode. Answer only about the browser and the page.",
-    "7. Write a short, human answer. Never mention the tool protocol or show raw JSON.",
+    "7. If a login or form needs information only the user has, call ask_user and wait for the answer. State why briefly, then continue the same task. Do not ask for a password unless the user asked you to sign in and the page has a password field.",
+    "8. Write a short, human answer. Never mention the tool protocol or show raw JSON.",
     "",
     `Workspace context: ${session.cwd}. This does not give you file tools here.`,
   ].join("\n");
@@ -177,6 +181,7 @@ export function buildHistory(session: Session, limit = 16): ChatTurn[] {
     const text = message.parts
       .map((part) => {
         if (part.kind === "text") return part.text;
+        if (part.kind === "reasoning") return "";
         if (part.kind === "shell")
           return `$ ${part.command}\n${part.output.slice(-50).join("\n").slice(0, 6_000)}`;
         if (part.kind === "diff") return `Changed ${part.path} (+${part.added} −${part.removed})`;

@@ -1204,12 +1204,9 @@ export function App() {
             agent,
             skills: state.skills,
             task: text,
-            // Only Browser mounts the reply bubble. Elsewhere the tool returns
-            // its "ask in the answer instead" message rather than hanging.
-            askUser:
-              state.mode === "browser"
-                ? (question, kind) => askUser({ question, kind }, controller.signal)
-                : undefined,
+            // The question form lives at App level now, so any surface can ask
+            // instead of ending the turn with "please type your password here".
+            askUser: (question, kind) => askUser({ question, kind }, controller.signal),
             settings: {
               theme: state.settings.theme,
               reduceMotion: state.settings.reduceMotion,

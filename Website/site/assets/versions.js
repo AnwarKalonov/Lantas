@@ -8,7 +8,7 @@
 const REPO = "AnwarKalonov/Lantas";
 const API = `https://api.github.com/repos/${REPO}/releases?per_page=30`;
 const RELEASES = `https://github.com/${REPO}/releases`;
-const CACHE_KEY = "lantas:releases:v1";
+const CACHE_KEY = "lantas:releases:v2";
 const CACHE_MS = 10 * 60 * 1000;
 
 const pick = (sel, root = document) => root.querySelector(sel);
@@ -249,7 +249,21 @@ async function load() {
   }
 }
 
+function versionParts(version) {
+  return String(version || "").replace(/^v/i, "").split(/[.+-]/).slice(0, 3).map((part) => Number.parseInt(part, 10) || 0);
+}
+
+function newerFirst(a, b) {
+  const left = versionParts(a.version);
+  const right = versionParts(b.version);
+  for (let i = 0; i < 3; i += 1) {
+    if (left[i] !== right[i]) return right[i] - left[i];
+  }
+  return 0;
+}
+
 function paint(releases) {
+  releases = [...releases].sort(newerFirst);
   setStatus("");
   renderLatest(releases[0] || null);
   renderHistory(releases.slice(1));

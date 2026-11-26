@@ -11,7 +11,7 @@ const RELEASES = `https://github.com/${REPO}/releases`;
 const CACHE_KEY = "lantas:releases:v1";
 const CACHE_MS = 10 * 60 * 1000;
 
-const $ = (sel, root = document) => root.querySelector(sel);
+const pick = (sel, root = document) => root.querySelector(sel);
 
 const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (char) => {
@@ -102,7 +102,7 @@ function normalise(release) {
 }
 
 function renderLatest(release) {
-  const host = $("#ver-latest");
+  const host = pick("#ver-latest");
   if (!host) return;
 
   if (!release) {
@@ -152,7 +152,7 @@ function renderLatest(release) {
 }
 
 function renderHistory(releases) {
-  const host = $("#ver-list");
+  const host = pick("#ver-list");
   if (!host) return;
 
   if (!releases.length) {
@@ -190,7 +190,7 @@ function renderHistory(releases) {
 }
 
 function setStatus(text) {
-  const host = $("#ver-status");
+  const host = pick("#ver-status");
   if (host) {
     host.textContent = text;
     host.hidden = !text;
@@ -242,7 +242,7 @@ async function load() {
     setStatus("");
     renderLatest(null);
     renderHistory([]);
-    const host = $("#ver-latest");
+    const host = pick("#ver-latest");
     if (host) {
       host.innerHTML += `<p class="ver-empty">The release list could not be loaded just now. It is read from GitHub, so try again in a minute or <a href="${esc(RELEASES)}">open the releases on GitHub</a>.</p>`;
     }
@@ -253,7 +253,7 @@ function paint(releases) {
   setStatus("");
   renderLatest(releases[0] || null);
   renderHistory(releases.slice(1));
-  const stamp = $("#ver-stamp");
+  const stamp = pick("#ver-stamp");
   if (stamp && releases[0]) {
     stamp.textContent = `${releases.length} ${releases.length === 1 ? "release" : "releases"} · newest ${releases[0].version}`;
   }

@@ -1,16 +1,14 @@
 {
-  "label": "Lantas 1.6.0 development build",
+  "label": "Lantas 1.7.0 development build",
   "dev": true,
-  "builtAt": "2026-11-26T21:27:00Z",
-  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.6.0-arm64.dmg",
-  "size": 10354879,
-  "sha256": "e2d41e4ecb45900154adfb1e12d285be3483fc5215ad68bc1ee14b7baa70717b",
+  "builtAt": "2026-11-26T22:56:00Z",
+  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.7.0-arm64.dmg",
+  "size": 10395153,
+  "sha256": "26708524bedb267da8758382c31ae14a626bb410e046113a908dfbfa7eb956b5",
   "changes": [
-    "Approvals: reading a page, an inbox or a connected app no longer asks. Computer control is the grant for browser actions, so Chat turns can click and type without a card, and Always allow on a browser action covers that action instead of asking again on the next click.",
-    "Screen: the screen assistant is now its own floating window that stays above your other windows and follows you across Spaces. Closing it stops sharing and turns the screen button off.",
-    "Computer control is now described plainly: it lets Lantas click, type and scroll inside Lantas Browser, not move your Mac's pointer or control other apps.",
-    "Answers: when Lantas needs something, the quick suggestions become an answer field with the question above it. When it is not asking, suggestions are written for the page and the conversation instead of being the same three lines.",
-    "Gmail: connected accounts are found even after the browser profile changes, inbox calls use the connection's own account, and coming back from the Google tab checks the connection immediately. The direct Google card now points desktop users to the Gmail marketplace card.",
-    "Text-only models: browser turns read the page's DOM and numbered controls instead of screenshots. Screenshots, screen frames and image attachments are skipped when the model cannot see images."
+    "Screen: the floating screen card reads the front window as a tree of controls, so text-only models work without screenshots, and it can drive the real pointer, keyboard, scroll, drag and window focus with a blue Lantas cursor. Turn on Accessibility for control; Screen Recording is only needed for pixels.",
+    "Reopen: after closing the side AI, the browser keeps an Ask Lantas button in the footer plus Cmd+J, and Code keeps Assistant buttons in the header and status bar, so the panel comes back even when the page fills the window.",
+    "Take over: a Take over button in the page toolbar pauses a running browser turn and hands you control. The takeover watcher now ignores Lantas's own synthetic clicks and keys, so it no longer claims you interrupted when you didn't, and paused is a quiet label instead of a red warning.",
+    "Questions: when Lantas needs a name and age or another detail, the ask card shows a titled box for each field; when the answer is a fixed choice, it shows clickable options instead of a blank line."
   ]
 }

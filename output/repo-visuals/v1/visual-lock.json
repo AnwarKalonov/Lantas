@@ -1,0 +1,14 @@
+{
+  "approved_direction": "a-one-window-three-weathers",
+  "artwork": "directions/a-locked.jpg",
+  "original_direction_artwork": "directions/a.jpg",
+  "selection": "The single dark-glass window in warm daylight was the clearest metaphor for one app with three surfaces, and it reads at README width.",
+  "copy": "LANTAS wordmark only. ImageGen consistently misspelled the long tagline across three attempts and a targeted edit; the exact tagline is set as README text directly beside the image instead of adding a local text overlay.",
+  "rejected": {
+    "b-quiet-machine": "Good monolith metaphor, but the tagline was misspelled.",
+    "c-daylight-index": "The cloud/plane metaphor read as a UI screenshot and the tagline was misspelled.",
+    "a-exact-tagline": "The composition was right, but the tagline rendered as \u201cbrervoer \u2026 winout.\u201d",
+    "a-one-window": "The second targeted edit removed the tagline but did not add the short line, leaving the approved wordmark-only canvas."
+  },
+  "locked_at": "2026-11-26T00:28:01Z"
+}

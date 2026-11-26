@@ -53,7 +53,7 @@ import { cx, timeAgo, uid } from "../lib/util";
 import { AppLogo } from "./AppLogo";
 import { Icon } from "./Icons";
 import { Transcript } from "./Transcript";
-import { TrustPanelHead } from "./TrustPanelHead";
+import { TrustPalette, TrustPanelHead } from "./TrustPanelHead";
 
 const SHORTCUTS = [
   { name: "GitHub", slug: "github", url: "https://github.com" },
@@ -107,7 +107,13 @@ export function BrowserView({
   });
   const [aiDraft, setAiDraft] = useState("");
   const [aiFiles, setAiFiles] = useState<Attachment[]>([]);
+  const [promptOpen, setPromptOpen] = useState(true);
   const aiFileInput = useRef<HTMLInputElement>(null);
+  const browserPrompts = [
+    "Summarize this page",
+    "Find what I can do here",
+    "Do the main action",
+  ];
 
   useEffect(() => {
     try {
@@ -594,13 +600,6 @@ export function BrowserView({
       }));
     }
     setSettings({ defaultProvider: nextProvider, defaultModel: nextModel });
-  };
-
-  const setAiMode = (mode: "ask" | "act") => {
-    const on = mode === "act";
-    if (on === driving) return;
-    setDriving(on);
-    setAiDriving(on);
   };
 
   useEffect(() => {
@@ -1142,7 +1141,7 @@ export function BrowserView({
         </div>
 
         {aiOpen && (
-          <aside className="el-ai" aria-label="Lantas">
+          <aside className="el-ai trust-panel" aria-label="Lantas">
             <TrustPanelHead
               onNewChat={() => {
                 createSession();
@@ -1156,37 +1155,47 @@ export function BrowserView({
               onClose={() => setAiOpen(false)}
             />
 
-            <div className="el-ai-log" ref={aiLogRef}>
+            <div className="el-ai-log trust-log" ref={aiLogRef}>
               <Transcript
                 messages={aiMessages}
                 compact
                 onOpenFile={onOpenFile}
                 empty={
-                  <div className="el-ai-empty">
-                    <p className="el-ai-eyebrow">This page</p>
-                    <h2 className="el-ai-lead">Ask the page.</h2>
-                    <p className="el-ai-copy">
-                      Lantas reads what you are looking at. In Act mode it can click, type and
-                      navigate, one step at a time.
-                    </p>
-                    <div className="el-ai-prompts">
+                  <div className="trust-empty">
+                    <div className="trust-fade">
+                      <span>This page</span>
+                      <span>⌄</span>
+                    </div>
+                    <p>Lantas reads what you are looking at.</p>
+                    <p>In Act mode it can click, type and navigate, one step at a time.</p>
+                    <div className="trust-chips">
+                      <span className="trust-chip">
+                        <Icon name="file" size={12} />
+                        <span>{page?.title || hostOf(active.url) || "New tab"}</span>
+                      </span>
+                      <span className="trust-chip">
+                        <Icon name="eye" size={12} />
+                        <span>{driving ? "Can act" : "Read only"}</span>
+                      </span>
+                    </div>
+                    <div className="trust-qr">
                       <button type="button" onClick={() => ask()}>
-                        <span>Summarize this page</span>
-                        <span className="el-ai-arrow">→</span>
+                        Summarize this page
+                        <Icon name="chevronRight" size={13} />
                       </button>
                       <button
                         type="button"
                         onClick={() => ask("What are the main actions available on this page?")}
                       >
-                        <span>Find what I can do here</span>
-                        <span className="el-ai-arrow">→</span>
+                        Find what I can do here
+                        <Icon name="chevronRight" size={13} />
                       </button>
                       <button
                         type="button"
-                        onClick={() => ask("Find the main action on this page and click it.")}
+                        onClick={() => ask("Do the main action on this page.")}
                       >
-                        <span>Do the main action</span>
-                        <span className="el-ai-arrow">→</span>
+                        Do the main action
+                        <Icon name="chevronRight" size={13} />
                       </button>
                     </div>
                   </div>
@@ -1194,7 +1203,18 @@ export function BrowserView({
               />
             </div>
 
-            <form className="el-ai-form" onSubmit={submitAsk}>
+            {promptOpen && (
+              <TrustPalette
+                items={browserPrompts}
+                onPick={(text) => {
+                  setPromptOpen(false);
+                  void ask(text);
+                }}
+                onDismiss={() => setPromptOpen(false)}
+              />
+            )}
+
+            <form className="trust-composer" onSubmit={submitAsk}>
               {aiFiles.length > 0 && (
                 <div className="attach-row">
                   {aiFiles.map((file) => (
@@ -1231,49 +1251,20 @@ export function BrowserView({
                     event.currentTarget.form?.requestSubmit();
                   }
                 }}
-                rows={2}
-                placeholder={driving ? "Ask AI anything, or say what to do" : "Ask AI anything"}
+                rows={1}
+                placeholder="Ask AI anything"
                 spellCheck={false}
                 aria-label="Ask Lantas"
               />
-              <div className="el-ai-tools">
-                <div className="el-ai-modes" role="group" aria-label="Browser access">
-                  <button
-                    type="button"
-                    className={cx(!driving && "is-on")}
-                    onClick={() => setAiMode("ask")}
-                    title="Read the page, change nothing"
-                  >
-                    Ask
-                  </button>
-                  <button
-                    type="button"
-                    className={cx(driving && "is-on")}
-                    onClick={() => setAiMode("act")}
-                    title="Let Lantas click, type and navigate"
-                  >
-                    Act
-                  </button>
-                </div>
-                <ModelPicker
-                  provider={aiProvider}
-                  model={aiModel}
-                  onPick={pickAiModel}
-                  onConnect={() =>
-                    window.dispatchEvent(
-                      new CustomEvent("lantas:settings", { detail: { tab: "providers" } }),
-                    )
-                  }
-                  className="el-ai-model"
-                />
+              <div className="trust-comp-bar">
                 <button
                   type="button"
-                  className="el-ai-attach"
+                  className="trust-comp-icon"
                   onClick={() => aiFileInput.current?.click()}
                   aria-label="Attach files or images"
                   title="Attach files or images"
                 >
-                  <Icon name="paperclip" size={12} />
+                  <Icon name="plus" size={15} />
                 </button>
                 <input
                   ref={aiFileInput}
@@ -1285,23 +1276,39 @@ export function BrowserView({
                     event.target.value = "";
                   }}
                 />
+                <ModelPicker
+                  provider={aiProvider}
+                  model={aiModel}
+                  onPick={pickAiModel}
+                  onConnect={() =>
+                    window.dispatchEvent(
+                      new CustomEvent("lantas:settings", { detail: { tab: "providers" } }),
+                    )
+                  }
+                  className="trust-model"
+                />
+                <button
+                  type="button"
+                  className="trust-comp-icon"
+                  onClick={() => setPromptOpen((open) => !open)}
+                  aria-label="Prompt suggestions"
+                  title="Prompt suggestions"
+                >
+                  <Icon name="sparkle" size={15} />
+                </button>
+                <span className="trust-comp-sp" />
                 <button
                   type="submit"
-                  className="el-ai-send"
+                  className="trust-send"
                   disabled={!aiDraft.trim() && aiFiles.length === 0}
                   aria-label="Send"
                 >
-                  <Icon name="arrowUp" size={13} />
+                  <Icon name="arrowUp" size={15} />
                 </button>
               </div>
             </form>
 
-            <div className="el-ai-foot">
-              <span>Lantas can browse the web. Check important info.</span>
-              <span className="el-ai-hint">
-                {aiStreaming ? "Working" : driving ? "Step by step" : "Read only"}
-              </span>
-            </div>
+            <div className="trust-foot">ReUI Chat can browse the web. Check important info.</div>
           </aside>
         )}
       </div>

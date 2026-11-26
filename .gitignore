@@ -40,3 +40,7 @@ tauri-signing/
 
 # Uploaded design toolkit, not part of the product
 /impeccable-main/
+
+# Internal design QA captures and generated moodboard images
+Website/unslop/
+Gemini_Generated_Image_*.jpeg

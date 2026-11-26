@@ -4,6 +4,8 @@
 
 No account, no subscription, no telemetry. Bring a model key, or run a model locally.
 
+![Lantas — a monolithic dark-glass window in a pale cloudscape with the LANTAS wordmark](docs/readme-hero.png)
+
 ![Lantas Home](docs/screenshots/home.png)
 
 ## Contents

@@ -1,0 +1,15 @@
+{
+  "assets": [
+    {
+      "id": "readme-hero",
+      "path": "docs/readme-hero.png",
+      "source": "directions/a-locked.jpg",
+      "aspect_ratio": "1392:752",
+      "prompt": "The approved direction, full canvas: warm paper field, pale cloud bank, monolithic near-black glass window, three abstract interior strata, dimensional ivory LANTAS wordmark carved into the top edge, one forest-green hairline. No additional type was added locally. Exact README tagline sits in Markdown next to the image.",
+      "copy_in_artwork": "LANTAS",
+      "outside_artwork": "Chat, code, and a real browser in one window."
+    }
+  ],
+  "imagegen_mode": "built-in generate_image; no fallback compositor used",
+  "generated_at": "2026-11-26T00:28:01Z"
+}

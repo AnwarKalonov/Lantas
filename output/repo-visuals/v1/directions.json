@@ -1,0 +1,34 @@
+{
+  "directions": [
+    {
+      "id": "a-one-window-three-weathers",
+      "name": "One Window, Three Weathers",
+      "metaphor": "A single dark-glass window floating in warm daylight, containing three abstract strata for chat, code and browser.",
+      "composition": "16:9; monolithic glass slab right of center; title carved into its top rail; tagline lower left in generous negative space.",
+      "typography": "Oversized ivory Instrument-Serif-style LANTAS integrated into the glass; small forest-green grotesque tagline; only those two text blocks.",
+      "palette": "warm paper #f8f2e6, forest ink #1d2a23, forest green #2c6a4e, ember #b7583a",
+      "materials": "paper grain, frosted glass, soft daylight, shallow shadow, crisp hairline",
+      "prompt": "A complete art-directed 16:9 launch poster, not a mockup and not a UI screenshot. Warm paper-cream canvas (#f8f2e6) with a soft pale cloud bank. A single monolithic near-black glass slab floats slightly right of center, lit by clear daylight. The slab is a metaphor for one window: three quiet interior strata suggest a conversation thread, a ruled code column and a page of light, abstractly, without UI chrome. The title \"LANTAS\" is enormous ivory serif display type, integrated into the top edge of the glass, slightly carved and catching the light. Below it, at lower left, the exact tagline \"Chat, code, and a real browser in one window.\" in a small forest-green grotesque sans. One thin forest-green hairline and one ember-orange dot are the only accents. Asymmetrical editorial composition, generous negative space, high thumbnail contrast. Tactile paper grain, frosted glass, soft shadow, dimensional typography. No other readable words, no labels, no logos, no browser screenshot, no generic gradient background."
+    },
+    {
+      "id": "b-quiet-machine",
+      "name": "The Quiet Machine",
+      "metaphor": "A forest-green monolith on paper, with three warm slots that stand for the three surfaces.",
+      "composition": "16:9; low sculptural machine on the right; wordmark embossed into its face; tagline anchored bottom left.",
+      "typography": "Embossed ivory LANTAS on the machine; exact tagline in forest green with wide tracking; no other text.",
+      "palette": "bone paper, deep forest green, warm amber, ivory, ember accent",
+      "materials": "matte painted metal, paper, soft directional light, long shadow",
+      "prompt": "A complete art-directed 16:9 launch poster, no UI screenshot. A single dark forest-green monolith stands like a quiet machine on a warm bone-paper field, slightly right of center. Three horizontal slots in its face glow with warm amber and ivory light; each slot has a different texture, suggesting a thread of text, a ruled code column and a page of light. The wordmark \"LANTAS\" is embossed in large ivory serif letters into the monolith face, integrated into the object. At the lower left, the exact tagline \"Chat, code, and a real browser in one window.\" in forest-green sans with generous tracking. Minimal, sculptural, long soft shadow, one thin green rule, one ember dot. No other readable words, no labels, no logos, no screenshot, no generic tech gradient."
+    },
+    {
+      "id": "c-daylight-index",
+      "name": "Daylight Index",
+      "metaphor": "A torn-paper cloud whose green shadow resolves into three overlapping work planes.",
+      "composition": "16:9; cloud and shadow fill the top two thirds; planes below; wordmark cut from the cloud; tagline bottom left.",
+      "typography": "LANTAS cut-paper display letters with a deep ink shadow; exact tagline in mono-like sans; no other words.",
+      "palette": "cream, pale sky, deep forest green, ink, ember",
+      "materials": "torn paper, frosted glass, letterpress, soft shadow",
+      "prompt": "A complete art-directed 16:9 editorial launch poster, not a screenshot. A huge pale cloud made of torn paper and frosted glass fills the upper two thirds of a warm cream field and casts a deep forest-green shadow. The shadow resolves into three overlapping rectangular planes below it, suggesting a conversation, a code editor and a web page without any UI chrome. The wordmark \"LANTAS\" is cut from the cloud in large deep-ink serif letters, with a subtle letterpress shadow. At the bottom left, the exact tagline \"Chat, code, and a real browser in one window.\" in a small forest-green sans. One ember-orange dot is the only accent. Tactile paper edges, high contrast, calm editorial hierarchy, generous negative space. No other readable words, no labels, no logos, no browser screenshot, no generic gradient background."
+    }
+  ]
+}

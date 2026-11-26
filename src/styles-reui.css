@@ -2081,3 +2081,569 @@
 .home .bar-compare {
   color: var(--text-2);
 }
+
+/* ==========================================================================
+   The supplied "Trust in AI replies" assistant side panel, applied exactly.
+   Measurements and colour values below are the template's, not approximations:
+   408px sheet, 56px header, 22px gutter, 14.5px copy, 28px send, 11px footer.
+   ========================================================================== */
+
+.ide-assistant.trust-panel,
+.el .trust-panel.el-ai {
+  flex: 0 0 408px;
+  width: 408px;
+  max-width: 408px;
+  min-width: 0;
+  min-height: 0;
+  margin: 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #2c2c2c;
+  border-radius: 12px;
+  background: #1b1b1b;
+}
+
+/* 56px header */
+.trust-panel .trust-head {
+  flex: 0 0 56px;
+  height: 56px;
+  padding: 0 14px 0 20px;
+  border-bottom: 1px solid #2c2c2c;
+  background: #1b1b1b;
+}
+
+.trust-panel .trust-head-title {
+  gap: 8px;
+  color: #ececec;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: normal;
+  line-height: 1.5;
+}
+
+.trust-panel .trust-bot,
+.trust-panel .trust-chev {
+  width: 15px;
+  height: 15px;
+  color: #bbbbbb;
+}
+
+.trust-panel .trust-head-actions {
+  gap: 0;
+}
+
+.trust-panel .trust-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  color: #c4c4c4;
+}
+
+.trust-panel .trust-icon:hover {
+  background: #2a2a2a;
+}
+
+/* 22px body gutter */
+.trust-panel .trust-log {
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+  padding: 0;
+  background: #1b1b1b;
+}
+
+.trust-panel .transcript {
+  flex: 1;
+  min-height: 0;
+  background: transparent;
+}
+
+.trust-panel .trust-log .transcript-inner,
+.trust-panel .ide-assistant .transcript-inner,
+.trust-panel .transcript-inner {
+  max-width: none;
+  gap: 0;
+  padding: 10px 22px 0;
+}
+
+.trust-panel .transcript-tail {
+  height: 12px;
+}
+
+.trust-panel .trust-empty {
+  padding: 0;
+}
+
+.trust-panel .trust-fade {
+  display: flex;
+  justify-content: space-between;
+  margin: 2px 0 10px;
+  opacity: 0.4;
+  color: #ededed;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.trust-panel .trust-empty p,
+.trust-panel .md p,
+.trust-panel .assistant-block {
+  color: #ededed;
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+.trust-panel .trust-empty p {
+  margin: 0 0 11px;
+}
+
+.trust-panel .md p {
+  margin: 0 0 11px;
+}
+
+.trust-panel .md h1,
+.trust-panel .md h2,
+.trust-panel .md h3,
+.trust-panel .md h4 {
+  margin: 14px 0 8px;
+  color: #ededed;
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.trust-panel .md ul {
+  margin: 0 0 11px;
+  padding-left: 4px;
+}
+
+.trust-panel .md li {
+  padding: 3px 0 3px 18px;
+  color: #ededed;
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+.trust-panel .md li::before {
+  left: 5px;
+  top: 12px;
+  width: 4px;
+  height: 4px;
+  background: #cccccc;
+}
+
+.trust-panel .md code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.trust-panel .trust-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.trust-panel .trust-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  max-width: 100%;
+  padding: 0 9px;
+  border: 1px solid #3a3a3a;
+  border-radius: 999px;
+  background: #222222;
+  color: #c9c9c9;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.trust-panel .trust-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trust-panel .trust-chip svg {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+}
+
+/* Right-aligned quick prompts */
+.trust-panel .trust-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 44px 0 26px;
+}
+
+.trust-panel .trust-qr button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border: 1px solid #3a3a3a;
+  border-radius: 9px;
+  background: #222222;
+  color: #8d8d8d;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.trust-panel .trust-qr button:hover {
+  border-color: #555555;
+  color: #dddddd;
+}
+
+/* Command palette */
+.trust-pal {
+  flex: 0 0 auto;
+  margin: 0 14px 10px;
+  padding: 10px 12px;
+  border: 1px solid #3a3a3a;
+  border-radius: 10px;
+  background: #1b1b1b;
+}
+
+.trust-pal-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #9a9a9a;
+  font-size: 12px;
+}
+
+.trust-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid #3a3a3a;
+  border-radius: 5px;
+  background: #242424;
+  color: #9a9a9a;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.trust-kbd.sq {
+  width: 22px;
+  justify-content: center;
+  padding: 0;
+}
+
+.trust-pal-sp {
+  flex: 1;
+}
+
+.trust-pal-x {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  color: #9a9a9a;
+}
+
+.trust-pal-x:hover {
+  background: #242424;
+  color: #ececec;
+}
+
+.trust-pal ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trust-pal li {
+  margin: 0;
+}
+
+.trust-pal li button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border-radius: 6px;
+  color: #9d9d9d;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.trust-pal li button:hover {
+  background: #242424;
+  color: #dddddd;
+}
+
+.trust-pal li svg {
+  flex: 0 0 13px;
+  color: #8a8a8a;
+}
+
+/* Composer */
+.trust-panel .trust-composer {
+  flex: 0 0 auto;
+  margin: 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #3a3a3a;
+  border-radius: 10px;
+  background: #161616;
+  box-shadow: none;
+}
+
+.trust-panel .trust-composer:focus-within {
+  border-color: #3a3a3a;
+  box-shadow: none;
+}
+
+.trust-panel .trust-composer textarea {
+  display: block;
+  width: 100%;
+  height: 28px;
+  min-height: 28px;
+  max-height: 120px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  resize: none;
+  color: #ececec;
+  font-family: var(--font-ui);
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+.trust-panel .trust-composer textarea:focus {
+  border: 0;
+  outline: 0;
+}
+
+.trust-panel .trust-composer textarea::placeholder {
+  color: #8a8a8a;
+}
+
+.trust-panel .trust-comp-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.trust-panel .trust-comp-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  color: #dddddd;
+}
+
+.trust-panel .trust-comp-icon:hover {
+  background: #242424;
+  color: #ececec;
+}
+
+.trust-panel .trust-comp-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  max-width: 116px;
+  padding: 0 6px;
+  border: 1px solid #2c2c2c;
+  border-radius: 5px;
+  color: #9a9a9a;
+  font-size: 10.5px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.trust-panel .trust-comp-file svg {
+  flex: 0 0 11px;
+}
+
+.trust-panel .trust-comp-sp {
+  flex: 1;
+}
+
+.trust-panel .trust-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #cfcfcf;
+  font-size: 12.5px;
+}
+
+.trust-panel .trust-model .mp-trigger {
+  height: 22px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: #cfcfcf;
+  font-size: 12.5px;
+}
+
+.trust-panel .trust-model .mp-trigger:hover,
+.trust-panel .trust-model .mp-trigger.is-open {
+  border: 0;
+  background: #242424;
+  color: #ececec;
+}
+
+.trust-panel .trust-send {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: #ededed;
+  color: #111111;
+}
+
+.trust-panel .trust-send:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.trust-panel .trust-send:disabled {
+  background: #ededed;
+  color: #111111;
+  opacity: 1;
+}
+
+.trust-panel .trust-foot {
+  flex: 0 0 auto;
+  padding: 10px 0 12px;
+  color: #9a9a9a;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* Transcript typography inside the panel */
+.trust-panel .msg {
+  margin: 0 0 18px;
+}
+
+.trust-panel .msg-user {
+  justify-content: flex-end;
+}
+
+.trust-panel .user-card {
+  width: fit-content;
+  max-width: 90%;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: #1d1d1d;
+  box-shadow: none;
+}
+
+.trust-panel .user-card p {
+  margin: 0;
+  color: #ededed;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.trust-panel .assistant-compact-mark {
+  display: none;
+}
+
+.trust-panel .msg-assistant.is-compact {
+  display: block;
+  margin: 0 0 22px;
+}
+
+.trust-panel .assistant-block {
+  gap: 0;
+}
+
+.trust-panel .md-code {
+  margin: 10px 0;
+  border: 1px solid #2c2c2c;
+  border-radius: 8px;
+  background: #0e0e0e;
+}
+
+.trust-panel .md-code-head {
+  height: 26px;
+  padding: 0 8px;
+  border-bottom: 1px solid #2c2c2c;
+  background: #141414;
+  color: #9a9a9a;
+  font-size: 11px;
+}
+
+.trust-panel .md-code pre {
+  padding: 8px;
+  color: #d4d4d4;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.trust-panel .assistant-foot,
+.trust-panel .run-head,
+.trust-panel .tool-row {
+  font-size: 11px;
+  color: #9a9a9a;
+}
+
+@media (max-width: 980px) {
+  .ide-assistant.trust-panel,
+  .el .trust-panel.el-ai {
+    flex-basis: 330px;
+    width: 330px;
+    max-width: 330px;
+  }
+}
+
+/* Several app-wide button rules enforce a 32px minimum; the template's
+   controls are 28px (header/send), 22px (composer icons) and 20px (palette X). */
+.trust-panel .trust-head .trust-icon,
+.trust-panel .trust-comp-icon,
+.trust-panel .trust-send,
+.trust-panel .trust-pal-x {
+  min-width: 0;
+  min-height: 0;
+}
+
+.trust-panel .trust-head .trust-icon {
+  width: 28px;
+  height: 28px;
+}
+
+/* Higher-specificity reset for the IDE and browser panel transcript. */
+.trust-panel.ide-assistant .msg-user,
+.trust-panel.el-ai .msg-user {
+  justify-content: flex-end;
+}
+
+.trust-panel.ide-assistant .user-card,
+.trust-panel.el-ai .user-card {
+  width: fit-content;
+  max-width: 90%;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: #1d1d1d;
+  box-shadow: none;
+}
+
+.trust-panel.ide-assistant .user-card p,
+.trust-panel.el-ai .user-card p {
+  margin: 0;
+  color: #ededed;
+  font-size: 14px;
+  line-height: 1.5;
+}

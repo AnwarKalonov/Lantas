@@ -1,0 +1,37 @@
+{
+  "repository": "AnwarKalonov/Lantas",
+  "project": "Lantas",
+  "tagline": "Chat, code, and a real browser in one window.",
+  "category": "local-first macOS agent",
+  "audience": "macOS users who want chat, code and browser work in one app",
+  "public_facts": [
+    "One macOS window with chat, code and browser surfaces",
+    "Free to download, no account, no subscription",
+    "Bring a model key or run a model locally",
+    "Browser can read and drive the page one step at a time",
+    "Available for Apple silicon Macs"
+  ],
+  "source_material": [
+    "README.md",
+    "Website/site/index.html",
+    "Website/site/assets/site.css",
+    "Website/site/assets/img/cloud-hero-light.webp"
+  ],
+  "generated_at": "2026-11-26",
+  "outputs": {
+    "approved_hero": "directions/a-locked.jpg",
+    "readme_hero": "docs/readme-hero.png",
+    "contact_sheet": "output/repo-visuals/v1/contact-sheet.png",
+    "website_screens": [
+      "Website/site/assets/img/app-home.webp",
+      "Website/site/assets/img/app-code.webp",
+      "Website/site/assets/img/app-browser.webp"
+    ],
+    "readme_screens": [
+      "docs/screenshots/home.png",
+      "docs/screenshots/code.png",
+      "docs/screenshots/browser.png",
+      "docs/screenshots/settings.png"
+    ]
+  }
+}

@@ -32,7 +32,7 @@ import { Icon } from "./Icons";
 import { MonacoEditor } from "./MonacoEditor";
 import { TerminalPanel } from "./TerminalPanel";
 import { Transcript } from "./Transcript";
-import { TrustPanelHead } from "./TrustPanelHead";
+import { TrustPalette, TrustPanelHead } from "./TrustPanelHead";
 import { StagedDiffReview } from "./DiffViewer";
 
 type Activity = "explorer" | "search" | "git" | "extensions" | "skills";
@@ -189,6 +189,7 @@ export function IdeView({
   const [activity, setActivity] = useState<Activity>("explorer");
   const [sideOpen, setSideOpen] = useState(true);
   const [assistantOpen, setAssistantOpen] = useState(true);
+  const [promptOpen, setPromptOpen] = useState(true);
   const [tabs, setTabs] = useState<string[]>(() => [...bufferCache.tabs]);
   const [active, setActive] = useState<string | null>(() => bufferCache.active);
   const [drafts, setDrafts] = useState<Record<string, string>>(() => ({ ...bufferCache.drafts }));
@@ -229,6 +230,11 @@ export function IdeView({
   });
 
   const files = state.workspace;
+  const idePrompts = [
+    "Summarize this project",
+    "Find the riskiest code",
+    "Fix the failing check",
+  ];
   const tree = useMemo(() => buildTree(files), [files]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -1338,7 +1344,7 @@ export function IdeView({
         </main>
 
         {assistantOpen && (
-          <aside className="ide-assistant">
+          <aside className="ide-assistant trust-panel">
             <TrustPanelHead
               onNewChat={() => {
                 createSession();
@@ -1353,34 +1359,69 @@ export function IdeView({
               compact
               onOpenFile={(path, line) => open(path, line)}
               empty={
-                <div className="ide-assistant-empty">
-                  <h3>{state.workspaceName ? `Work in ${state.workspaceName}` : "Work in this folder"}</h3>
-                  <p>
-                    It reads this folder, edits real files, runs commands and links every file it
-                    touches. Click a path to open it here.
-                  </p>
-                  <div className="ide-assistant-suggestions">
-                    {[
-                      "Summarize this project",
-                      "Find the riskiest code",
-                      "Fix the failing check",
-                    ].map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => {
-                          onAsk(item);
-                          notify("Sent to Lantas");
-                        }}
-                      >
-                        <Icon name="arrowUp" size={11} />
-                        {item}
-                      </button>
-                    ))}
+                <div className="trust-empty">
+                  <div className="trust-fade">
+                    <span>This folder</span>
+                    <span>⌄</span>
+                  </div>
+                  <p>It reads this folder, edits real files, runs commands and links every file it touches.</p>
+                  <p>Click a path to open it here.</p>
+                  <div className="trust-chips">
+                    <span className="trust-chip">
+                      <Icon name="folder" size={12} />
+                      <span>{state.workspaceName || "No folder open"}</span>
+                    </span>
+                    <span className="trust-chip">
+                      <Icon name="file" size={12} />
+                      <span>{files.length} files</span>
+                    </span>
+                  </div>
+                  <div className="trust-qr">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onAsk("Summarize this project");
+                        notify("Sent to Lantas");
+                      }}
+                    >
+                      Summarize this project
+                      <Icon name="chevronRight" size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onAsk("Find the riskiest code");
+                        notify("Sent to Lantas");
+                      }}
+                    >
+                      Find the riskiest code
+                      <Icon name="chevronRight" size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onAsk("Fix the failing check");
+                        notify("Sent to Lantas");
+                      }}
+                    >
+                      Fix the failing check
+                      <Icon name="chevronRight" size={13} />
+                    </button>
                   </div>
                 </div>
               }
             />
+
+            {promptOpen && (
+              <TrustPalette
+                items={idePrompts}
+                onPick={(item) => {
+                  onAsk(item);
+                  notify("Sent to Lantas");
+                }}
+                onDismiss={() => setPromptOpen(false)}
+              />
+            )}
 
             {(() => {
               const mention = /(?:^|\s)@([\w./-]*)$/.exec(askDraft);
@@ -1411,7 +1452,7 @@ export function IdeView({
               ) : null;
             })()}
 
-            <div className="ide-assistant-composer">
+            <div className="ide-assistant-composer trust-composer">
               {askFiles.length > 0 && (
                 <div className="attach-row">
                   {askFiles.map((file) => (
@@ -1450,18 +1491,18 @@ export function IdeView({
                     sendAsk();
                   }
                 }}
-                placeholder="Ask, edit, or @ a file…"
+                placeholder="Ask AI anything"
                 spellCheck={false}
               />
-              <div className="ide-assistant-actions">
+              <div className="trust-comp-bar">
                 <button
                   type="button"
-                  className="ide-context-chip"
+                  className="trust-comp-icon"
                   onClick={() => askFileInput.current?.click()}
                   title="Attach a file or image"
+                  aria-label="Attach a file or image"
                 >
-                  <Icon name="paperclip" size={10} />
-                  Attach
+                  <Icon name="plus" size={15} />
                 </button>
                 <input
                   ref={askFileInput}
@@ -1476,11 +1517,11 @@ export function IdeView({
                 {activeFile && (
                   <button
                     type="button"
-                    className="ide-context-chip"
+                    className="trust-comp-file"
                     onClick={() => setAskDraft((current) => `${current}@${activeFile.path} `)}
                     title="Add the open file to the message"
                   >
-                    <Icon name="paperclip" size={10} />
+                    <Icon name="file" size={11} />
                     {activeFile.name}
                   </button>
                 )}
@@ -1491,26 +1532,30 @@ export function IdeView({
                   onConnect={onOpenSettings}
                   className="ide-assistant-model trust-model"
                 />
-                <span className="ide-assistant-hint">⇧↵ new line</span>
                 <button
                   type="button"
-                  className="ide-send-button"
+                  className="trust-comp-icon"
+                  onClick={onOpenSkills}
+                  aria-label="Skills"
+                  title="Skills"
+                >
+                  <Icon name="sparkle" size={15} />
+                </button>
+                <span className="trust-comp-sp" />
+                <button
+                  type="button"
+                  className="trust-send"
                   onClick={streaming ? onStop : sendAsk}
                   disabled={!streaming && !askDraft.trim() && askFiles.length === 0}
                   aria-label={streaming ? "Stop" : "Send"}
                   title={streaming ? "Stop the assistant" : "Send"}
                 >
-                  <Icon name={streaming ? "stop" : "arrowUp"} size={13} />
+                  <Icon name={streaming ? "stop" : "arrowUp"} size={15} />
                 </button>
               </div>
             </div>
 
-            <div className="trust-foot">Lantas can edit this folder. Check important info.</div>
-
-            <button type="button" className="ide-assistant-open" onClick={onExit}>
-              Open full chat
-              <Icon name="chevronRight" size={12} />
-            </button>
+            <div className="trust-foot">ReUI Chat can browse the web. Check important info.</div>
           </aside>
         )}
       </div>

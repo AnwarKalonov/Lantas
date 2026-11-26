@@ -13,7 +13,6 @@ No account, no subscription, no telemetry. Bring a model key, or run a model loc
 
 **[Download for macOS →](https://lantas-phi.vercel.app/download.html)** · [Website](https://lantas-phi.vercel.app)
 
-![Lantas — a monolithic dark-glass window in a pale cloudscape with the LANTAS wordmark](docs/readme-hero.png)
 
 ![Lantas Home](docs/screenshots/home.png)
 

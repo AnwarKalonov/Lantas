@@ -4,6 +4,8 @@
 
 No account, no subscription, no telemetry. Bring a model key, or run a model locally.
 
+**[Download for macOS →](https://lantas-phi.vercel.app/download.html)** · [Website](https://lantas-phi.vercel.app)
+
 ![Lantas — a monolithic dark-glass window in a pale cloudscape with the LANTAS wordmark](docs/readme-hero.png)
 
 ![Lantas Home](docs/screenshots/home.png)
@@ -152,7 +154,7 @@ Lantas is not a Chromium fork and does not vendor or reproduce Dao source code. 
 
 ## Install
 
-Download the current macOS build from the [releases page](https://github.com/AnwarKalonov/Lantas-download/releases). Unzip it and drag **Lantas.app** to Applications.
+Download the current macOS build from the [website](https://lantas-phi.vercel.app/download.html) or the [releases page](https://github.com/AnwarKalonov/Lantas-download/releases). Unzip it and drag **Lantas.app** to Applications.
 
 The release repository must be **public** for those links and for the in-app updater to work: GitHub refuses anonymous downloads of assets on a private repository. It holds only the published site, the README, the licence and the signed binaries — never the application source.
 

@@ -3,3 +3,6 @@ README.md
 RELEASE_NOTES.md
 LICENSE
 .nojekyll
+
+.env*
+.vercel

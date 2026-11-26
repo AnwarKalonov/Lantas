@@ -44,3 +44,8 @@ tauri-signing/
 # Internal design QA captures and generated moodboard images
 Website/unslop/
 Gemini_Generated_Image_*.jpeg
+
+.vercel-token.txt
+
+/public-repo/.env.local
+/public-repo/.vercel/

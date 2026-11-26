@@ -3,8 +3,8 @@
   "dev": true,
   "builtAt": "2026-11-26T18:30:00Z",
   "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.3.0-arm64.dmg",
-  "size": 0,
-  "sha256": "",
+  "size": 10336155,
+  "sha256": "59a627f0cb274be4349d7d5c1b822a3a38f7bebf9470e7a721e70c3d8ba8d633",
   "changes": [
     "Browser: the agent can run JavaScript in the live page and keep the tab session between calls.",
     "Browser: page screenshots now reach the model. Chrome captures over CDP; the native engine captures the live webview.",

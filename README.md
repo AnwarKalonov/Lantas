@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/logo-light.png">
+    <img src="docs/logo-ink.png" alt="Lantas — cloud mark and wordmark" width="420">
+  </picture>
+</p>
+
 # Lantas
 
 **Chat, code, and a real browser in one window.** Lantas is a local-first macOS agent for work that does not fit in a single tab: ask a question, edit a project, then let the assistant read and drive the page you are looking at.

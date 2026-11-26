@@ -30,7 +30,15 @@ jobs:
       - name: Copy the site into the public repository
         run: |
           set -euo pipefail
-          rsync -a --delete --exclude .git public-repo/ public-site/
+          rsync -a --delete \
+            --exclude .git \
+            --exclude .github \
+            --exclude README.md \
+            --exclude RELEASE_NOTES.md \
+            --exclude LICENSE \
+            --exclude .nojekyll \
+            --exclude .DS_Store \
+            public-repo/ public-site/
           cd public-site
           git config user.name "Lantas"
           git config user.email "lantas@users.noreply.github.com"
@@ -39,5 +47,5 @@ jobs:
             echo "The public site is already current."
             exit 0
           fi
-          git commit -m "Publish the Lantas 1.0.6 site"
+          git commit -m "Publish the Lantas site"
           git push origin HEAD:main

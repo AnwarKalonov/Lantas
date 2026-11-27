@@ -3,6 +3,7 @@ import { runAppAction } from "./lib/appActions";
 import { aiDriving } from "./lib/el";
 import { getComposio, listConnections } from "./lib/composio";
 import { runToolLoop } from "./lib/agentRuntime";
+import { canUseOpenCode, runOpenCodeTurn } from "./lib/opencode";
 import { defaultRules, describeAction } from "./lib/permissions";
 import type { ToolCall, ToolContext } from "./lib/tools";
 import { getElContext } from "./lib/el";
@@ -1101,10 +1102,39 @@ export function App() {
       const model = existing?.model || state.settings.defaultModel;
       const providerConfig = state.settings.providers[provider];
       const live = isConfigured(provider, providerConfig);
+      const useOpenCode =
+        live &&
+        canUseOpenCode() &&
+        state.scope === "workspace" &&
+        Boolean(state.workspaceRoot) &&
+        state.mode !== "browser" &&
+        // The engine writes and runs commands itself, so it only takes over
+        // after the same folder and terminal grants Lantas's own tools need.
+        state.settings.fileAccess &&
+        state.settings.terminalAccess;
       const seesImages = canSeeImages(provider, model);
       const snapshot: Session | null = existing ?? null;
       const assistantId = uid("msg");
       const isNew = !existing || existing.messages.length === 0;
+      // OpenCode sees the thread as it was before this user turn; the transcript
+      // is seeded from it only when the thread predates the engine switch.
+      const engineSession: Session = existing ?? {
+        id: sessionId,
+        title: titleFrom(text || attachments[0]?.name || "New thread"),
+        cwd: state.workspaceRoot,
+        branch: "",
+        created: Date.now(),
+        updated: Date.now(),
+        messages: [],
+        todos: [],
+        files: [],
+        tokens: 0,
+        contextWindow: 200_000,
+        cost: 0,
+        agent,
+        provider,
+        model,
+      };
 
       // A text-only model rejects the whole request when a frame is attached,
       // so screen sharing only sends pixels to a model that can read them.
@@ -1217,6 +1247,61 @@ export function App() {
       };
 
       try {
+        // Workspace chats run on OpenWork's engine: a bundled OpenCode server,
+        // its tools and its edits. Ordinary Chat and Browser keep Lantas's own
+        // loop, which is where the screen and page tools live.
+        if (useOpenCode) {
+          const openCodeImages = outgoing
+            .filter((file) => file.kind === "image")
+            .map((file) => parseImage(file.body))
+            .filter((image): image is { mime: string; data: string } => Boolean(image))
+            .slice(0, 4);
+          const fileText = outgoing
+            .filter((file) => file.kind === "text")
+            .map((file) => `<file name="${file.name}">\n${file.body.slice(0, 24_000)}\n</file>`)
+            .join("\n\n");
+          const outcome = await runOpenCodeTurn({
+            root: state.workspaceRoot,
+            session: engineSession,
+            text: [text, fileText].filter(Boolean).join("\n\n") || "(attachment)",
+            images: openCodeImages,
+            provider,
+            model,
+            providers: state.settings.providers,
+            autoApprove: state.settings.permissionMode === "auto",
+            signal: controller.signal,
+            patch,
+            onPermission: (request) => requestApproval(request.call, request.resource),
+            onSessionId: (id) =>
+              updateSession(sessionId, (session) => ({
+                ...session,
+                opencodeSessionId: id,
+              })),
+          });
+          closeReasoning();
+          const tokens =
+            outcome.input + outcome.output ||
+            Math.max(1, Math.round(text.length / 3.6) + Math.round(200 / 3.6));
+          patch((message) => ({
+            ...message,
+            streaming: false,
+            durationMs: Date.now() - started,
+            tokens,
+          }));
+          updateSession(sessionId, (session) => ({
+            ...session,
+            tokens: session.tokens + tokens,
+            cost: session.cost + outcome.cost,
+            updated: Date.now(),
+          }));
+          if (state.settings.notifications && !document.hasFocus() && "Notification" in window) {
+            if (Notification.permission === "granted") {
+              new Notification("Lantas", { body: "The turn finished." });
+            }
+          }
+          return;
+        }
+
         if (live) {
           let textPartId: string | null = null;
           let inputTokens = 0;
@@ -1739,10 +1824,13 @@ export function App() {
       state.settings.providers,
       state.settings.screenAccess,
       state.settings.permissionMode,
+      state.settings.fileAccess,
+      state.settings.terminalAccess,
       state.commands,
       state.skills,
       state.workspace,
       state.workspaceRoot,
+      state.scope,
       state.mode,
       notify,
       requestMoreSteps,

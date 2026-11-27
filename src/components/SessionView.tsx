@@ -112,6 +112,7 @@ export function SessionView({
         </button>
         <span className="chat-sub">
           {agentName} · {prettyModel(session.model)}
+          {session.opencodeSessionId ? " · OpenCode" : ""}
         </span>
         </div>
 

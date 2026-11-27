@@ -161,6 +161,8 @@ export interface Session {
   pinned?: boolean;
   /** The project this chat belongs to; absent for ordinary Chat threads. */
   workspaceId?: string;
+  /** The matching OpenCode session, once this thread runs on that engine. */
+  opencodeSessionId?: string;
   /** Message snapshots for /undo and /redo. */
   past?: Message[][];
   future?: Message[][];

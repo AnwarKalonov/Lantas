@@ -12,8 +12,15 @@ import { useStore } from "../lib/store";
 import { APP_VERSION, checkForUpdate, checkNativeUpdate } from "../lib/updates";
 import { inTauri, openExternal, openInVsCode, openPrivacySettings } from "../lib/native";
 import { clearAuditLog, getAuditLog, subscribeAudit } from "../lib/audit";
-import { ringDone } from "../lib/chime";
-import type { AgentId, ProviderId, ProviderMeta, ThemeMode } from "../lib/types";
+import { CHIME_PRESETS, playChime } from "../lib/chime";
+import type {
+  AgentId,
+  ChimeKind,
+  ChimePreset,
+  ProviderId,
+  ProviderMeta,
+  ThemeMode,
+} from "../lib/types";
 import { cx, uid } from "../lib/util";
 import { MarkGlyph } from "./Brand";
 import { Icon, type IconName } from "./Icons";
@@ -396,14 +403,58 @@ export function SettingsModal({
                 onChange={(next) => setSettings({ reduceMotion: next })}
               />
               <Toggle
-                label="Completion chime"
-                description="A soft two-note bell when a reply finishes."
+                label="Chimes"
+                description="A cue when a turn finishes, fails, or needs an answer from you."
                 checked={settings.sound}
                 onChange={(next) => {
                   setSettings({ sound: next });
-                  if (next) ringDone();
+                  if (next) playChime(settings.chimeDone, "done");
                 }}
               />
+              {settings.sound && (
+                <div className="settings-field chime-field">
+                  <span className="field-label">Which sound, for what</span>
+                  {(
+                    [
+                      { kind: "done" as ChimeKind, label: "Turn finishes", key: "chimeDone" as const },
+                      { kind: "error" as ChimeKind, label: "Something fails", key: "chimeError" as const },
+                      { kind: "ask" as ChimeKind, label: "Lantas needs you", key: "chimeAsk" as const },
+                    ]
+                  ).map((row) => (
+                    <div className="chime-row" key={row.kind}>
+                      <span className="chime-row-label">{row.label}</span>
+                      <select
+                        className="settings-select"
+                        value={settings[row.key]}
+                        onChange={(event) => {
+                          const next = event.target.value as ChimePreset;
+                          setSettings({ [row.key]: next });
+                          playChime(next, row.kind);
+                        }}
+                        aria-label={`Sound when ${row.label.toLowerCase()}`}
+                      >
+                        {CHIME_PRESETS.map((preset) => (
+                          <option key={preset.id} value={preset.id}>
+                            {preset.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="button-quiet small chime-play"
+                        onClick={() => playChime(settings[row.key], row.kind)}
+                        disabled={settings[row.key] === "none"}
+                      >
+                        Play
+                      </button>
+                    </div>
+                  ))}
+                  <span className="field-help">
+                    Each cue is synthesised locally. “Silent” keeps the event quiet without turning
+                    the others off.
+                  </span>
+                </div>
+              )}
               <Toggle
                 label="Usage telemetry"
                 description="Off. This build sends nothing anywhere."

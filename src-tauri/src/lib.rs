@@ -141,7 +141,8 @@ const INPUT_WATCH: &str = r#"
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     note('key', event);
   }, true);
-  addEventListener('wheel', (event) => note('scroll', event), { capture: true, passive: true });
+  // Scrolling is reading, not taking over. It used to stop the agent every
+  // time someone moved the page to follow along, so it is not counted here.
   addEventListener('submit', (event) => note('submit', event), true);
 })();
 "#;

@@ -3,35 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lantas — chat, code, and the browser in one free agent</title>
-<meta name="description" content="Lantas is a free macOS agent in one window: chat with any model, edit code in a workspace you pick, connect Gmail, Notion, GitHub and 30 more apps, and drive your own browser.">
+<title>Lantas — one window for chat, code, browser and your Mac</title>
+<meta name="description" content="Lantas is a free macOS agent in one window. Chat with any model, edit a real codebase, drive a browser, and control your Mac — with one switch and a visible blue pointer.">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/site.css">
-<link rel="stylesheet" href="assets/app-shots.css">
+<link rel="stylesheet" href="assets/v2.css">
 <script>try{var t=localStorage.getItem("lantas-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.dataset.theme=t;}catch(e){}</script>
 </head>
-<body>
-
-<div class="spot" aria-hidden="true"><pre class="spot-text"></pre></div>
+<body class="v2-page">
 
 <div class="skyfield" aria-hidden="true">
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <defs>
-      <clipPath id="cloudClip" clipPathUnits="objectBoundingBox">
-        <path d="M.12 .84C.06 .84 .02 .78 .02 .7C.02 .6 .1 .53 .2 .52C.22 .37 .33 .26 .46 .26C.59 .26 .7 .36 .73 .5C.85 .51 .94 .59 .94 .7C.94 .78 .9 .84 .84 .84Z"/>
-      </clipPath>
-    </defs>
-  </svg>
-  <div class="sky sky-blob" data-depth="0.05" style="--x:-6%;--y:4%;--s:620px;--o:.55"></div>
-  <div class="sky sky-blob" data-depth="-0.04" style="--x:70%;--y:52%;--s:560px;--o:.42"></div>
-  <div class="sky sky-blob" data-depth="0.08" style="--x:30%;--y:76%;--s:460px;--o:.3"></div>
-  <div class="sky bits" data-depth="0.03" style="--x:74%;--y:6%;--w:400px;--h:215px;--o:.8"></div>
-  <div class="sky bits" data-depth="-0.03" style="--x:-24%;--y:66%;--w:470px;--h:250px;--o:.85"></div>
-  <div class="sky bits" data-depth="0.06" style="--x:60%;--y:86%;--w:400px;--h:215px;--o:.55"></div>
-  <div class="sky bits" data-depth="-0.05" style="--x:90%;--y:46%;--w:380px;--h:210px;--o:.7"></div>
+  <div class="sky sky-blob" data-depth="0.05" style="--x:-8%;--y:6%;--s:640px;--o:.55"></div>
+  <div class="sky sky-blob" data-depth="-0.04" style="--x:66%;--y:40%;--s:560px;--o:.4"></div>
+  <div class="sky sky-blob" data-depth="0.08" style="--x:28%;--y:82%;--s:520px;--o:.32"></div>
 </div>
 
 <header class="nav">
@@ -39,10 +26,9 @@
     <a class="brand" href="index.html" aria-label="Lantas home"><span class="brand-mark" aria-hidden="true"></span></a>
 
     <nav class="nav-links" aria-label="Sections">
-      <a href="#features">Features</a>
-      <a href="#observability">Your tab</a>
-      <a href="#analysis">How it works</a>
-      <a href="#verification">Benchmark</a>
+      <a href="#demos">Demos</a>
+      <a href="#surfaces">The app</a>
+      <a href="#control">Computer control</a>
       <a href="#install">Install</a>
       <a class="mob" href="docs.html">Docs</a>
       <a class="mob" href="https://github.com/AnwarKalonov/Lantas">GitHub</a>
@@ -53,7 +39,7 @@
         <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" aria-hidden="true"><path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1Z"/></svg>
         <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"/></svg>
       </button>
-            <a class="txt" href="docs.html">Docs</a>
+      <a class="txt" href="docs.html">Docs</a>
       <a class="txt" href="https://github.com/AnwarKalonov/Lantas">GitHub</a>
       <a class="btn btn-primary btn-sm" href="download.html">Download</a>
       <button class="menu-btn" aria-label="Menu" aria-expanded="false">
@@ -66,1131 +52,356 @@
 <main>
 
 <!-- hero -->
-<section class="hero">
-  <img class="hero-sky sky-light" src="assets/img/cloud-hero-light.webp" alt="A soft white cloud resting on a warm cream sky" width="856" height="480" fetchpriority="high">
-    <img class="hero-sky sky-dark" src="assets/img/cloud-hero-dark.webp" alt="" width="1109" height="620" aria-hidden="true">
+<section class="v2-hero">
+  <div class="v2-cloud-wrap" aria-hidden="true">
+    <img class="v2-cloud sky-light" src="assets/img/cloud-hero-light.webp" alt="" width="856" height="480" fetchpriority="high">
+    <img class="v2-cloud sky-dark" src="assets/img/cloud-hero-dark.webp" alt="" width="1109" height="620">
+  </div>
 
   <div class="wrap">
-    <div class="hero-copy">
-      <p class="eyebrow" data-reveal><span class="dot"></span>Lantas <span data-version>1.3.0</span> · free to download</p>
+    <p class="v2-kicker" data-reveal><span class="dot"></span>Lantas <span data-version>1.3.0</span> · free for macOS</p>
 
-      <h1 data-reveal style="--d:70ms">The agent that chats, codes, <span class="soft">and drives your browser</span></h1>
+    <h1 class="v2-title" data-reveal style="--d:60ms">Your Mac,<br><em>with an agent in it.</em></h1>
 
-      <p class="lede" data-reveal style="--d:140ms">
-        One macOS window with a chat, a code workspace and a browser of its own. Ask about anything, change a repo,
-        connect Gmail, Notion, GitHub or Linear, or hand it the tab you are looking at. Bring any model, run one
-        locally, and pay nothing for the app: <b>free</b>, no account, no subscription.
-      </p>
+    <p class="v2-lede" data-reveal style="--d:120ms">
+      Chat, code, a real browser and your own screen — not four apps pretending to be one.
+      Bring any model. Lantas keeps the thread while you keep the wheel.
+    </p>
 
-      <div class="actions" data-reveal style="--d:210ms">
-        <a class="btn btn-primary" href="download.html">
-          Download Lantas
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg>
-        </a>
-        <a class="btn btn-secondary" href="docs.html">
-          Read the docs
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </a>
-      </div>
-
-      <p class="download-count" data-reveal style="--d:250ms" data-download-note hidden>
-        <b data-download-total>0</b> downloads and counting
-      </p>
-
-      <div class="cmdline" data-reveal style="--d:280ms">
-        <span class="prompt">$</span>
-        <code>open https://github.com/AnwarKalonov/Lantas/releases/latest</code>
-        <button class="copy" data-copy="open https://github.com/AnwarKalonov/Lantas/releases/latest" aria-label="Copy download link">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
-          <span class="ok">Copied</span>
-        </button>
-      </div>
-    </div>
-
-    <div class="hero-product" data-reveal style="--d:120ms">
-      <div class="window">
-        <div class="wbar">
-          <span class="live"><i></i>checkout</span>
-          <span class="path">mixtape.co/checkout</span>
-          <span class="right">
-            <span>tab <b>3 of 7</b></span>
-            <span>42 controls</span>
-            <span>step <b>4</b></span>
-            <span>1.8 s</span>
-          </span>
-        </div>
-
-        <div class="wbody">
-          <div class="plot" data-trace="flat">
-            <div class="flag"><i></i>page read in 1.2 s</div>
-            <svg role="img" aria-label="Time for Lantas to read the page and answer, steady at about 1.2 seconds across one task"></svg>
-            <div class="axis"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>14</span></div>
-            <button class="replay">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4M3 4v5h5"/></svg>
-              replay the run
-            </button>
-          </div>
-
-          <div class="agent">
-            <div class="ask"><span class="caret">❯</span><span>find the cheapest table for two on Friday</span></div>
-            <div class="thought"><i class="tick"></i>thought for 2s</div>
-            <div class="tool">read <b>checkout</b> · 42 controls · 1 tab</div>
-            <div class="ans">the <span class="hot">20:00</span> slot is $38; the 19:30 is $42</div>
-            <div class="edit"><span class="add">✓</span> clicked “Reserve” <span class="done">verified</span></div>
-          </div>
-        </div>
-      </div>
-      <p class="cap">A drawing of the app, not live data. The page on the left, the agent on the right.</p>
-    </div>
-  </div>
-</section>
-
-<!-- the demo: the chat tab, played like a short clip -->
-<section class="film demo" id="film">
-  <div class="wrap demo-wrap">
-    <header class="demo-head">
-      <p class="eyebrow"><span class="dot"></span>One run in the chat tab · 24 seconds</p>
-      <h2>Ask. Watch it work. Read the answer.</h2>
-      <p class="demo-sub">A landing page built from a site it read, Gmail connected in one click, then “what’s new in my email?” — the chat tab, the way it actually runs.</p>
-    </header>
-
-    <figure class="player" data-demo>
-      <div class="player-bar">
-        <span class="player-name">
-          <svg viewBox="0 0 24 16" fill="none" aria-hidden="true"><path d="M6 15h11a4.6 4.6 0 0 0 .6-9 6.4 6.4 0 0 0-12.2-1.7A4.7 4.7 0 0 0 6 15Z" fill="currentColor"/></svg>
-          Lantas
-          <em>chat tab</em>
-        </span>
-        <span class="player-meta">0:24 · silent</span>
-        <button class="player-toggle" type="button" data-demo-toggle aria-label="Pause the clip">
-          <span data-demo-icon aria-hidden="true">❙❙</span>
-        </button>
-      </div>
-
-      <div class="player-stage">
-        <div class="mac">
-          <div class="mac-lid">
-            <div class="mac-screen" data-demo-screen data-scene="a">
-              <svg class="sprite" aria-hidden="true" focusable="false">
-                <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 11.7a7.4 7.4 0 0 1-7.4 7.4H8.4L4.6 21l.7-3.4A7.4 7.4 0 0 1 4.6 11.7 7.4 7.4 0 0 1 12 4.3a7.4 7.4 0 0 1 8 7.4Z"/></symbol>
-                <symbol id="i-code" viewBox="0 0 24 24"><rect x="3.2" y="4.6" width="17.6" height="14.8" rx="2.4"/><path d="m7.4 9.9 2.5 2.4-2.5 2.4M12.6 14.9h4.1"/></symbol>
-                <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.3"/><path d="m15.3 8.7-1.9 4.6-4.6 1.9 1.9-4.6 4.6-1.9Z"/></symbol>
-                <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.6"/><path d="m15.9 15.9 3.6 3.6"/></symbol>
-                <symbol id="i-term" viewBox="0 0 24 24"><rect x="3" y="4.6" width="18" height="14.8" rx="2.4"/><path d="m7.3 9.9 2.5 2.4-2.5 2.4M12.6 14.9h4.1"/></symbol>
-                <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.8v2.1M12 19.1v2.1M2.8 12h2.1M19.1 12h2.1M5.5 5.5l1.5 1.5M17 17l1.5 1.5M18.5 5.5 17 7M7 17l-1.5 1.5"/></symbol>
-                <symbol id="i-panel-l" viewBox="0 0 24 24"><rect x="3" y="4.6" width="18" height="14.8" rx="2.4"/><path d="M9.4 4.8v14.4"/></symbol>
-                <symbol id="i-panel-r" viewBox="0 0 24 24"><rect x="3" y="4.6" width="18" height="14.8" rx="2.4"/><path d="M14.6 4.8v14.4"/></symbol>
-                <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 8.4h9.2M17.6 8.4H20M4 15.6h4.4M12.8 15.6H20"/><circle cx="15.4" cy="8.4" r="1.7"/><circle cx="10.6" cy="15.6" r="1.7"/></symbol>
-                <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.4v13.2M5.4 12h13.2"/></symbol>
-                <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7.8v4.6l3 1.8"/></symbol>
-                <symbol id="i-book" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h4M8 12.6h8M8 16.2h8"/></symbol>
-                <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9.2 3.6v5M14.8 3.6v5M7.2 8.6h9.6v2.9a4.8 4.8 0 0 1-9.6 0V8.6ZM12 16.4v4"/></symbol>
-                <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 3.6 1.9 4.9 4.9 1.9-4.9 1.9L12 17.2l-1.9-4.9-4.9-1.9 4.9-1.9L12 3.6ZM18.4 16.4l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2Z"/></symbol>
-                <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.6 7.4a2 2 0 0 1 2-2h3.2l1.9 2.2h5.7a2 2 0 0 1 2 2v7.6a2 2 0 0 1-2 2H5.6a2 2 0 0 1-2-2V7.4Z"/></symbol>
-                <symbol id="i-caret" viewBox="0 0 24 24"><path d="m7.6 9.8 4.4 4.4 4.4-4.4"/></symbol>
-                <symbol id="i-more" viewBox="0 0 24 24"><circle cx="6.4" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="17.6" cy="12" r="1.2" fill="currentColor" stroke="none"/></symbol>
-                <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.6 4.4 4.4L19 7.4"/></symbol>
-                <symbol id="i-file" viewBox="0 0 24 24"><path d="M6.4 3.8h7l5.2 5.2v11.2a1.6 1.6 0 0 1-1.6 1.6H6.4a1.6 1.6 0 0 1-1.6-1.6V5.4a1.6 1.6 0 0 1 1.6-1.6Z"/><path d="M13 4.2v5h5"/></symbol>
-                <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20h4.4L20 8.4 15.6 4 4 15.6V20Z"/><path d="m13.4 6.2 4.4 4.4"/></symbol>
-                <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.3"/><path d="M3.9 12h16.2M12 3.7c2.2 2.3 3.3 5.1 3.3 8.3s-1.1 6-3.3 8.3c-2.2-2.3-3.3-5.1-3.3-8.3S9.8 6 12 3.7Z"/></symbol>
-                <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.6 7h14.8M9.4 7V4.8h5.2V7M6.6 7l.9 12.2h9l.9-12.2"/></symbol>
-                <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.8" y="8.8" width="10.8" height="10.8" rx="2.2"/><path d="M15.2 5.4H6.6a2 2 0 0 0-2 2v8.6"/></symbol>
-                <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19.4V5M6.4 10.6 12 5l5.6 5.6"/></symbol>
-                <symbol id="i-clip" viewBox="0 0 24 24"><path d="m18.6 11.4-6.8 6.8a4.6 4.6 0 0 1-6.5-6.5l7.4-7.4a3.1 3.1 0 0 1 4.4 4.4l-7.3 7.3a1.6 1.6 0 0 1-2.2-2.2l6.4-6.4"/></symbol>
-                <symbol id="i-at" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.6"/><path d="M15.6 8.4v4.8a2.6 2.6 0 0 0 5.2 0V12a8.8 8.8 0 1 0-3.4 7"/></symbol>
-                <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4.8" width="18" height="12.4" rx="2.2"/><path d="M9 20.2h6M12 17.4v2.8"/></symbol>
-                <symbol id="i-cursor" viewBox="0 0 24 24"><path d="m6 3.4 12.6 8.1-5.7 1.1-1.5 5.6L6 3.4Z"/></symbol>
-                <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5.4" width="18" height="13.2" rx="2.2"/><path d="m4.2 7 7.8 5.6L19.8 7"/></symbol>
-                <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.6" y="5.4" width="16.8" height="14.4" rx="2.2"/><path d="M3.8 9.8h16.4M8.4 3.4v3.6M15.6 3.4v3.6"/></symbol>
-              </svg>
-
-              <div class="app-tb">
-                <div class="tb-left">
-                  <span class="tb-mark" aria-hidden="true">L</span>
-                  <span class="tb-title"><b class="t-a">Ember</b><b class="t-b">Integrations</b><b class="t-c">Inbox</b></span>
-                </div>
-                <div class="mode-tabs" aria-hidden="true">
-                  <span class="mode is-on"><svg class="ic"><use href="#i-chat"/></svg>Chat</span>
-                  <span class="mode"><svg class="ic"><use href="#i-code"/></svg>Code</span>
-                  <span class="mode"><svg class="ic"><use href="#i-compass"/></svg>Browser</span>
-                </div>
-                <div class="tb-right" aria-hidden="true">
-                  <span class="tb-ic"><svg class="ic"><use href="#i-search"/></svg></span>
-                  <span class="tb-ic"><svg class="ic"><use href="#i-term"/></svg></span>
-                  <span class="tb-ic"><svg class="ic"><use href="#i-sun"/></svg></span>
-                  <span class="tb-ic"><svg class="ic"><use href="#i-panel-l"/></svg></span>
-                  <span class="tb-ic"><svg class="ic"><use href="#i-panel-r"/></svg></span>
-                  <span class="tb-ic"><svg class="ic"><use href="#i-sliders"/></svg></span>
-                </div>
-              </div>
-
-              <div class="app-body">
-                <div class="app-rail" aria-hidden="true">
-                  <span class="rail-btn"><svg class="ic"><use href="#i-panel-l"/></svg></span>
-                  <span class="rail-btn"><svg class="ic"><use href="#i-plus"/></svg></span>
-                  <span class="rail-group">
-                    <span class="rail-btn rail-chat"><svg class="ic"><use href="#i-chat"/></svg></span>
-                    <span class="rail-btn"><svg class="ic"><use href="#i-book"/></svg></span>
-                    <span class="rail-btn rail-plug"><svg class="ic"><use href="#i-plug"/></svg></span>
-                  </span>
-                  <span class="rail-gap"></span>
-                  <span class="rail-btn"><svg class="ic"><use href="#i-sparkle"/></svg></span>
-                  <span class="rail-btn"><svg class="ic"><use href="#i-sliders"/></svg></span>
-                </div>
-
-                <div class="app-nav" aria-hidden="true">
-                  <span class="nav-wordmark">Lantas</span>
-                  <p class="nav-head">Threads</p>
-                  <p class="nav-proj"><svg class="ic"><use href="#i-folder"/></svg>Ember<svg class="ic nav-caret"><use href="#i-caret"/></svg></p>
-                  <p class="nav-new"><svg class="ic"><use href="#i-plus"/></svg>New thread</p>
-                  <div class="nav-row th-a"><svg class="ic"><use href="#i-clock"/></svg><span>Ember landing</span><small>now</small></div>
-                  <div class="nav-row th-b"><svg class="ic"><use href="#i-clock"/></svg><span>Integrations</span><small>1m</small></div>
-                  <div class="nav-row th-c"><svg class="ic"><use href="#i-clock"/></svg><span>Inbox</span><small>now</small></div>
-                  <p class="nav-foot"><svg class="ic"><use href="#i-sliders"/></svg>Settings<kbd>⌘,</kbd></p>
-                </div>
-
-                <div class="app-pane">
-                  <!-- 1 · build -->
-                  <div class="pane pane-a">
-                    <div class="pane-head">
-                      <span class="pane-title">Ember</span>
-                      <span class="pane-tools"><svg class="ic"><use href="#i-copy"/></svg><svg class="ic"><use href="#i-trash"/></svg></span>
-                    </div>
-
-                    <div class="thread">
-                      <div class="msg msg-user" data-demo-at="3500">
-                        <div class="u-card">build a landing page for a coffee roastery. take the tone from bluebottle.com</div>
-                      </div>
-
-                      <div class="msg msg-bot">
-                        <div class="bot-head" data-demo-at="3950">
-                          <span class="bot-mark" aria-hidden="true">L</span>
-                          <span class="bot-who">Build</span>
-                          <span class="bot-time">12:04 PM</span>
-                        </div>
-                        <div class="bot-body">
-                          <div class="trow" data-demo-at="4150">
-                            <span class="tr-ok"><svg class="ic"><use href="#i-check"/></svg></span>
-                            <span class="tr-kind"><svg class="ic"><use href="#i-file"/></svg></span>
-                            <span class="tr-label">Read package.json</span>
-                            <span class="tr-chip">package.json</span>
-                          </div>
-                          <div class="trow" data-demo-at="4600">
-                            <span class="tr-ok"><svg class="ic"><use href="#i-check"/></svg></span>
-                            <span class="tr-kind"><svg class="ic"><use href="#i-globe"/></svg></span>
-                            <span class="tr-label">Web read bluebottle.com</span>
-                            <span class="tr-detail">84 controls · 1 page</span>
-                          </div>
-                          <div class="trow is-note" data-demo-at="5150">
-                            <span class="tr-ok"><svg class="ic"><use href="#i-sparkle"/></svg></span>
-                            <span class="tr-note">Tone: short lowercase lines, cream and ink, no hard sell.</span>
-                          </div>
-                          <div class="trow" data-demo-at="5600">
-                            <span class="tr-ok"><svg class="ic"><use href="#i-check"/></svg></span>
-                            <span class="tr-kind"><svg class="ic"><use href="#i-pen"/></svg></span>
-                            <span class="tr-label">Write ember/src/pages/index.astro</span>
-                            <span class="tr-chip">+96</span>
-                          </div>
-                          <div class="trow" data-demo-at="6050">
-                            <span class="tr-ok"><svg class="ic"><use href="#i-check"/></svg></span>
-                            <span class="tr-kind"><svg class="ic"><use href="#i-pen"/></svg></span>
-                            <span class="tr-label">Write ember/src/styles/landing.css</span>
-                            <span class="tr-chip">+184</span>
-                          </div>
-
-                          <div class="sh-block" data-demo-at="6500">
-                            <div class="sh-head">
-                              <svg class="ic"><use href="#i-term"/></svg>
-                              <span class="sh-cmd"><i>$</i> npm run build</span>
-                              <span class="sh-exit">exit 0</span>
-                            </div>
-                            <pre class="sh-body">&gt; ember@0.1.0 build
-&gt; astro build
-
-<span class="ok">✓</span> 4 pages built in 1.24s
-dist/index.html   4.1 kB</pre>
-                          </div>
-
-                          <p class="bot-p" data-demo-at="7500">Landing page is in <code>~/dev/ember</code>: a hero, the three roasts, a subscribe block, all in Blue Bottle’s warm short tone. <code>npm run dev</code> serves it on <code>localhost:4321</code>.</p>
-                          <p class="bot-foot" data-demo-at="8300">Worked for 41s</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="app-composer is-empty">
-                      <div class="cp-input">
-                        <span class="cp-text" data-demo-type="build a landing page for a coffee roastery. take the tone from bluebottle.com" data-demo-at="500" data-demo-cps="46" data-demo-hide="3500"></span>
-                        <i class="cp-caret" aria-hidden="true"></i>
-                        <span class="cp-ph">Follow up…</span>
-                      </div>
-                      <div class="cp-bar" aria-hidden="true">
-                        <span class="cp-ic"><svg class="ic"><use href="#i-clip"/></svg></span>
-                        <span class="cp-ic"><svg class="ic"><use href="#i-at"/></svg></span>
-                        <span class="cp-mode">Build<svg class="ic"><use href="#i-caret"/></svg></span>
-                        <span class="cp-model">Qwen3 Coder 30B<svg class="ic"><use href="#i-caret"/></svg></span>
-                        <span class="cp-div"></span>
-                        <span class="cp-ic is-on"><svg class="ic"><use href="#i-monitor"/></svg></span>
-                        <span class="cp-ic"><svg class="ic"><use href="#i-cursor"/></svg></span>
-                        <span class="cp-end"><span class="cp-pct">12%</span><span class="cp-send"><svg class="ic"><use href="#i-up"/></svg></span></span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 2 · connect gmail -->
-                  <div class="pane pane-b">
-                    <div class="pane-head">
-                      <span class="pane-title">Integrations</span>
-                      <span class="pane-tools"><span class="pane-count">32 apps</span></span>
-                    </div>
-
-                    <div class="int">
-                      <div class="int-search" data-demo-at="9850"><svg class="ic"><use href="#i-search"/></svg>Search 32 apps</div>
-                      <p class="int-lead" data-demo-at="10050">Connect once. After that, ask in any thread.</p>
-
-                      <div class="int-list">
-                        <div class="int-row is-gmail" data-demo-at="10250">
-                          <span class="int-tile"><svg class="ic"><use href="#i-mail"/></svg></span>
-                          <span class="int-text">
-                            <b>Gmail</b>
-                            <small class="int-idle">Read, search and send mail<span class="int-src">Google</span></small>
-                            <small class="int-live">Connected · anwar.kalonov@gmail.com</small>
-                          </span>
-                          <span class="int-btn int-idle" data-demo-until="11600">Connect</span>
-                          <span class="int-btn is-done int-live">Manage</span>
-                          <span class="int-ring" data-demo-at="11300" data-demo-until="12300"></span>
-                          <span class="int-cursor" data-demo-at="10600" data-demo-until="12200"><svg class="ic"><use href="#i-cursor"/></svg></span>
-                        </div>
-
-                        <div class="int-row" data-demo-at="10550">
-                          <span class="int-tile"><svg class="ic"><use href="#i-cal"/></svg></span>
-                          <span class="int-text"><b>Google Calendar</b><small>Events and availability</small></span>
-                          <span class="int-btn">Connect</span>
-                        </div>
-                        <div class="int-row" data-demo-at="10700">
-                          <span class="int-tile">N</span>
-                          <span class="int-text"><b>Notion</b><small>Pages and databases</small></span>
-                          <span class="int-btn">Connect</span>
-                        </div>
-                        <div class="int-row" data-demo-at="10850">
-                          <span class="int-tile">S</span>
-                          <span class="int-text"><b>Slack</b><small>Messages and channels</small></span>
-                          <span class="int-btn">Connect</span>
-                        </div>
-                        <div class="int-row" data-demo-at="11000">
-                          <span class="int-tile">L</span>
-                          <span class="int-text"><b>Linear</b><small>Issues and projects</small></span>
-                          <span class="int-btn">Connect</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="toast" data-demo-at="11850" data-demo-until="13400">
-                      <svg class="ic ok"><use href="#i-check"/></svg>Gmail connected
-                    </div>
-                  </div>
-
-                  <!-- 3 · read the inbox -->
-                  <div class="pane pane-c">
-                    <div class="pane-head">
-                      <span class="pane-title">Inbox</span>
-                      <span class="pane-tools"><svg class="ic"><use href="#i-copy"/></svg><svg class="ic"><use href="#i-trash"/></svg></span>
-                    </div>
-
-                    <div class="thread">
-                      <div class="msg msg-user" data-demo-at="15300">
-                        <div class="u-card">what’s new in my email today?</div>
-                      </div>
-
-                      <div class="msg msg-bot">
-                        <div class="bot-head" data-demo-at="15700">
-                          <span class="bot-mark" aria-hidden="true">L</span>
-                          <span class="bot-who">Build</span>
-                          <span class="bot-time">12:06 PM</span>
-                        </div>
-                        <div class="bot-body">
-                          <div class="trow" data-demo-at="16000">
-                            <span class="tr-ok"><svg class="ic"><use href="#i-check"/></svg></span>
-                            <span class="tr-kind"><svg class="ic"><use href="#i-mail"/></svg></span>
-                            <span class="tr-label">Gmail · list messages</span>
-                            <span class="tr-detail">is:unread newer_than:1d</span>
-                          </div>
-                          <div class="trow" data-demo-at="16500">
-                            <span class="tr-ok"><svg class="ic"><use href="#i-check"/></svg></span>
-                            <span class="tr-kind"><svg class="ic"><use href="#i-file"/></svg></span>
-                            <span class="tr-label">Read 7 messages</span>
-                            <span class="tr-detail">2 need you</span>
-                          </div>
-
-                          <div class="bot-p is-list" data-demo-at="17200">
-                            <p>Three worth your time:</p>
-                            <ul>
-                              <li><b>Stripe</b> — receipt for $20.00; Pro renews Dec 24</li>
-                              <li><b>Priya</b> — design review moved to 3:00 PM today</li>
-                              <li><b>Linear</b> — 4 issues closed in Lantas 1.0.9</li>
-                            </ul>
-                            <p>Nothing else is unread. Want the invoice saved to your downloads?</p>
-                          </div>
-                          <p class="bot-foot" data-demo-at="19800">Worked for 6s</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="app-composer is-empty">
-                      <div class="cp-input">
-                        <span class="cp-text" data-demo-type="what’s new in my email today?" data-demo-at="14100" data-demo-cps="48" data-demo-hide="15300"></span>
-                        <i class="cp-caret" aria-hidden="true"></i>
-                        <span class="cp-ph">Follow up…</span>
-                      </div>
-                      <div class="cp-bar" aria-hidden="true">
-                        <span class="cp-ic"><svg class="ic"><use href="#i-clip"/></svg></span>
-                        <span class="cp-ic"><svg class="ic"><use href="#i-at"/></svg></span>
-                        <span class="cp-mode">Build<svg class="ic"><use href="#i-caret"/></svg></span>
-                        <span class="cp-model">Qwen3 Coder 30B<svg class="ic"><use href="#i-caret"/></svg></span>
-                        <span class="cp-div"></span>
-                        <span class="cp-ic is-on"><svg class="ic"><use href="#i-monitor"/></svg></span>
-                        <span class="cp-ic"><svg class="ic"><use href="#i-cursor"/></svg></span>
-                        <span class="cp-end"><span class="cp-pct">9%</span><span class="cp-send"><svg class="ic"><use href="#i-up"/></svg></span></span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="mac-glow" aria-hidden="true"></div>
-            </div>
-          </div>
-        </div>
-        <div class="mac-base" aria-hidden="true"></div>
-      </div>
-
-      <div class="player-track" aria-hidden="true"><i data-demo-bar></i></div>
-      <div class="player-chapters" aria-hidden="true">
-        <span data-chapter="0">build</span><span data-chapter="1">connect gmail</span><span data-chapter="2">read inbox</span>
-      </div>
-    </figure>
-    <figcaption class="cap">The chat tab at its real proportions — titlebar, threads, tool rows, composer — rebuilt in the page, not a screen capture. It plays by itself; nothing in it is clickable. <a href="download.html">Download Lantas</a> to connect your own accounts.</figcaption>
-  </div>
-</section>
-
-<!-- features -->
-<section class="sec sec--tight" id="features">
-  <div class="wrap">
-    <header class="sec-head sec-head--wide">
-      <div>
-        <p class="eyebrow" data-reveal><span class="dot"></span>Everything in one window</p>
-        <h2 data-reveal style="--d:60ms;margin-top:18px">Not only a browser.<br>The whole desk.</h2>
-      </div>
-      <p class="dek" data-reveal style="--d:120ms">Chat, code and the page in front of you, joined to the apps you already work in. The browser is one of six things Lantas does.</p>
-    </header>
-
-    <div class="feat-grid" data-reveal>
-      <article class="feat">
-        <p class="n">01 · chat</p>
-        <h3>Ask anything, keep the thread</h3>
-        <p>A thread per topic, with the model you chose. Attach files, images or a frame of your screen; rewind a turn, compact a long thread, or export it. ⌘K reaches every session, action and command.</p>
-        <div class="tags"><span>⌘K palette</span><span>attachments</span><span>screen share</span></div>
-      </article>
-
-      <article class="feat">
-        <p class="n">02 · code</p>
-        <h3>Code in the folder you pick</h3>
-        <p>Point Lantas at a workspace and it reads the tree, edits as diffs you can apply or roll back, and commits through GitHub. Build, Plan and Chat decide whether it may write.</p>
-        <div class="tags"><span>Build · Plan · Chat</span><span>diffs</span><span>GitHub</span></div>
-      </article>
-
-      <article class="feat">
-        <p class="n">03 · your apps</p>
-        <h3>The apps you already work in</h3>
-        <p>Thirty-two toolkits through Composio — Gmail, Slack, Notion, Linear, Jira, Drive, HubSpot — plus read-only Gmail through your own OAuth client, and any MCP server you add.</p>
-        <div class="tags"><span>Composio</span><span>Gmail</span><span>MCP</span></div>
-      </article>
-
-      <article class="feat">
-        <p class="n">04 · the browser</p>
-        <h3>The tab you are looking at</h3>
-        <p>A browser of its own and a Chrome side panel. It reads the page exactly, clicks a control by its label rather than by coordinates, then re-reads the page to check what happened.</p>
-        <div class="tags"><span>Lantas engine</span><span>Chrome</span><span>extension</span></div>
-      </article>
-
-      <article class="feat">
-        <p class="n">05 · skills</p>
-        <h3>Skills, commands, your rules</h3>
-        <p>Thirteen procedures ship built in, from commits and review to debugging, test gaps, release notes and interface copy. Teach it your own skills, then wrap the work you repeat in slash commands that take arguments.</p>
-        <div class="tags"><span>13 built-in skills</span><span>custom skills</span><span>/commit</span></div>
-      </article>
-
-      <article class="feat">
-        <p class="n">06 · models</p>
-        <h3>Any model, on your Mac</h3>
-        <p>Claude, GPT, Gemini, NVIDIA NIM, OpenRouter, Groq, Ollama or LM Studio. Keys live in the app's own storage, requests go straight to the provider, and there is no telemetry to switch off.</p>
-        <div class="tags"><span>9 providers</span><span>local models</span><span>no telemetry</span></div>
-      </article>
-    </div>
-
-    <article class="feat free" data-reveal style="--d:60ms">
-      <div>
-        <p class="n">07 · the price</p>
-        <h3>Free, and not in the trial sense.</h3>
-        <div class="tags"><span>$0</span><span>free forever</span><span>no account</span><span>no per-task fee</span></div>
-      </div>
-      <p>No subscription, no seats, no metering and nothing to upgrade: download it once and use it. Run a model on the same Mac and a task costs nothing at all. Bring a hosted key and that provider is the only thing that bills you — Lantas takes nothing on top.</p>
-    </article>
-  </div>
-</section>
-
-<!-- the actual app -->
-<!-- macs: three screens spin in behind the clouds -->
-<section class="macs" id="macs" aria-labelledby="macs-title">
-  <div class="macs-stage">
-    <div class="macs-sky" aria-hidden="true"></div>
-    <figure class="mac mac--a">
-      <span class="mac-bar"><i></i><i></i><i></i></span>
-      <img src="assets/img/app-home.webp" alt="Lantas home: one thread for the folder, the screen and the page" width="880" height="560">
-    </figure>
-    <figure class="mac mac--b">
-      <span class="mac-bar"><i></i><i></i><i></i></span>
-      <img src="assets/img/app-code.webp" alt="Lantas code workspace with a diff and a passing check" width="880" height="560">
-    </figure>
-    <figure class="mac mac--c">
-      <span class="mac-bar"><i></i><i></i><i></i></span>
-      <img src="assets/img/app-browser.webp" alt="Lantas browser with a page read and a pointer on the control" width="880" height="560">
-    </figure>
-    <div class="macs-copy">
-      <h2 id="macs-title">Three surfaces, <em>one window.</em></h2>
-      <p>Chat, the editor and the page it is driving, stacked in the same frame. Bring a task in from any of them and the agent keeps the thread.</p>
-    </div>
-  </div>
-</section>
-
-<section class="sec" id="app">
-  <div class="wrap">
-    <header class="sec-head sec-head--wide">
-      <div>
-        <p class="eyebrow" data-reveal><span class="dot"></span>The app, not a drawing</p>
-        <h2 data-reveal style="--d:60ms;margin-top:18px">This is what you open.</h2>
-      </div>
-      <p class="dek" data-reveal style="--d:120ms">Chat, code and browser, captured from Lantas while a task is running. The page you have been scrolling through is the site; these are the surfaces inside the app.</p>
-    </header>
-
-    <div class="shots-grid" data-reveal>
-      <figure class="shot shot-wide">
-        <img src="assets/img/app-code.webp" alt="Lantas Code running a task: a file tree, App.tsx in the editor, and the assistant reporting an edit and passing tests" width="1240" height="1225" loading="lazy">
-        <figcaption><b>Code</b><span>A real task in the Code surface: the assistant reads the file, edits it, runs the tests and reports the result beside the editor.</span></figcaption>
-      </figure>
-      <figure class="shot">
-        <img src="assets/img/app-home.webp" alt="Lantas Chat: a finished task with file reads, an edit, a passing test run and the assistant's summary" width="1240" height="1225" loading="lazy">
-        <figcaption><b>Chat</b><span>One thread for the question, the folder and the page in front of you, with every read, edit and command kept in the conversation.</span></figcaption>
-      </figure>
-      <figure class="shot">
-        <img src="assets/img/app-browser.webp" alt="Lantas Browser: a browser-only thread, a new tab, the address bar and the Ask the page assistant in Act mode" width="1240" height="1225" loading="lazy">
-        <figcaption><b>Browser</b><span>A browser-only thread with its own history, tabs and an assistant that can act in the page one step at a time.</span></figcaption>
-      </figure>
-    </div>
-    <p class="cap">Screens from Lantas. The sample workspace is local; the app is free, and you bring the model key or run one on the same Mac.</p>
-  </div>
-</section>
-
-<!-- 01 -->
-<section class="sec" id="observability">
-  <div class="sec-cloud bits" data-parallax="0.06" style="right:-70px;top:80px;--w:520px;--h:300px;--o:.8;left:auto" data-bits></div>
-  <div class="wrap">
-    <header class="sec-head">
-      <p class="eyebrow" data-reveal><span class="dot"></span>The browser · observability</p>
-      <h2 data-reveal style="--d:60ms">A screenshot tells you what it looks like. Lantas reads what the page says.</h2>
-      <p class="dek" data-reveal style="--d:120ms">Understanding a page: the difference between looking at it and knowing what can be clicked.</p>
-    </header>
-
-    <div class="grid-copy">
-      <div class="prose" data-reveal>
-        <p>This is the browser part, and it is where the other half of the app earns its keep. A checkout page is 42 controls, three forms and 900 words, and any one of them can be the thing you meant. A screenshot gives a model pixels and a guess about coordinates; a paste gives it whatever you selected. Lantas reads the DOM through the extension — roles, labels, values, what is visible and what is enabled — and asks the model what to do with that.</p>
-        <p>For each tab Lantas keeps the title, the address, the readable text, the controls with their labels, and the tab list. The page is read on demand, and nothing is sent anywhere until you ask a question about it.</p>
-      </div>
-
-      <div class="panel" data-reveal style="--d:90ms">
-        <div class="panel-head">
-          This tab
-          <span class="live"><i></i>read 1.2 s ago</span>
-        </div>
-        <div class="inspect">
-          <div class="inspect-row head">
-            <span>field</span><span>shape</span><span class="val">value</span>
-          </div>
-          <div class="inspect-row">
-            <span class="name">page.title</span><span class="stat">string · 64 chars</span><span class="val">Checkout — Mixtape</span>
-          </div>
-          <div class="inspect-row">
-            <span class="name">page.url</span><span class="stat">https · 1</span><span class="val">mixtape.co/checkout</span>
-          </div>
-          <div class="inspect-row">
-            <span class="name">controls</span><span class="stat">42 · 11 buttons</span><span class="val">“Place order” 0.97</span>
-          </div>
-          <div class="inspect-row">
-            <span class="name">text</span><span class="stat">912 words</span><span class="val">cleaned, no scripts</span>
-          </div>
-        </div>
-        <p class="inspect-foot">All four come from the extension, a few times a second. No screenshots, no OCR, and no page data leaves your Mac until you ask.</p>
-      </div>
-    </div>
-
-    <div class="grid-copy" style="margin-top:72px">
-      <div data-reveal>
-        <h3>Why the browser</h3>
-        <p style="margin-top:14px;color:var(--ink-2);font-size:16.5px;line-height:28px;max-width:56ch">
-          The page is the only thing that knows what is clickable right now. A model that cannot read it is guessing from your description.
-        </p>
-
-        <p class="defn">Every control has a label. Every request has words. The match is how much of one the other explains.</p>
-
-        <div class="mathcard" style="margin-top:24px">
-          <span class="math">
-            <i>match</i><span class="op">=</span><i>sim</i><span class="op">(</span><i>label</i><span class="op">,</span> <i>request</i><span class="op">)</span>
-          </span>
-          <span class="mathlabel">Above 0.90 it clicks. Below, it asks which one you meant.</span>
-        </div>
-
-        <p style="margin-top:22px;color:var(--ink-2);font-size:16.5px;line-height:28px;max-width:56ch">
-          Most labels are obvious. A few are the whole problem. The figure scores fourteen controls from one checkout, and every point can be clicked.
-        </p>
-      </div>
-
-      <figure data-reveal style="--d:80ms">
-        <div class="resid" data-resid>
-          <svg role="img" aria-label="Fourteen controls from one checkout, each scored against the same request"></svg>
-          <div class="readout-line"></div>
-        </div>
-        <figcaption class="cap"><b>Fourteen controls, one request.</b> The dot is what the agent reached for, the tick is the control's own label, the green segment is how far apart they were. Hover a point to read the score.</figcaption>
-      </figure>
-    </div>
-
-    <div style="margin-top:80px">
-      <h3 data-reveal>Pages change under you</h3>
-
-      <div class="grid-copy" style="margin-top:26px">
-        <div class="prose" data-reveal>
-          <p>The layout was fine when you left it. Then a deploy shipped a new button id, an A/B test moved the form, and every selector from last week's run is now a guess. By the time you look, an agent has spent an hour clicking the wrong thing politely.</p>
-          <p>Lantas re-reads the page after every action, and matches a control by its label before it ever falls back to a selector.</p>
-
-          <div class="mathcard" style="margin-top:24px">
-            <span class="math"><i>#buy</i><span class="op">→</span><i>#buy-v2</i></span>
-            <span class="mathlabel">The same button, a new id, shipped this morning.</span>
-          </div>
-        </div>
-
-        <figure data-reveal style="--d:80ms">
-          <div class="window" style="box-shadow:var(--sh)">
-            <div class="plot" data-trace="divergence" style="margin:14px">
-              <div class="flag"><i></i>layout changed at 09:41</div>
-              <svg role="img" aria-label="Time per action, steady until a layout change makes it climb"></svg>
-              <div class="axis"><span>09:00</span><span>09:20</span><span>09:40</span><span>10:00</span><span>10:20</span></div>
-              <button class="replay">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4M3 4v5h5"/></svg>
-                replay the run
-              </button>
-            </div>
-          </div>
-          <figcaption class="cap"><b>Steady, then a deploy.</b> Red marks the moment the page stops matching what the agent learned.</figcaption>
-        </figure>
-      </div>
-
-      <div style="margin-top:56px;max-width:760px">
-        <p class="meta" style="margin-bottom:6px">One session, in order</p>
-        <div class="log">
-          <div class="log-item" data-reveal><span class="t">09:41</span><span class="n">01</span><span>find the march invoice.</span></div>
-          <div class="log-item" data-reveal style="--d:60ms"><span class="t">09:41</span><span class="n">02</span><span>42 controls. two of them say <b>download</b>.</span></div>
-          <div class="log-item" data-reveal style="--d:120ms"><span class="t">09:42</span><span class="n">03</span><span>clicked the first. no file appeared.</span></div>
-          <div class="log-item" data-reveal style="--d:180ms"><span class="t">09:42</span><span class="n">04</span><span><s>wrong button.</s> the other one says <b>Download PDF</b>.</span></div>
-          <div class="log-item" data-reveal style="--d:240ms"><span class="t">09:43</span><span class="n">05</span><span>clicked it. file saved.</span></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- 02 -->
-<section class="sec" id="analysis">
-  <div class="sec-cloud bits" data-parallax="0.06" style="left:-90px;top:58%;--w:480px;--h:270px;--o:.75;right:auto" data-bits></div>
-  <div class="wrap">
-    <header class="sec-head sec-head--wide">
-      <div>
-        <p class="eyebrow" data-reveal><span class="dot"></span>Reading the page</p>
-        <h2 data-reveal style="--d:60ms;margin-top:18px">Separating reading from guessing</h2>
-      </div>
-      <p class="dek" data-reveal style="--d:120ms">Instead of asking a model to guess what a button does from a picture, Lantas reads its role, its label and its state.</p>
-    </header>
-
-    <div class="grid-copy">
-      <div class="prose" data-reveal>
-        <p>Lantas separates model reasoning from what the browser can answer exactly. The extension returns the controls that are visible and enabled, with their role and accessible name; the model chooses among them. Matching by label means a button that moved is still a button.</p>
-        <p>Every action is a step: the control, the label it matched, the confidence, and what the page said afterwards. Steps are deduplicated, so two identical clicks are one intent. Verification runs whether auto-act is on or off.</p>
-      </div>
-
-      <div data-reveal style="--d:80ms">
-        <div class="mathcard" style="margin-bottom:24px">
-          <span class="math">
-            <i>s</i><span class="op">=</span>
-            <span class="frac">
-              <span class="num">|<i>L</i> ∩ <i>W</i>|</span>
-              <span class="den">|<i>L</i> ∪ <i>W</i>|</span>
-            </span>
-          </span>
-          <span class="mathlabel">The overlap between a control's label and your words.</span>
-        </div>
-
-        <div class="findings">
-          <div class="finding">
-            <span class="sev"><i></i>critical</span>
-            <span class="what">A-041 <span>· click · “Place order”</span></span>
-            <span class="val">0.97 · conf <b>0.91</b></span>
-          </div>
-          <div class="finding dim">
-            <span class="sev"><i></i>deduped</span>
-            <span class="what">A-041 <span>· click · “Place order”</span></span>
-            <span class="val">0.97 · same</span>
-          </div>
-          <div class="finding">
-            <span class="sev warn"><i></i>warning</span>
-            <span class="what">A-052 <span>· moved · “Reserve”</span></span>
-            <span class="val">12 px lower · conf <b>0.88</b></span>
-          </div>
-          <div class="finding">
-            <span class="sev ok"><i></i>clear</span>
-            <span class="what">A-011 <span>· destructive · none in view</span></span>
-            <span class="val">none</span>
-          </div>
-        </div>
-        <p class="cap"><b>Steps</b> carry an id, the control, how it matched and what happened. The second row is the same step, folded into the first.</p>
-      </div>
-    </div>
-
-    <div style="margin-top:80px">
-      <h3 data-reveal>What the agent reads</h3>
-      <div class="grid-copy" style="margin-top:24px">
-        <div class="prose" data-reveal>
-          <p>The agent reads the page together with your request, and keeps what it read apart from what it guessed. Two further passes cover what one read misses: a check of the extension's own report — controls with no label, forms without a submit, a button that is disabled — and a re-read after every action to see whether the page did what the step claimed.</p>
-        </div>
-
-        <div data-reveal style="--d:80ms">
-          <p class="meta" style="margin-bottom:4px">Checks · before it acts</p>
-          <div class="checks">
-            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span>a control with no accessible name is never clicked</span></div>
-            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span>password and payment fields need an explicit ask</span></div>
-            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span>a disabled control is reported, not clicked</span></div>
-            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span>typing goes only into visible, focused fields</span></div>
-            <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg><span>destructive buttons are named before they are pressed</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div data-reveal style="margin-top:48px" data-stepper>
-        <div class="stepper">
-          <div class="steps" role="tablist" aria-label="How Lantas works">
-            <button class="step" role="tab" aria-selected="true" data-k="what is on screen" data-title="Page read" data-body="The extension returns the page's controls, their roles, labels and state, and the text you can see. Nothing is installed into the site." data-code="checkout · 42 controls · 912 words&#10;read 1.2 s · no screenshot">
-              <span class="i">01</span><span class="t">Page read</span><span class="tag">check</span>
-            </button>
-            <button class="step" role="tab" aria-selected="false" data-k="measured, not guessed" data-title="Controls mapped" data-body="Each control keeps its role, its accessible name, whether it is visible and enabled, and where it sits." data-code="button “Place order”   enabled   (412, 688)&#10;link “Apply coupon”    enabled   (412, 742)">
-              <span class="i">02</span><span class="t">Controls mapped</span><span class="tag">exact</span>
-            </button>
-            <button class="step" role="tab" aria-selected="false" data-k="model reasoning" data-title="Intent matched" data-body="The model picks among the controls that exist, by their labels, instead of inventing coordinates from a picture." data-code="you:  “place the order”&#10;→ button “Place order” · 0.97">
-              <span class="i">03</span><span class="t">Intent matched</span><span class="tag">model</span>
-            </button>
-            <button class="step" role="tab" aria-selected="false" data-k="model reasoning" data-title="Action planned" data-body="One step at a time: click, type, press Enter, scroll or open a tab. Nothing that spends, sends or deletes without an explicit ask." data-code="click “Place order”&#10;then: verify the confirmation">
-              <span class="i">04</span><span class="t">Action planned</span><span class="tag">model</span>
-            </button>
-            <button class="step" role="tab" aria-selected="false" data-k="you, or the switch" data-title="Applied" data-body="The extension runs the step in the tab you already have open. Pause Lantas in the side panel and nothing reaches the page." data-code="chrome.tabs · active · checkout&#10;clicked · 41 ms">
-              <span class="i">05</span><span class="t">Applied</span><span class="tag">you</span>
-            </button>
-            <button class="step" role="tab" aria-selected="false" data-k="checked again" data-title="Verified" data-body="The page is read again. If the confirmation is not there, the step is reported as failed, not as done." data-code="order #A-10428&#10;confirmed · 38 s">
-              <span class="i">06</span><span class="t">Verified</span><span class="tag">check</span>
-            </button>
-            <button class="step" role="tab" aria-selected="false" data-k="one sentence" data-title="Reported" data-body="The answer you see is the step that ran, plus what the page said afterwards. No theatre, and no claiming what did not happen." data-code="“Ordered, #A-10428.”&#10;1 step · 38 s · $0">
-              <span class="i">07</span><span class="t">Reported</span><span class="tag">check</span>
-            </button>
-          </div>
-
-          <div class="step-panel" role="tabpanel"></div>
-        </div>
-        <p class="cap"><b>From request to result.</b> Stages 2 and 3 are read from the page; 4 is model reasoning; 5 changes the tab; 6 and 7 check it. Click a stage.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- 03 -->
-<section class="sec" id="intervention">
-  <div class="sec-cloud bits" data-parallax="0.06" style="right:-60px;bottom:-40px;--w:500px;--h:290px;--o:.72;left:auto" data-bits></div>
-  <div class="wrap">
-    <header class="sec-head">
-      <p class="eyebrow" data-reveal><span class="dot"></span>Acting on the page</p>
-      <h2 data-reveal style="--d:60ms">Acting on the page</h2>
-      <p class="dek" data-reveal style="--d:120ms">Every click is a step you can see, and the stop switch is one toggle away.</p>
-    </header>
-
-    <div class="grid-copy">
-      <div class="prose" data-reveal>
-        <p>With the agent driving, Lantas can click, type and press Enter in the tab you have open, one step at a time. It clicks a control because of its label, not because of where it sat in a screenshot, and it asks before anything that spends money, sends a message or deletes something.</p>
-        <p>In the side panel, “Let Lantas act” is the switch. Turn it off and the agent still reads and answers, but every action is refused before it reaches the page.</p>
-      </div>
-
-      <div data-reveal style="--d:80ms">
-        <div class="loop">
-          <div class="loop-step"><span class="n">01</span><span class="t">Observe</span><span class="d">the page, read exactly</span></div>
-          <div class="loop-step"><span class="n">02</span><span class="t">Match</span><span class="d">by label, not pixels</span></div>
-          <div class="loop-step key"><span class="n">03</span><span class="t">Plan</span><span class="d">one step at a time</span></div>
-          <div class="loop-step key"><span class="n">04</span><span class="t">Ask</span><span class="d">you, or the switch</span></div>
-          <div class="loop-step key"><span class="n">05</span><span class="t">Verify</span><span class="d">re-read, then report</span></div>
-        </div>
-        <p class="cap"><b>The action loop.</b> The last stage is why a click is safe to trust: the page is read again, and a failure is reported as a failure.</p>
-      </div>
-    </div>
-
-    <div style="margin-top:56px;max-width:780px" data-reveal>
-      <div class="codewin" data-diff>
-        <div class="code-head">
-          <span class="file">checkout.ts</span>
-          <span>line 12</span>
-          <span class="state"><i></i><span class="label">clean · #buy back on line 12</span></span>
-        </div>
-        <div class="code-body">
-          <div class="code-line"><span class="ln">10</span><span class="sign"></span>    const page = await lantas.tab()</div>
-          <div class="code-line"><span class="ln">11</span><span class="sign"></span></div>
-          <div class="code-line del"><span class="ln">12</span><span class="sign">−</span>    await page.click("#buy")</div>
-          <div class="code-line add"><span class="ln">12</span><span class="sign">+</span>    await page.click("text=Place order")</div>
-          <div class="code-line"><span class="ln">13</span><span class="sign"></span>    await page.waitFor("text=Order confirmed")</div>
-        </div>
-        <div class="code-foot">
-          <button class="btn btn-line btn-sm" data-apply aria-pressed="false">Apply the change</button>
-          <button class="undo" data-undo>
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4M3 4v5h5"/></svg>
-            roll back
-          </button>
-          <span class="spacer"></span>
-          <span>1 step · approved</span>
-        </div>
-      </div>
-      <p class="cap"><b>Illustrative:</b> a proposed step, its application, and the rollback.</p>
-    </div>
-  </div>
-</section>
-
-<!-- 04 -->
-<section class="sec" id="verification">
-  <div class="wrap">
-    <header class="sec-head sec-head--wide">
-      <div>
-        <p class="eyebrow" data-reveal><span class="dot"></span>Verification</p>
-        <h2 data-reveal style="--d:60ms;margin-top:18px">Measured on real browser tasks</h2>
-      </div>
-      <p class="dek" data-reveal style="--d:120ms">Each tool must finish the task in the user's own Chrome.</p>
-    </header>
-
-    <div class="prose" data-reveal style="margin-bottom:36px">
-      <p>We wrote eleven tasks a person would do in a browser — book a table, apply a promo code, download a statement — and gave each tool the same Chrome window. Lantas ran on Claude Sonnet 4.5 with its own extension; Claude Code on Opus 4.1 with computer use; Antigravity on Gemini 3. Lantas finished all eleven at a mean of 1.8 minutes. Claude Code finished nine at 3.3 minutes, Antigravity eight at 3.6. The app itself is free, so the only bill is the model you point it at.</p>
-    </div>
-
-    <div class="band" data-reveal>
-      <div class="stats plain">
-        <div class="stat">
-          <p class="label">Time to finish, mean</p>
-          <p class="fig"><span data-count="1.8" data-dec="1">1.8</span><span class="unit">min</span></p>
-          <p class="sub"><b>1.8 min</b> Lantas · 3.3 Claude Code · 3.6 Antigravity</p>
-        </div>
-        <div class="stat">
-          <p class="label">Price of the app</p>
-          <p class="fig">$0</p>
-          <p class="sub"><b>Free</b> · no account, no per-task fee</p>
-        </div>
-        <div class="stat">
-          <p class="label">Tasks finished</p>
-          <p class="fig"><span data-count="11">11</span><span class="unit">of 11</span></p>
-          <p class="sub"><b>11 of 11</b> Lantas · 9 Claude Code · 8 Antigravity</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="bench" data-bars data-reveal style="margin-top:28px">
-      <div class="bench-head">
-        <p class="meta">11 tasks · time to finish, minutes</p>
-        <div class="legend">
-          <span class="a"><i></i>Lantas</span>
-          <span class="b"><i></i>Claude Code</span>
-          <span class="c"><i></i>Antigravity</span>
-        </div>
-      </div>
-
-      <div class="bench-row"><span class="casename"><em>booking</em> restaurant table for two</span><div class="track"><span class="d us" style="left:25%"></span><span class="d" style="left:69%"></span><span class="d anti" style="left:83%"></span></div><span class="vals"><span class="p">1.4 min</span> · 4.2 min · 5.1 min</span></div>
-      <div class="bench-row"><span class="casename"><em>files</em> download an invoice PDF</span><div class="track"><span class="d us" style="left:22%"></span><span class="d anti" style="left:56%"></span></div><span class="vals"><span class="p">1.2 min</span> · <span class="miss">missed</span> · 3.4 min</span></div>
-      <div class="bench-row"><span class="casename"><em>checkout</em> change the shipping address</span><div class="track"><span class="d us" style="left:34%"></span><span class="d" style="left:64%"></span><span class="d anti" style="left:75%"></span></div><span class="vals"><span class="p">2.0 min</span> · 3.9 min · 4.6 min</span></div>
-      <div class="bench-row"><span class="casename"><em>checkout</em> apply a promo code</span><div class="track"><span class="d us" style="left:16%"></span><span class="d" style="left:28%"></span><span class="d anti" style="left:38%"></span></div><span class="vals"><span class="p">0.8 min</span> · 1.6 min · 2.2 min</span></div>
-      <div class="bench-row"><span class="casename"><em>travel</em> compare three flights</span><div class="track"><span class="d us" style="left:47%"></span><span class="d" style="left:72%"></span><span class="d anti" style="left:64%"></span></div><span class="vals"><span class="p">2.8 min</span> · 4.4 min · 3.9 min</span></div>
-      <div class="bench-row"><span class="casename"><em>expenses</em> file a receipt in a form</span><div class="track"><span class="d us" style="left:33%"></span><span class="d" style="left:53%"></span><span class="d anti" style="left:79%"></span></div><span class="vals"><span class="p">1.9 min</span> · 3.2 min · 4.8 min</span></div>
-      <div class="bench-row"><span class="casename"><em>account</em> cancel a subscription</span><div class="track"><span class="d us" style="left:27%"></span><span class="d" style="left:44%"></span></div><span class="vals"><span class="p">1.5 min</span> · 2.6 min · <span class="miss">gave up</span></span></div>
-      <div class="bench-row"><span class="casename"><em>hiring</em> fill a job application</span><div class="track"><span class="d us" style="left:56%"></span><span class="d" style="left:94%"></span></div><span class="vals"><span class="p">3.4 min</span> · 5.8 min · <span class="miss">gave up</span></span></div>
-      <div class="bench-row"><span class="casename"><em>health</em> book a dentist appointment</span><div class="track"><span class="d us" style="left:20%"></span><span class="d" style="left:36%"></span><span class="d anti" style="left:45%"></span></div><span class="vals"><span class="p">1.1 min</span> · 2.1 min · 2.7 min</span></div>
-      <div class="bench-row"><span class="casename"><em>banking</em> download a statement</span><div class="track"><span class="d us" style="left:23%"></span><span class="d" style="left:33%"></span><span class="d anti" style="left:41%"></span></div><span class="vals"><span class="p">1.3 min</span> · 1.9 min · 2.4 min</span></div>
-      <div class="bench-row"><span class="casename"><em>travel</em> reserve a hotel room</span><div class="track"><span class="d us" style="left:38%"></span><span class="d" style="left:47%"></span><span class="d anti" style="left:60%"></span></div><span class="vals"><span class="p">2.2 min</span> · <span class="miss">found, not booked</span> · 3.6 min</span></div>
-
-      <div class="bench-foot">
-        <span>Mean over tasks finished · Lantas 1.8 min (11) · Claude 3.3 (9) · Antigravity 3.6 (8)</span>
-        <span>Lantas internal benchmark · results vary by task</span>
-      </div>
-    </div>
-
-    <div class="tablewrap" data-reveal style="margin-top:24px">
-      <table>
-        <thead>
-          <tr>
-            <th style="width:56px">#</th>
-            <th>Task</th>
-            <th class="num">Claude Code</th>
-            <th class="num">Antigravity</th>
-            <th class="num">Lantas</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td class="num">1</td><td><span class="nm">booking a restaurant table</span></td><td class="num">4.2 min</td><td class="num">5.1 min</td><td class="num"><span class="ok">1.4 min</span></td></tr>
-          <tr><td class="num">2</td><td><span class="nm">download an invoice PDF</span></td><td class="num"><span class="miss">missed</span></td><td class="num">3.4 min</td><td class="num"><span class="ok">1.2 min</span></td></tr>
-          <tr><td class="num">3</td><td><span class="nm">change the shipping address</span></td><td class="num">3.9 min</td><td class="num">4.6 min</td><td class="num"><span class="ok">2.0 min</span></td></tr>
-          <tr><td class="num">4</td><td><span class="nm">apply a promo code</span></td><td class="num">1.6 min</td><td class="num">2.2 min</td><td class="num"><span class="ok">0.8 min</span></td></tr>
-          <tr><td class="num">5</td><td><span class="nm">compare three flights</span></td><td class="num">4.4 min</td><td class="num"><span class="ok">3.9 min</span></td><td class="num"><span class="ok">2.8 min</span></td></tr>
-          <tr><td class="num">6</td><td><span class="nm">file a receipt in a form</span></td><td class="num">3.2 min</td><td class="num">4.8 min</td><td class="num"><span class="ok">1.9 min</span></td></tr>
-          <tr><td class="num">7</td><td><span class="nm">cancel a subscription</span></td><td class="num">2.6 min</td><td class="num"><span class="miss">gave up</span></td><td class="num"><span class="ok">1.5 min</span></td></tr>
-          <tr><td class="num">8</td><td><span class="nm">fill a job application</span></td><td class="num">5.8 min</td><td class="num"><span class="miss">gave up</span></td><td class="num"><span class="ok">3.4 min</span></td></tr>
-          <tr><td class="num">9</td><td><span class="nm">book a dentist appointment</span></td><td class="num">2.1 min</td><td class="num">2.7 min</td><td class="num"><span class="ok">1.1 min</span></td></tr>
-          <tr><td class="num">10</td><td><span class="nm">download a bank statement</span></td><td class="num">1.9 min</td><td class="num">2.4 min</td><td class="num"><span class="ok">1.3 min</span></td></tr>
-          <tr><td class="num">11</td><td><span class="nm">reserve a hotel room</span></td><td class="num"><span class="miss">found, not booked</span></td><td class="num">3.6 min</td><td class="num"><span class="ok">2.2 min</span></td></tr>
-          <tr class="total"><td class="num"></td><td><span class="nm">Mean over tasks finished</span></td><td class="num">3.3 min · 9 / 11</td><td class="num">3.6 min · 8 / 11</td><td class="num">1.8 min · 11 / 11</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="cap"><b>Table 1.</b> Time to finish, per task. Antigravity was faster on task 5; Claude Code on task 2 by giving up early. Lantas finished every task.</p>
-
-    <div class="grid-copy" style="margin-top:72px;align-items:start">
-      <div class="prose" data-reveal>
-        <p>Nothing in the app is metered: no subscription, no seats, no per-task fee, no account. The app itself is free, and the only thing that can cost money is the model you choose — run Ollama or LM Studio on the same Mac and a task costs nothing, or bring a hosted key and that provider bills you directly.</p>
-        <p>The work Lantas does itself is close to nothing: on a two-step task the DOM read is 0.06 s and the matching happens locally. The model turn is the task, and it is the only part anyone could charge for. <a href="docs.html#overhead">Method and caveats are in the docs</a>.</p>
-      </div>
-
-      <div class="oh" data-bars data-reveal style="--d:80ms">
-        <div class="oh-row zero">
-          <span class="k">Reading the page<span>42 controls, through the extension</span></span>
-          <div class="oh-bar"><i data-w="2"></i></div>
-          <span class="v">0.06 s</span>
-        </div>
-        <div class="oh-row">
-          <span class="k">Matching on your Mac<span>local, no model</span></span>
-          <div class="oh-bar"><i data-w="4"></i></div>
-          <span class="v">0.11 s</span>
-        </div>
-        <div class="oh-row hot">
-          <span class="k">Waiting for the model<span>2.1 s of a 2.3 s task</span></span>
-          <div class="oh-bar"><i data-w="84"></i></div>
-          <span class="v">92%</span>
-        </div>
-        <p class="cap" style="margin-top:2px">Where a two-step task spends its time.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- 05 -->
-<section class="sec" id="related">
-  <div class="sec-cloud bits" data-parallax="0.06" style="left:-140px;bottom:40px;top:auto;--w:500px;--h:290px;--o:.7;right:auto" data-bits></div>
-  <div class="wrap">
-    <header class="sec-head">
-      <p class="eyebrow" data-reveal><span class="dot"></span>How it compares</p>
-      <h2 data-reveal style="--d:60ms">What Lantas is not, and where it fits</h2>
-      <p class="dek" data-reveal style="--d:120ms">Not a replacement for a general agent or an IDE. One free window for the chat, the code and the tab in front of you.</p>
-    </header>
-
-    <p class="prose" data-reveal style="margin-bottom:26px;max-width:62ch;color:var(--ink-2)">General agents can use a browser when you hand them one, and IDE agents own the editor. Lantas does both jobs in one app on your Mac: a chat and a code workspace, integrations to the services you already use, and the page you are on, read and driven. It is free either way, which none of the three below can say.</p>
-
-    <div data-matrix data-reveal>
-      <div class="matrix-wrap">
-        <table class="matrix">
-          <thead>
-            <tr>
-              <th></th>
-              <th class="us" data-col="1"><span class="tag"><i></i>Lantas</span></th>
-              <th data-col="2">Claude · computer use <em style="font-style:normal;color:var(--ink-3)">(general)</em></th>
-              <th data-col="3">Antigravity <em style="font-style:normal;color:var(--ink-3)">(IDE)</em></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>sees your tab</td>
-              <td class="us">Live: the page you have open, read through the extension</td>
-              <td>A browser it opens for the task</td>
-              <td>The editor, and a browser pane</td>
-            </tr>
-            <tr>
-              <td>who notices</td>
-              <td class="us">It reads the page before it acts</td>
-              <td>You describe the page, then it starts</td>
-              <td>You point it at the code</td>
-            </tr>
-            <tr>
-              <td>the click</td>
-              <td class="us">By label, re-read after every step</td>
-              <td>By screenshot coordinates</td>
-              <td>By generated test code</td>
-            </tr>
-            <tr>
-              <td>where it runs</td>
-              <td class="us">A macOS app on your machine</td>
-              <td>Anthropic's cloud, streamed to you</td>
-              <td>Google's cloud, streamed to you</td>
-            </tr>
-            <tr>
-              <td>models</td>
-              <td class="us">Yours: Claude, GPT, Gemini or a local model</td>
-              <td>Claude only</td>
-              <td>Gemini only</td>
-            </tr>
-            <tr>
-              <td>chat</td>
-              <td class="us">A thread with the model you pick, files and screen attached</td>
-              <td>One task per session</td>
-              <td>One task per editor window</td>
-            </tr>
-            <tr>
-              <td>code</td>
-              <td class="us">A workspace folder, edits as diffs, commits through GitHub</td>
-              <td>Terminal, by hand</td>
-              <td>In the editor</td>
-            </tr>
-            <tr>
-              <td>your apps</td>
-              <td class="us">Gmail, Slack, Notion, Linear and 28 more, plus any MCP server</td>
-              <td>Whatever you paste in</td>
-              <td>Extensions, if any</td>
-            </tr>
-            <tr>
-              <td>price</td>
-              <td class="us">Free · no account</td>
-              <td>Subscription or per-token</td>
-              <td>Free tier, then subscription</td>
-            </tr>
-            <tr>
-              <td>setup</td>
-              <td class="us">Download the app, load the extension</td>
-              <td>Sign in, connect a browser</td>
-              <td>Install the IDE</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="matrix-hint">Click a column heading to focus it.</p>
-    </div>
-    <p class="cap"><b>Table 2.</b> Where each kind of tool sits.</p>
-  </div>
-</section>
-
-<!-- 06 -->
-<section class="sec" id="install">
-  <div class="sec-cloud bits" data-parallax="0.06" style="right:-70px;bottom:40px;--w:460px;--h:265px;--o:.68;left:auto" data-bits></div>
-  <div class="wrap">
-    <header class="sec-head sec-head--wide">
-      <div>
-        <p class="eyebrow" data-reveal><span class="dot"></span>Installation</p>
-        <h2 data-reveal style="--d:60ms;margin-top:18px">Install and start</h2>
-      </div>
-      <p class="dek" data-reveal style="--d:120ms">Needs macOS 11 or newer. Chrome 116 or newer is only for the optional Chrome bridge; the built-in browser works on its own. Download the dmg for your Mac and drag it to Applications. Free: no account, no trial, no subscription.</p>
-    </header>
-
-    <div class="install-grid">
-      <div class="prose" data-reveal>
-        <p>Download the build for your Mac and drag <b>Lantas.app</b> to Applications. It opens with the chat, the code workspace and the browser in one window. The Chrome extension ships inside the app; the app shows you where it is and how to load it.</p>
-        <p>Bring a model key, or run a model on the same Mac. Settings takes Anthropic, OpenAI, OpenRouter, Groq, Google, NVIDIA NIM, Ollama, LM Studio or any OpenAI-compatible endpoint, and keeps the configuration in the app's own storage. Nothing is proxied through us.</p>
-
-        <div class="reqs">
-          <div class="req"><span class="k">System</span><span class="v">macOS 11 or newer · Apple silicon</span></div>
-          <div class="req"><span class="k">Browser</span><span class="v">built in · Chrome 116+ optional</span></div>
-          <div class="req"><span class="k">App</span><span class="v">Tauri 2 · Rust · not Electron</span></div>
-          <div class="req"><span class="k">Models</span><span class="v">Claude · GPT · Gemini · Llama · local</span></div>
-          <div class="req"><span class="k">Keys</span><span class="v">yours, stored on your Mac</span></div>
-          <div class="req"><span class="k">Price</span><span class="v">Free · no account</span></div>
-        </div>
-
-        <div class="linkrow">
-          <a href="download.html">Download the build for your system
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
-          </a>
-          <a href="docs.html">Read the docs
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </a>
-          <a href="https://github.com/AnwarKalonov/Lantas">GitHub
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>
-          </a>
-        </div>
-      </div>
-
-      <div data-reveal style="--d:80ms">
-        <div class="panel">
-          <div class="panel-head">
-            Start here
-            <span class="live"><i></i>two commands</span>
-          </div>
-
-          <div class="cmdblock">
-            <div class="row">
-              <span class="prompt">$</span>
-              <span>open ~/Downloads/<span data-file="dmg">Lantas-1.3.0-arm64.dmg</span></span>
-              <button class="cmd-copy" data-copy="open ~/Downloads/Lantas-1.3.0-arm64.dmg">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
-                <span class="label">copy</span>
-              </button>
-            </div>
-          </div>
-          <div class="cmdblock">
-            <div class="row">
-              <span class="prompt">$</span>
-              <span>open -a Lantas</span>
-              <button class="cmd-copy" data-copy="open -a Lantas">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
-                <span class="label">copy</span>
-              </button>
-            </div>
-          </div>
-
-          <p class="cap">Drop the app in Applications. The extension ships inside it, at <span class="mono">Contents/Resources/chrome-extension</span>.</p>
-
-          <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line)">
-            <div class="inspect" style="font-size:12.5px;line-height:21px">
-              <div class="inspect-row" style="grid-template-columns:minmax(0,1fr) auto;border-top:0">
-                <span class="name">Lantas.app</span><span class="val">installed</span>
-              </div>
-              <div class="inspect-row" style="grid-template-columns:minmax(0,1fr) auto">
-                <span class="name">chrome-extension</span><span class="val">bundled</span>
-              </div>
-              <div class="inspect-row" style="grid-template-columns:minmax(0,1fr) auto">
-                <span class="name">provider</span><span class="val">your key</span>
-              </div>
-              <div class="inspect-row" style="grid-template-columns:minmax(0,1fr) auto">
-                <span class="name">browser</span><span class="val">Lantas or Chrome</span>
-              </div>
-              <div class="inspect-row" style="grid-template-columns:minmax(0,1fr) auto">
-                <span class="name">price</span><span class="val">$0</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="closing">
-  <div class="wrap">
-    <p data-reveal>Free, and it all runs on your Mac. Install Lantas.</p>
-    <div class="actions" data-reveal style="--d:80ms">
-      <a class="btn btn-primary" href="docs.html">
-        Read the docs
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-      </a>
-      <a class="btn btn-ghost" href="download.html">Download Lantas
+    <div class="v2-actions" data-reveal style="--d:180ms">
+      <a class="btn btn-primary v2-btn" href="download.html">
+        Download for macOS
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg>
       </a>
+      <a class="v2-play" href="#demos">
+        <span class="v2-play-icon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6.5v11l9-5.5-9-5.5Z"/></svg></span>
+        Watch it work
+      </a>
     </div>
+
+    <p class="v2-micro" data-reveal style="--d:220ms">Apple silicon · macOS 11+ · ~10 MB · no account</p>
+
+    <figure class="v2-hero-shot" data-reveal style="--d:260ms">
+      <div class="v2-window">
+        <div class="v2-window-body">
+          <img src="assets/img/app-browser.webp" alt="Lantas Browser: a page in the browser with the assistant reading its controls and a blue agent pointer on the screen" width="1360" height="1225" fetchpriority="high">
+          <span class="v2-shot-live"><i></i>Act mode · working</span>
+        </div>
+      </div>
+      <figcaption>Chat, code and the browser in one window. Screenshot from Lantas, not a mock-up.</figcaption>
+    </figure>
+
+    <div class="v2-model-line" data-reveal style="--d:320ms">
+      <span>Any model</span>
+      <p>Claude <i>·</i> GPT <i>·</i> Gemini <i>·</i> Llama <i>·</i> Qwen <i>·</i> Mistral <i>·</i> local</p>
+    </div>
+  </div>
+</section>
+
+<!-- live demos -->
+<section class="v2-sec v2-demos" id="demos">
+  <div class="wrap">
+    <header class="v2-head">
+      <p class="v2-kicker" data-reveal><span class="dot"></span>Live demos</p>
+      <h2 data-reveal style="--d:60ms">Watch it work.<br><em>No cuts.</em></h2>
+      <p class="v2-dek" data-reveal style="--d:120ms">Four short loops, running in the page. Each one is the real shape of a task: what you type, what Lantas reads, what it does, and what it checks before it stops.</p>
+    </header>
+
+    <div class="v2-player" data-demo-root data-reveal>
+      <div class="v2-player-top">
+        <div class="v2-demo-tabs" role="tablist" aria-label="Product demos">
+          <button type="button" role="tab" class="is-on" data-demo-tab="chat" aria-selected="true">Chat</button>
+          <button type="button" role="tab" data-demo-tab="code" aria-selected="false">Code</button>
+          <button type="button" role="tab" data-demo-tab="browser" aria-selected="false">Browser</button>
+          <button type="button" role="tab" data-demo-tab="screen" aria-selected="false">Computer</button>
+        </div>
+        <span class="v2-player-status"><i></i>playing</span>
+      </div>
+
+      <div class="v2-player-stage">
+
+        <!-- chat -->
+        <section class="v2-panel is-on" data-demo-panel="chat" role="tabpanel" aria-label="Chat demo">
+          <aside class="v2-mock-side">
+            <div class="v2-mock-brand"><span class="v2-mock-mark"></span>Lantas</div>
+            <div class="v2-mock-new">New thread</div>
+            <p class="v2-mock-label">Threads</p>
+            <div class="v2-mock-thread is-active"><b>Persist the favorites</b><small>now</small></div>
+            <div class="v2-mock-thread"><b>Read the failing run</b><small>2h</small></div>
+            <div class="v2-mock-thread"><b>Draft the release</b><small>1d</small></div>
+            <div class="v2-mock-thread"><b>Inbox triage</b><small>2d</small></div>
+            <div class="v2-mock-foot"><span class="v2-mock-avatar">A</span>Local workspace</div>
+          </aside>
+          <div class="v2-mock-main">
+            <div class="v2-mock-head"><span>Persist the favorites</span><small>Opus 4.5 · Build</small></div>
+            <div class="v2-mock-chat">
+              <p class="v2-bubble">Add a favorites filter to the track list, keep the empty state honest, and run the tests.</p>
+              <div class="v2-steps">
+                <div class="v2-step" style="--i:0"><span class="v2-step-ic">⌕</span><span>Read <b>App.tsx</b> and <b>data/tracks.ts</b></span><small>2 files</small></div>
+                <div class="v2-step" style="--i:1"><span class="v2-step-ic">✎</span><span>Edit the filter and the empty state</span><small>+24 −6</small></div>
+                <div class="v2-step" style="--i:2"><span class="v2-step-ic">›_</span><span>Run typecheck and tests</span><small>passing</small></div>
+              </div>
+              <div class="v2-answer" style="--i:3">
+                <p>The filter now lives in <code>localStorage</code>, and the empty state names the active view. Typecheck and all 12 tests pass.</p>
+                <span class="v2-answer-chip">✓ finished in 48 s</span>
+              </div>
+            </div>
+            <div class="v2-mock-composer"><span>Ask a follow-up…</span><i></i></div>
+          </div>
+        </section>
+
+        <!-- code -->
+        <section class="v2-panel" data-demo-panel="code" role="tabpanel" aria-label="Code demo" hidden>
+          <aside class="v2-mock-side is-narrow">
+            <p class="v2-mock-label">Explorer</p>
+            <div class="v2-tree"><span>▾ src</span><span>▾ components</span><span class="file">TrackList.tsx</span><span class="file on">App.tsx</span><span class="file">Player.tsx</span><span>▸ data</span><span>package.json</span></div>
+            <div class="v2-mock-foot"><span class="v2-dot-green"></span>main</div>
+          </aside>
+          <div class="v2-code-main">
+            <div class="v2-code-tabs"><span class="on">App.tsx</span><span>track-list.css</span><i></i></div>
+            <div class="v2-code-body">
+              <div class="v2-code-lines" aria-hidden="true">
+                <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span>
+              </div>
+              <pre class="v2-code"><code><i>const</i> [view, setView] = <b>useState</b>&lt;View&gt;(<em>"all"</em>);
+<i>const</i> [current, setCurrent] = <b>useState</b>(0);
+
+<i>const</i> visible = <b>useMemo</b>(() =&gt; {
+  <i>return</i> view === <em>"favorites"</em>
+    ? tracks.<u>filter</u>((t) =&gt; t.saved)
+    : tracks;
+}, [view, tracks]);
+
+<mark>// the filter survives a reload</mark>
+<b>useEffect</b>(() =&gt; saveView(view), [view]);</code></pre>
+              <div class="v2-cursor-line" aria-hidden="true"></div>
+            </div>
+            <div class="v2-code-alert" style="--i:2">
+              <span class="v2-done">✓</span>
+              <div><b>12 tests passed</b><small>typecheck · vitest · 2.4 s</small></div>
+              <span class="v2-ai-tag">Lantas</span>
+            </div>
+            <div class="v2-code-terminal"><span>$</span> npm test <small>›</small> 12 passed <small>›</small> done</div>
+          </div>
+        </section>
+
+        <!-- browser -->
+        <section class="v2-panel v2-panel-browser" data-demo-panel="browser" role="tabpanel" aria-label="Browser demo" hidden>
+          <div class="v2-browser">
+            <div class="v2-browser-bar">
+              <span class="v2-lights" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="v2-browser-url"><i>⌕</i>soundgoods.co/store</span>
+              <span class="v2-browser-ai">Ask AI</span>
+            </div>
+            <div class="v2-store">
+              <div class="v2-store-nav"><b>SOUNDGOODS</b><span>Shop</span><span>Journal</span><span>Cart · 1</span></div>
+              <p class="v2-store-kicker">Field recordings · 2026</p>
+              <h3>Rain on a tin roof,<br>recorded in one take.</h3>
+              <div class="v2-store-row">
+                <div class="v2-store-art"><i></i><i></i><i></i></div>
+                <div class="v2-store-info"><b>Rain, 04:12</b><span>24-bit · 48 kHz</span><strong>$18</strong></div>
+              </div>
+              <div class="v2-store-foot"><span class="v2-stock">In stock</span><button class="v2-buy" type="button" tabindex="-1">Add to cart</button></div>
+            </div>
+            <div class="v2-browser-cursor" aria-hidden="true">
+              <svg viewBox="0 0 18 24" fill="currentColor"><path d="M2 1.5 15.2 11l-5.8 1.2L7 18.5 2 1.5Z"/></svg>
+              <span class="v2-browser-ripple"></span>
+            </div>
+            <div class="v2-browser-side">
+              <div class="v2-mock-head"><span>Lantas</span><small>Act on</small></div>
+              <p class="v2-bubble small">Add the rain recording to the cart, then check that the cart count changed.</p>
+              <div class="v2-mini-steps">
+                <div class="v2-mini-step" style="--i:0"><span>✓</span>Read the page <small>41 controls</small></div>
+                <div class="v2-mini-step" style="--i:1"><span>✓</span>Clicked <b>Add to cart</b><small>button</small></div>
+                <div class="v2-mini-step" style="--i:2"><span>✓</span>Cart now says <b>2</b><small>verified</small></div>
+              </div>
+              <div class="v2-browser-composer">Keep going…<i></i></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- computer control -->
+        <section class="v2-panel v2-panel-screen" data-demo-panel="screen" role="tabpanel" aria-label="Computer control demo" hidden>
+          <div class="v2-desktop">
+            <div class="v2-menubar"><b>Lantas</b><span>File</span><span>Edit</span><span>View</span><i></i><span>Mon 09:41</span></div>
+            <div class="v2-desktop-window">
+              <div class="v2-desktop-bar"><span class="v2-lights"><i></i><i></i><i></i></span><b>New client</b><small>Preview</small></div>
+              <div class="v2-form">
+                <p class="v2-form-title">New client</p>
+                <label>Full name</label>
+                <div class="v2-field"><span class="v2-typed">Maya Chen</span><i></i></div>
+                <label>Email</label>
+                <div class="v2-field is-active"><span class="v2-typed two">maya@field.co</span><i></i></div>
+                <label>Plan</label>
+                <div class="v2-field is-select"><span>Studio</span><b>⌄</b></div>
+                <div class="v2-form-actions"><button type="button" tabindex="-1">Cancel</button><button class="v2-save" type="button" tabindex="-1">Create client</button></div>
+              </div>
+            </div>
+            <div class="v2-screen-cursor" aria-hidden="true">
+              <svg viewBox="0 0 18 24" fill="currentColor"><path d="M2 1.5 15.2 11l-5.8 1.2L7 18.5 2 1.5Z"/></svg>
+              <span class="v2-screen-ring"></span>
+              <b>Lantas</b>
+            </div>
+            <div class="v2-screen-toast" style="--i:3"><span>✓</span>Client created · 3 fields filled</div>
+            <div class="v2-screen-card">
+              <span class="v2-card-dot"></span>
+              <div><b>Computer control</b><small>Blue pointer is on your screen</small></div>
+              <span class="v2-card-switch"><i></i></span>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <div class="v2-player-bottom">
+        <p data-demo-caption>Chat · a question becomes work you can read back.</p>
+        <span class="v2-progress"><i data-demo-progress></i></span>
+      </div>
+    </div>
+
+    <p class="v2-caption">These loops are built in HTML, CSS and JavaScript, so they stay sharp at any size and run offline. They mirror the real interaction; the screenshots below are from the app itself.</p>
+
+    <div class="v2-reel-links" data-reveal>
+      <span>Demo clips</span>
+      <button type="button" data-reel="chat"><i>▶</i>Chat</button>
+      <button type="button" data-reel="code"><i>▶</i>Code</button>
+      <button type="button" data-reel="browser"><i>▶</i>Browser</button>
+      <button type="button" data-reel="screen"><i>▶</i>Computer</button>
+      <small>8 seconds each · no sound</small>
+    </div>
+  </div>
+</section>
+
+<div class="v2-reel-overlay" data-reel-overlay hidden>
+  <div class="v2-reel-modal" role="dialog" aria-modal="true" aria-label="Lantas demo clip">
+    <div class="v2-reel-head">
+      <span class="v2-card-dot"></span>
+      <b data-reel-title>Lantas demo</b>
+      <button type="button" class="v2-reel-close" data-reel-close aria-label="Close demo">Close</button>
+    </div>
+    <video data-reel-video controls muted playsinline preload="none"></video>
+    <p class="v2-reel-foot">Recorded from the live demo above. Nothing is staged in post.</p>
+  </div>
+</div>
+
+<!-- three surfaces -->
+<section class="v2-sec v2-surfaces" id="surfaces">
+  <div class="wrap">
+    <header class="v2-head is-wide">
+      <div>
+        <p class="v2-kicker" data-reveal><span class="dot"></span>The whole desk</p>
+        <h2 data-reveal style="--d:60ms">Three surfaces.<br><em>One thread.</em></h2>
+      </div>
+      <p class="v2-dek" data-reveal style="--d:120ms">Move from a question to the file to the page without losing the conversation. Every read, edit and command stays in the same thread.</p>
+    </header>
+
+    <div class="v2-surface-grid">
+      <article class="v2-surface" data-reveal>
+        <div class="v2-surface-shot">
+          <img src="assets/img/app-home.webp" alt="Lantas Chat with a composer, modes, model picker and a thread list" width="1240" height="1225" loading="lazy">
+        </div>
+        <div class="v2-surface-copy">
+          <p class="v2-num">01 · Chat</p>
+          <h3>Ask anything. Keep the thread.</h3>
+          <p>Attach a file, a screenshot or the page in front of you. Rewind a turn, compact a long thread, or switch models mid-task.</p>
+          <span class="v2-tag">⌘K palette</span><span class="v2-tag">attachments</span><span class="v2-tag">rewind</span>
+        </div>
+      </article>
+
+      <article class="v2-surface" data-reveal style="--d:70ms">
+        <div class="v2-surface-shot">
+          <img src="assets/img/app-code.webp" alt="Lantas Code with a file tree, an editor and an assistant reporting a passing test run" width="1390" height="1225" loading="lazy">
+        </div>
+        <div class="v2-surface-copy">
+          <p class="v2-num">02 · Code</p>
+          <h3>Work in the folder you picked.</h3>
+          <p>Reads the tree, edits as diffs you can inspect or roll back, runs the check and tells you the result. Build, Plan or Chat decides what it may touch.</p>
+          <span class="v2-tag">diffs</span><span class="v2-tag">terminal</span><span class="v2-tag">GitHub</span>
+        </div>
+      </article>
+
+      <article class="v2-surface" data-reveal style="--d:140ms">
+        <div class="v2-surface-shot">
+          <img src="assets/img/app-browser.webp" alt="Lantas Browser with a page, tabs and the assistant reading the page's controls" width="1360" height="1225" loading="lazy">
+        </div>
+        <div class="v2-surface-copy">
+          <p class="v2-num">03 · Browser</p>
+          <h3>The tab you are already in.</h3>
+          <p>A browser of its own, or your Chrome through the extension. It reads the live page, clicks by label, and re-reads the result instead of guessing from a screenshot.</p>
+          <span class="v2-tag">DOM read</span><span class="v2-tag">scripts</span><span class="v2-tag">screenshots</span>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- how it works -->
+<section class="v2-sec v2-loop">
+  <div class="wrap v2-loop-grid">
+    <div>
+      <p class="v2-kicker" data-reveal><span class="dot"></span>The loop</p>
+      <h2 data-reveal style="--d:60ms">Ask. Watch.<br><em>Take over.</em></h2>
+      <p class="v2-dek" data-reveal style="--d:120ms">No hidden queue and no black box. You see the step, the tool and the result while it happens, and one key takes the wheel back.</p>
+      <a class="v2-text-link" href="docs.html">Read how it works <span>→</span></a>
+    </div>
+
+    <ol class="v2-steps-list">
+      <li data-reveal><span>01</span><div><b>Say what you want</b><p>One sentence is enough. Lantas picks the surface and the tools, and asks only when it genuinely needs a detail.</p></div></li>
+      <li data-reveal style="--d:60ms"><span>02</span><div><b>Watch the work</b><p>Reads, edits, clicks and checks appear as steps with real output. The blue pointer shows where it is on a page or on your Mac.</p></div></li>
+      <li data-reveal style="--d:120ms"><span>03</span><div><b>Take over any time</b><p>Type, scroll or press Esc. The run pauses, Lantas re-reads the changed state, and continues from where you left it.</p></div></li>
+    </ol>
+  </div>
+</section>
+
+<!-- computer control -->
+<section class="v2-sec v2-control" id="control">
+  <div class="wrap v2-control-grid">
+    <div class="v2-control-copy">
+      <p class="v2-kicker" data-reveal><span class="dot"></span>Computer control</p>
+      <h2 data-reveal style="--d:60ms">It can use your Mac.<br><em>You can take it back.</em></h2>
+      <p class="v2-dek" data-reveal style="--d:120ms">Lantas reads the accessibility tree of the front window, draws a private labelled grid over a screenshot, and acts with the real pointer and keyboard. Only the blue pointer is drawn on your display; the picture stays private.</p>
+      <ul class="v2-checks" data-reveal style="--d:180ms">
+        <li><span>✓</span>Click, type, scroll, drag and switch windows by control name</li>
+        <li><span>✓</span>One Control switch shared by the composer, browser and screen card</li>
+        <li><span>✓</span>Any real input pauses the run; nothing continues behind your back</li>
+      </ul>
+      <a class="v2-text-link" href="docs.html#screen">Screen control docs <span>→</span></a>
+    </div>
+
+    <div class="v2-control-card" data-reveal style="--d:100ms">
+      <div class="v2-control-head"><span class="v2-card-dot"></span><b>Lantas screen</b><small>beta</small></div>
+      <div class="v2-control-preview">
+        <div class="v2-control-window">
+          <div class="v2-control-bar"><i></i><i></i><i></i><span>Invoice</span></div>
+          <div class="v2-control-rows"><span></span><span></span><span></span><span></span></div>
+          <div class="v2-control-button">Send invoice</div>
+          <div class="v2-control-cursor" aria-hidden="true"><svg viewBox="0 0 18 24" fill="currentColor"><path d="M2 1.5 15.2 11l-5.8 1.2L7 18.5 2 1.5Z"/></svg><b>Lantas</b></div>
+        </div>
+      </div>
+      <div class="v2-control-foot">
+        <span><span class="v2-card-dot"></span>Control on</span>
+        <span class="v2-control-step">Step 4 of 6 · verified</span>
+      </div>
+      <p class="v2-control-note">This is the one surface where a mistake is expensive, so every click is preceded by a read and followed by a fresh one.</p>
+    </div>
+  </div>
+</section>
+
+<!-- install -->
+<section class="v2-install" id="install">
+  <div class="v2-install-cloud" aria-hidden="true"><img src="assets/img/cloud-hero-light.webp" alt="" width="856" height="480" loading="lazy"></div>
+  <div class="wrap v2-install-inner">
+    <p class="v2-kicker" data-reveal><span class="dot"></span>Free, and not in the trial sense</p>
+    <h2 data-reveal style="--d:60ms">One download.<br><em>Then it is yours.</em></h2>
+    <p class="v2-dek" data-reveal style="--d:120ms">No subscription, no seats, no metering. Bring a hosted key and that provider is the only thing that bills you. Run a local model and a task costs nothing at all.</p>
+    <div class="v2-actions is-center" data-reveal style="--d:180ms">
+      <a class="btn btn-primary v2-btn" href="download.html">
+        Download Lantas
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></svg>
+      </a>
+      <a class="v2-play" href="docs.html">Read the docs <span>→</span></a>
+    </div>
+    <p class="v2-micro" data-reveal style="--d:220ms">Apple silicon · macOS 11+ · <span data-version>1.3.0</span> · ad-hoc signed, approve it once</p>
   </div>
 </section>
 
@@ -1215,60 +426,13 @@ dist/index.html   4.1 kB</pre>
       </div>
     </div>
     <div class="foot-bottom">
-      <span class="line">chat, code, and the browser · free</span>
-      <span>© 2026 Lantas</span>
+      <span class="line">chat, code, browser, and your Mac · free</span>
+      <span class="mono">© 2026 Lantas</span>
     </div>
   </div>
 </footer>
 
-<div class="footer-sky" aria-hidden="true">
-  <img src="assets/img/cloud-horizon-cut.webp" alt="" width="1568" height="256">
-</div>
-
 <script src="assets/site.js"></script>
-<script>
-/* Drive the macs section from scroll position: --p runs 0 to 1 across the
-   sticky stage, and the cards interpolate in CSS from their own vectors. */
-(() => {
-  const section = document.getElementById("macs");
-  if (!section || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const stage = section.querySelector(".macs-stage");
-  let queued = false;
-  const update = () => {
-    queued = false;
-    const rect = section.getBoundingClientRect();
-    const travel = Math.max(1, rect.height - innerHeight);
-    const p = Math.min(1, Math.max(0, -rect.top / travel));
-    stage.style.setProperty("--p", p.toFixed(3));
-  };
-  const queue = () => {
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(update);
-  };
-  addEventListener("scroll", queue, { passive: true });
-  addEventListener("resize", queue, { passive: true });
-  update();
-})();
-</script>
-<script>
-/* A header that settles into frosted glass once you leave the top of the page. */
-(() => {
-  const head = document.querySelector("header, .site-head, .nav, .bar");
-  if (!head) return;
-  let queued = false;
-  const update = () => {
-    queued = false;
-    head.classList.toggle("is-stuck", scrollY > 12);
-  };
-  addEventListener("scroll", () => {
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(update);
-  }, { passive: true });
-  update();
-})();
-</script>
-<script src="assets/motion.js" defer></script>
+<script src="assets/v2.js"></script>
 </body>
 </html>

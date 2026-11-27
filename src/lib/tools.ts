@@ -69,6 +69,8 @@ export interface ToolContext {
   readFile?: (path: string) => Promise<string | null>;
   /** Reads any file the app can reach, by absolute path. */
   readAbsoluteFile?: (path: string) => Promise<string | null>;
+  /** Reads an image by absolute path as pixels, for vision models. */
+  readAbsoluteImage?: (path: string) => Promise<ChatImage | null>;
   /** Creates or replaces any file the app can reach, by absolute path. */
   writeAbsoluteFile?: (path: string, text: string) => Promise<boolean>;
   /** Opens a local address in Lantas' own browser panel. */
@@ -614,6 +616,27 @@ export async function runTool(
         const path = normalizePath(requested);
         const offset = Math.max(0, Number(call.args.offset ?? 0) || 0);
         const limit = Math.min(2000, Math.max(1, Number(call.args.limit ?? 400) || 400));
+
+        if (isAbsolutePath(requested) && /\.(png|jpe?g|webp|gif)$/i.test(path)) {
+          const image = context.readAbsoluteImage
+            ? await context.readAbsoluteImage(path)
+            : null;
+          if (!image) {
+            return {
+              ok: false,
+              summary: `Could not read image ${path}`,
+              content: `The image at ${path} could not be read. Check that the file exists and that macOS has given Lantas access to that folder.`,
+              resource: path,
+            };
+          }
+          return {
+            ok: true,
+            summary: `Read image ${path}`,
+            content: `The image at ${path} is attached. Look at it before deciding what to change.`,
+            images: [image],
+            resource: path,
+          };
+        }
 
         if (isAbsolutePath(requested)) {
           const text = context.readAbsoluteFile
@@ -2344,6 +2367,7 @@ export const TOOL_MANUAL = [
   "",
   "Rules:",
   "- Paths are relative to the workspace root. An absolute path reads or creates a file anywhere else on the machine, which the user has allowed; writes still require approval unless auto mode is on.",
+  "- An absolute image path (png, jpg, webp, gif) is returned as pixels to a vision model. Look at it; do not describe it from the filename.",
   "- Prefer read and grep over inventing file contents. Quote real code when you explain it.",
   "- Keep edits minimal and in the project's existing style.",
   "- When you change a web app, start its preview and check the page it opens before saying it works. The preview stays in front of the user.",

@@ -20,14 +20,17 @@ import {
   screenSight,
 } from "../lib/screenControl";
 import type { ToolCall, ToolContext } from "../lib/tools";
+import type { ProviderId } from "../lib/types";
 import {
   askUser as askScreenUser,
   getActiveUserAsk,
   subscribeUserAsk,
 } from "../lib/userAsk";
 import { AgentQuestion } from "./AgentQuestion";
+import { ModelPicker } from "./ModelPicker";
 import { Icon } from "./Icons";
 import { cx } from "../lib/util";
+import { playChime } from "../lib/chime";
 
 /**
  * The screen assistant, as a heads-up card that floats above every app —
@@ -171,6 +174,7 @@ function systemPrompt(vision: boolean, control: boolean): string {
     "When a step needs a detail only the user has, call ask_user instead of guessing. One detail: {\"question\":\"Which email?\",\"kind\":\"email\"}. Several: {\"question\":\"Fill the applicant details\",\"fields\":[{\"label\":\"Full name\",\"type\":\"text\"},{\"label\":\"Age\",\"type\":\"number\"}]}. Known choices: {\"question\":\"Which plan?\",\"options\":[\"Basic\",\"Pro\"]}. The card renders titled boxes and clickable choices.",
     "",
     "After every action the result already contains a fresh snapshot and picture. Do not assume a click worked; read the result. Prefer one careful step over a burst of guesses. If a permission or password is needed, stop and explain what is blocked.",
+    "Finish the task. If the user asks you to fill a form, fill every field you can from their message or the screen, then call ask_user only for a value you genuinely cannot know. Do not stop with “You didn't fill out the form” or a raw JSON form; take the next screen action instead.",
     "Answer in one to three short sentences. Never mention the tool protocol, the grid, refs or raw JSON.",
   ].join("\n");
 }
@@ -200,11 +204,15 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
     setControl(state.settings.computerControl);
   }, [state.settings.computerControl]);
 
-  const model =
-    state.sessions.find((item) => item.id === state.activeId)?.model || state.settings.defaultModel;
-  const provider =
-    state.sessions.find((item) => item.id === state.activeId)?.provider ??
-    state.settings.defaultProvider;
+  // The screen card is its own assistant, so it gets its own model choice.
+  // It starts from the active chat, but changing it here does not rewrite that
+  // chat's model — and it persists while the card stays mounted.
+  const [screenSide, setScreenSide] = useState<{ provider: ProviderId; model: string } | null>(
+    null,
+  );
+  const activeSession = state.sessions.find((item) => item.id === state.activeId);
+  const provider = screenSide?.provider ?? activeSession?.provider ?? state.settings.defaultProvider;
+  const model = screenSide?.model ?? activeSession?.model ?? state.settings.defaultModel;
   const visionModel = canSeeImages(provider, model);
 
   useEffect(() => subscribeUserAsk(setPendingAsk), []);
@@ -412,8 +420,10 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
       task: question,
       vision,
       screen: native && control ? "control" : "read",
-      askUser: (askQuestion, kind, extra) =>
-        askScreenUser({ question: askQuestion, kind, ...extra }, active.signal),
+      askUser: (askQuestion, kind, extra) => {
+        if (state.settings.sound) playChime(state.settings.chimeAsk, "ask");
+        return askScreenUser({ question: askQuestion, kind, ...extra }, active.signal);
+      },
       saveFile: async () => false,
     };
 
@@ -445,6 +455,7 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
         onNote: (note) => setProblem(note),
       });
       if (active.signal.aborted) return;
+      if (state.settings.sound) playChime(state.settings.chimeDone, "done");
       const { clean, point } = splitPoint(visibleText(raw));
       setAnswer(clean || "I finished the steps I could take. Tell me what to do next.");
       if (point) void draw(point);
@@ -457,6 +468,7 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
+      if (state.settings.sound) playChime(state.settings.chimeError, "error");
       const message = error instanceof Error ? error.message : "The screen question failed";
       setProblem(message);
       notify(message, "error");
@@ -530,15 +542,29 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
           <Icon name={visionModel ? "eye" : "frame"} size={11} />
           {visionModel ? "Private grid" : "Element map"}
         </span>
+        <span className="ss-model">
+          <ModelPicker
+            provider={provider}
+            model={model}
+            placement="down"
+            align="right"
+            onPick={(nextProvider, nextModel) =>
+              setScreenSide({ provider: nextProvider, model: nextModel })
+            }
+            onConnect={() =>
+              window.dispatchEvent(
+                new CustomEvent("lantas:settings", { detail: { tab: "models" } }),
+              )
+            }
+          />
+        </span>
         <span className="ss-sp" />
         {busy ? (
           <span className="ss-working">
             <i />
             working
           </span>
-        ) : (
-          <span className="ss-working is-idle">above your apps</span>
-        )}
+        ) : null}
       </div>
 
       {native && visionModel && allowed === false && (

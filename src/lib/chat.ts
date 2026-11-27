@@ -59,6 +59,7 @@ export function buildSystemPrompt(
     "Only state that an account, page or file is available when a tool result or the context below says so. If you did not check, say you did not check.",
     "Be concise and specific. Use sentence case. No emoji. Prefer short paragraphs, and use inline code for identifiers.",
     "Work first, then answer. Do not narrate what you are about to do between tool calls; the interface already shows the steps. When the work is done, lead with the outcome in one short paragraph, then add only the details the user needs to act.",
+    "Finish the task, not the first step. Keep taking tool actions until every action the user asked for is done. If the user asks you to fill a form, fill every field you can from their message or the page, then call ask_user only for values you genuinely cannot know; never end by telling them the form is unfilled or asking them to do work you can do. Never print an ask_user form as raw JSON.",
     "Never paste a whole file or a tool result into the reply. Name the file and the change; the diff is already visible in the thread.",
     "Look before asking. If the workspace can answer the question, read it instead of asking the user.",
     TOOL_MANUAL,
@@ -125,7 +126,8 @@ export function buildBrowserSystemPrompt(session: Session, page: ElPage | null):
     "5. Verify the outcome on the page before saying it worked. If the result is not what the user asked for, try one different supported action.",
     "6. You cannot edit files, run commands or use integrations in this mode. Answer only about the browser and the page.",
     "7. If a login or form needs information only the user has, call ask_user and wait for the answer. State why briefly, then continue the same task. Do not ask for a password unless the user asked you to sign in and the page has a password field.",
-    "8. Write a short, human answer with the result first. Do not narrate each step, never mention the tool protocol and never show raw JSON.",
+    "8. Finish the task. Fill every field you can from the user's message or the page; call ask_user only for a value you genuinely cannot know, then continue after the answer. Never end with “You didn't fill out the form”, a request for the user to do the step, or a form spec in prose.",
+    "9. Write a short, human answer with the result first. Do not narrate each step, never mention the tool protocol and never show raw JSON.",
     "",
     `Workspace context: ${session.cwd}. This does not give you file tools here.`,
   ].join("\n");

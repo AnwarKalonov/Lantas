@@ -196,6 +196,9 @@ export const DEFAULT_SETTINGS: Settings = {
   telemetry: false,
   notifications: true,
   sound: true,
+  chimeDone: "soft",
+  chimeError: "drop",
+  chimeAsk: "blip",
   favoriteModels: [],
   providers: defaultProviders(),
   editor: {

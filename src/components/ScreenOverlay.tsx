@@ -26,7 +26,9 @@ interface Cursor {
 }
 
 const LIFETIME = 4200;
-const CURSOR_LIFETIME = 3200;
+// The pointer is the only sign of what the screen agent is doing. It used to
+// vanish after 3.2s, mid-task, which made a slow step look like a failure.
+const CURSOR_LIFETIME = 12_000;
 
 export function ScreenOverlay() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -74,17 +76,26 @@ export function ScreenOverlay() {
       const y = cursor.y * height;
 
       // A soft blue halo so the pointer reads on dark and light windows.
-      const halo = context.createRadialGradient(x, y, 2, x, y, 44);
-      halo.addColorStop(0, `rgba(76, 140, 255, ${0.34 * alpha})`);
+      const halo = context.createRadialGradient(x, y, 2, x, y, 54);
+      halo.addColorStop(0, `rgba(76, 140, 255, ${0.4 * alpha})`);
       halo.addColorStop(1, "rgba(76, 140, 255, 0)");
       context.fillStyle = halo;
       context.beginPath();
-      context.arc(x, y, 44, 0, Math.PI * 2);
+      context.arc(x, y, 54, 0, Math.PI * 2);
       context.fill();
+
+      // A slow breathing ring says “still working” without moving the pointer.
+      const breath = 1 + Math.sin(now / 340) * 0.07;
+      context.beginPath();
+      context.arc(x, y, 24 * breath, 0, Math.PI * 2);
+      context.lineWidth = 1.3;
+      context.strokeStyle = `rgba(120, 178, 255, ${0.45 * alpha})`;
+      context.stroke();
 
       // The pointer itself: the same shape as a cursor, in Lantas blue.
       context.save();
       context.translate(x, y);
+      context.scale(1.22, 1.22);
       context.beginPath();
       context.moveTo(0, 0);
       context.lineTo(0, 19);

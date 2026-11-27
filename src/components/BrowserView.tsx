@@ -162,6 +162,7 @@ export function BrowserView({
   const [suggestions, setSuggestions] = useState<string[]>(() => defaultPrompts(page));
   const suggestKey = useRef("");
   const aiFileInput = useRef<HTMLInputElement>(null);
+  const aiInputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     try {
@@ -673,6 +674,15 @@ export function BrowserView({
     }
   };
 
+  useEffect(() => {
+    const onAgent = (event: Event) => {
+      const on = Boolean((event as CustomEvent<{ on?: boolean }>).detail?.on);
+      setDriving(on);
+    };
+    window.addEventListener("lantas:agent", onAgent);
+    return () => window.removeEventListener("lantas:agent", onAgent);
+  }, []);
+
   const activeSession = state.sessions.find((item) => item.id === state.activeId) ?? null;
   const aiMessages = (activeSession?.messages ?? []).slice(-12);
   const aiModel = activeSession?.model ?? state.settings.defaultModel;
@@ -777,6 +787,16 @@ export function BrowserView({
     setSettings({ defaultProvider: nextProvider, defaultModel: nextModel });
   };
 
+  // The side chat sits in a narrow rail, so a long prompt has to grow upward
+  // inside the card instead of sliding past its right edge. Height is measured
+  // from the content, then capped so the transcript keeps its room.
+  useEffect(() => {
+    const input = aiInputRef.current;
+    if (!input) return;
+    input.style.height = "0px";
+    input.style.height = `${Math.min(input.scrollHeight, 132)}px`;
+  }, [aiDraft, aiOpen]);
+
   useEffect(() => {
     if (!aiOpen) return;
     aiLogRef.current?.scrollTo({ top: aiLogRef.current.scrollHeight, behavior: "smooth" });
@@ -839,6 +859,9 @@ export function BrowserView({
           }
           if (input.seq <= baseline) return;
           baseline = input.seq;
+          // Scrolling the page to read along is not a takeover. Older builds
+          // recorded wheel events, so ignore that type here too.
+          if (input.type === "scroll" || input.type === "wheel") return;
           const rect = viewportRef.current?.getBoundingClientRect();
           window.dispatchEvent(new CustomEvent("lantas:stop"));
           setTakeover({
@@ -911,6 +934,9 @@ export function BrowserView({
     const next = !driving;
     setDriving(next);
     setAiDriving(next);
+    // The browser switch is the same grant as the composer cursor and the
+    // screen card, so flipping it here updates them too.
+    setSettings({ computerControl: next });
     notify(next ? "Agent can drive the browser" : "You have control of the browser");
   };
 
@@ -1514,6 +1540,7 @@ export function BrowserView({
                 </div>
               )}
               <textarea
+                ref={aiInputRef}
                 value={aiDraft}
                 onChange={(event) => setAiDraft(event.target.value)}
                 onPaste={(event) => {

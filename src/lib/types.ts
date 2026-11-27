@@ -262,6 +262,13 @@ export interface McpServer {
   checkedAt?: number;
 }
 
+export type ChimePreset = "soft" | "bell" | "chime" | "blip" | "drop" | "none";
+export interface CompareSide {
+  provider: ProviderId;
+  model: string;
+}
+export type ChimeKind = "done" | "error" | "ask";
+
 export interface Settings {
   theme: ThemeMode;
   sendOnEnter: boolean;
@@ -280,8 +287,11 @@ export interface Settings {
   permissionsReviewed: boolean;
   telemetry: boolean;
   notifications: boolean;
-  /** A soft bell when a reply finishes. */
+  /** A cue when a reply finishes; the presets below choose which one. */
   sound: boolean;
+  chimeDone: ChimePreset;
+  chimeError: ChimePreset;
+  chimeAsk: ChimePreset;
   /** "provider/model" keys pinned to the top of every model list. */
   favoriteModels: string[];
   /** Actions the user chose to stop asking about, from the approval sheet. */

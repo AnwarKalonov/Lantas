@@ -13,7 +13,7 @@ interface RowMenu {
 }
 
 const NAV: Array<{ id: "chats" | "skills" | "integrations"; label: string; icon: IconName }> = [
-  { id: "chats", label: "Threads", icon: "message" },
+  { id: "chats", label: "Chats", icon: "message" },
   { id: "skills", label: "Skills", icon: "book" },
   { id: "integrations", label: "Integrations", icon: "plug" },
 ];
@@ -58,6 +58,7 @@ export function Sidebar({
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [projectsOpen, setProjectsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const workspaceMenuRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -87,10 +88,14 @@ export function Sidebar({
     [matched],
   );
 
+  const chats = useMemo(
+    () => matched.filter((session) => !session.pinned).sort((a, b) => b.updated - a.updated),
+    [matched],
+  );
+
   const projects = useMemo(() => {
     const map = new Map<string, Session[]>();
     matched
-      .filter((session) => !session.pinned)
       .forEach((session) => {
         const key = session.cwd || "~/dev/lantas";
         map.set(key, [...(map.get(key) ?? []), session]);
@@ -424,48 +429,87 @@ export function Sidebar({
             </section>
           )}
 
-          {projects.map((project) => {
-            const open = !collapsed[project.cwd];
-            return (
-              <section className="project" key={project.cwd}>
-                <button
-                  type="button"
-                  className="project-head"
-                  onClick={() =>
-                    setCollapsed((prev) => ({ ...prev, [project.cwd]: open }))
-                  }
-                  aria-expanded={open}
-                >
-                  <Icon
-                    name="chevronDown"
-                    size={12}
-                    className={cx("project-caret", !open && "is-closed")}
-                  />
-                  <span className="project-name">{project.label}</span>
-                  <span className="project-count">{project.items.length}</span>
-                </button>
+          <section className={cx("nav-part nav-chats", !projectsOpen && "is-last")}>
+            <div className="nav-section-label nav-part-head">
+              <Icon name="message" size={13} />
+              <span>Chats</span>
+              <span className="project-count">{chats.length}</span>
+            </div>
+            <div className="thread-rows">{chats.map(renderRow)}</div>
+          </section>
 
-                {open && (
-                  <div className="project-body">
-                    <div className="thread-rows">{project.items.map(renderRow)}</div>
-                  </div>
+          <section className={cx("nav-part nav-projects", projectsOpen && "is-open")}>
+            <button
+              type="button"
+              className="nav-part-head nav-projects-toggle"
+              onClick={() => setProjectsOpen((open) => !open)}
+              aria-expanded={projectsOpen}
+              aria-controls="nav-projects-body"
+            >
+              <Icon name="folder" size={13} />
+              <span>Projects</span>
+              <span className="project-count">{projects.length}</span>
+              <Icon
+                name="chevronDown"
+                size={12}
+                className={cx("nav-projects-caret", projectsOpen && "is-open")}
+              />
+            </button>
+
+            {projectsOpen && (
+              <div className="nav-projects-body" id="nav-projects-body">
+                {projects.map((project) => {
+                  const open = !collapsed[project.cwd];
+                  return (
+                    <div className="nav-project" key={project.cwd}>
+                      <button
+                        type="button"
+                        className="project-head"
+                        onClick={() =>
+                          setCollapsed((prev) => ({ ...prev, [project.cwd]: open }))
+                        }
+                        aria-expanded={open}
+                      >
+                        <Icon
+                          name="chevronDown"
+                          size={12}
+                          className={cx("project-caret", !open && "is-closed")}
+                        />
+                        <Icon name="folder" size={12} className="nav-project-folder" />
+                        <span className="project-name">{project.label}</span>
+                        <span className="project-count">{project.items.length}</span>
+                      </button>
+
+                      {open && (
+                        <div className="project-body">
+                          <div className="thread-rows">{project.items.map(renderRow)}</div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {projects.length === 0 && (
+                  <p className="nav-projects-empty">
+                    Chats opened in a folder are grouped here.
+                  </p>
                 )}
-              </section>
-            );
-          })}
+              </div>
+            )}
+          </section>
 
           {matched.length === 0 && (
             <div className="nav-empty">
               {wanted ? (
-                <p>No thread matches “{query.trim()}”</p>
+                <p>No chat matches “{query.trim()}”</p>
               ) : (
                 <>
                   <p>
                     {state.mode === "browser"
-                      ? "No browser threads yet"
+                      ? "No browser chats yet"
                       : state.mode === "code"
-                        ? "No code threads yet"
-                        : "No threads yet"}
+                        ? "No code chats yet"
+                        : "No chats yet"}
                   </p>
                   <button className="text-button" onClick={() => createSession()} type="button">
                     Start one

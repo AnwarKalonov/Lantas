@@ -9,9 +9,9 @@ import {
   type StreamUsage,
 } from "../lib/providers";
 import { useStore } from "../lib/store";
-import type { ProviderId, Session } from "../lib/types";
+import type { CompareSide, ProviderId, Session } from "../lib/types";
 import { cx, uid } from "../lib/util";
-import { ringDone } from "../lib/chime";
+import { playChime } from "../lib/chime";
 import { Icon } from "./Icons";
 import { Markdown, Transcript } from "./Transcript";
 import { ModelPicker } from "./ModelPicker";
@@ -26,10 +26,7 @@ import { ModelPicker } from "./ModelPicker";
  * answers lines up while you read it.
  */
 
-interface Side {
-  provider: ProviderId;
-  model: string;
-}
+type Side = CompareSide;
 
 interface Answer {
   text: string;
@@ -107,15 +104,21 @@ function gap(a: Answer, b: Answer) {
 export function CompareView({
   session,
   seed = "",
+  initialSides,
+  autoAsk = false,
   onClose,
 }: {
   session: Session | null;
   seed?: string;
+  initialSides?: [CompareSide, CompareSide];
+  autoAsk?: boolean;
   onClose: () => void;
 }) {
   const { state, notify } = useStore();
   const settings = state.settings;
-  const [sides, setSides] = useState<[Side, Side]>(() => defaultSides(session, settings));
+  const [sides, setSides] = useState<[Side, Side]>(
+    () => initialSides ?? defaultSides(session, settings),
+  );
   const [question, setQuestion] = useState(seed);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [running, setRunning] = useState(false);
@@ -296,12 +299,38 @@ export function CompareView({
       }),
     );
 
-    if (!controllerForRound.signal.aborted) {
+    // The round is over even when it was aborted (closing the view, restarting
+    // the effect in development, or the Stop button). Only clear the state if
+    // this is still the active round, so a newer round is never marked idle.
+    if (controller.current === controllerForRound) {
       controller.current = null;
       setRunning(false);
-      if (settings.sound) ringDone();
+      if (!controllerForRound.signal.aborted && settings.sound) {
+        playChime(settings.chimeDone, "done");
+      }
     }
   };
+
+  // A comparison started from the setup card already has its question and
+  // models, so it opens straight into two answering chats. The ref keeps
+  // React's double-invoked development effects from asking twice.
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!autoAsk || autoStarted.current) return;
+    const prompt = seed.trim();
+    if (!prompt) return;
+    // Deferring by a frame lets a development remount cancel the first timer
+    // instead of starting two rounds and aborting one of them. In production
+    // this is one frame, not a visible delay.
+    const timer = window.setTimeout(() => {
+      if (autoStarted.current) return;
+      autoStarted.current = true;
+      void ask(prompt);
+    }, 40);
+    return () => window.clearTimeout(timer);
+    // ask is intentionally read once, with the initial sides and question.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAsk, seed]);
 
   const tokens = (answer: Answer) =>
     answer.input + answer.output || estimateTokens(answer.text);

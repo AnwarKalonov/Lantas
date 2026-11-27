@@ -3881,3 +3881,359 @@ html.reduce-motion .approval-allow:active,
 html.reduce-motion .approval-decline:active {
   transform: none;
 }
+
+/* ── sidebar: Chats first, Projects at the bottom ────────────────────────── */
+
+.nav-part {
+  margin-bottom: 6px;
+}
+
+.nav-part-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 27px;
+  padding: 0 6px;
+  border-radius: 6px;
+  color: var(--text-4);
+  font-size: 10.5px;
+  font-weight: 550;
+  letter-spacing: 0.02em;
+  text-align: left;
+}
+
+.nav-part-head .project-count {
+  margin-left: 1px;
+}
+
+button.nav-part-head:hover {
+  background: var(--sel);
+  color: var(--text-2);
+}
+
+.nav-chats .thread-rows {
+  margin: 1px 0 2px;
+}
+
+.nav-projects {
+  margin-top: 8px;
+  padding-top: 5px;
+  border-top: 1px solid var(--line);
+}
+
+.nav-projects-toggle {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.nav-projects-caret {
+  margin-left: auto;
+  transition: transform 220ms var(--spring);
+}
+
+.nav-projects-caret.is-open {
+  transform: rotate(180deg);
+}
+
+.nav-projects-body {
+  padding: 2px 0 4px;
+  animation: nav-part-open 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: top center;
+}
+
+@keyframes nav-part-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scaleY(0.96);
+  }
+}
+
+.nav-project .project-head {
+  padding-left: 14px;
+}
+
+.nav-project-folder {
+  color: var(--text-4);
+}
+
+.nav-projects-empty {
+  margin: 4px 8px 8px;
+  color: var(--text-4);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* ── history rows: no wobble under the three dots ───────────────────────── */
+
+/*
+ * The row used to slide 2px and reveal the timestamp when hovered. Because the
+ * menu is absolutely positioned inside the row, hovering the dots moved the
+ * menu itself and printed the time underneath it. The row now stays still, the
+ * time reserves its place and only fades, and hovering the menu quiets the row
+ * so two highlights never sit on top of each other.
+ */
+.thread-row {
+  transition:
+    background-color 150ms var(--ease-out),
+    color 150ms var(--ease-out);
+}
+
+.thread-row:hover {
+  transform: none;
+}
+
+.thread-time {
+  display: inline;
+  opacity: 0;
+  transition: opacity 120ms var(--ease-out);
+}
+
+.thread-row:hover .thread-time {
+  opacity: 1;
+}
+
+.thread-row:not(.is-active):has(.thread-menu:hover) {
+  background: transparent;
+}
+
+.thread-row:has(.thread-menu:hover) .thread-time {
+  opacity: 0;
+}
+
+.thread-menu {
+  background: transparent;
+  color: var(--text-4);
+  transition:
+    background-color 120ms var(--ease-out),
+    color 120ms var(--ease-out),
+    opacity 120ms var(--ease-out);
+}
+
+.thread-menu:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.thread-menu:active {
+  transform: scale(0.9);
+}
+
+/* ── the blue caret is the sign of life ─────────────────────────────────── */
+
+.stream-caret {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  margin-left: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #9cc8ff 0%, #4c8cff 55%, #2f6fe4 100%);
+  box-shadow:
+    0 0 0 3px rgba(76, 140, 255, 0.1),
+    0 0 14px rgba(76, 140, 255, 0.55),
+    0 0 3px rgba(76, 140, 255, 0.9);
+  vertical-align: -2px;
+  animation: caret-glow 900ms cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes caret-glow {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 0.42;
+    transform: scaleY(0.68);
+  }
+}
+
+/* A caret on a run that has a blue pointer working looks the same; this keeps
+   the two cues from competing. */
+
+/* ── chime choices ──────────────────────────────────────────────────────── */
+
+.chime-field {
+  gap: 7px;
+}
+
+.chime-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 148px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+}
+
+.chime-row-label {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.settings-select {
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  outline: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11.5px;
+}
+
+.settings-select:hover,
+.settings-select:focus {
+  border-color: var(--text-3);
+}
+
+.chime-play {
+  min-width: 46px;
+}
+
+/* ── the screen card's own model ────────────────────────────────────────── */
+
+.ss-model {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.ss-model .mp-trigger {
+  height: 21px;
+  max-width: 122px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 9px;
+}
+
+.ss-model .mp-trigger:hover,
+.ss-model .mp-trigger.is-open {
+  border-color: var(--line-strong);
+  background: var(--sel);
+  color: var(--text);
+}
+
+.ss-model .mp-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── corners: a rounded box must clip its children ──────────────────────── */
+
+.row-menu,
+.workspace-menu,
+.popover,
+.slash-menu,
+.mp-menu,
+.chat-review,
+.plan-approve,
+.compare-pane,
+.compare-composer,
+.settings-modal,
+.trust-question,
+.approval-card {
+  overflow: hidden;
+}
+
+.row-menu,
+.workspace-menu,
+.popover,
+.mp-menu {
+  border-radius: 12px;
+}
+
+.chat-review,
+.plan-approve {
+  border-radius: 12px;
+}
+
+.mp-trigger,
+.thread-menu,
+.attach-chip,
+.attach-chip img,
+.el-tab,
+.msg img,
+.bubble img,
+.gallery img {
+  border-radius: 8px;
+}
+
+.mp-trigger {
+  border-radius: 8px;
+}
+
+.thread-menu {
+  border-radius: 5px;
+}
+
+.el-tab {
+  border-radius: 9px;
+}
+
+/* Menus and small cards arrive with a little weight. */
+.mp-menu {
+  transform-origin: top left;
+  animation: menu-in 170ms var(--spring) both;
+}
+
+.chat-review,
+.plan-approve {
+  animation: review-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes review-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.992);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stream-caret,
+  .nav-projects-body,
+  .mp-menu,
+  .chat-review,
+  .plan-approve {
+    animation: none;
+  }
+
+  .thread-time {
+    transition: none;
+  }
+}
+
+html.reduce-motion .stream-caret,
+html.reduce-motion .nav-projects-body,
+html.reduce-motion .mp-menu,
+html.reduce-motion .chat-review,
+html.reduce-motion .plan-approve {
+  animation: none;
+}
+
+html.reduce-motion .thread-time {
+  transition: none;
+}
+
+
+/* A floating card that hosts a model picker cannot clip its menu. */
+.screen-share {
+  overflow: visible;
+}
+
+.ss-head {
+  border-radius: 18px 18px 0 0;
+}
+
+.ss-foot {
+  border-radius: 0 0 18px 18px;
+}

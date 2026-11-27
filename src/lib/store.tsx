@@ -25,6 +25,7 @@ import type {
   WorkspaceFile,
 } from "./types";
 import { DEFAULT_SETTINGS, PROVIDERS, SKILL_SEEDS, seedState } from "./data";
+import { setAiDriving } from "./el";
 import { uid } from "./util";
 import { deleteWorkspacePath, writeWorkspacePath } from "./workspace";
 
@@ -582,6 +583,12 @@ export function LantasProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setSettings = useCallback<Store["setSettings"]>((patch) => {
+    // Computer control is one grant, not two. The composer button, Settings,
+    // the permission sheet, the screen card and the browser's Act switch all
+    // write this field; syncing the browser switch here keeps them honest.
+    if (typeof patch.computerControl === "boolean") {
+      setAiDriving(patch.computerControl);
+    }
     setState((prev) => ({ ...prev, settings: { ...prev.settings, ...patch } }));
   }, []);
 

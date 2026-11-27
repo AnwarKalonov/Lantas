@@ -254,16 +254,18 @@ export function pointerScript(x: number, y: number, kind: string): string {
       const root = node.attachShadow({ mode: "open" });
       root.innerHTML =
         '<style>' +
-        '.arrow{position:absolute;left:0;top:0;width:20px;height:26px;filter:drop-shadow(0 3px 8px rgba(8,20,40,.4));}' +
+        '.arrow{position:absolute;left:0;top:0;width:25px;height:33px;filter:drop-shadow(0 4px 10px rgba(8,20,40,.55)) drop-shadow(0 0 6px rgba(59,130,246,.55));}' +
         '.ring{position:absolute;left:-16px;top:-16px;width:32px;height:32px;border-radius:50%;border:2px solid #3b82f6;opacity:0;}' +
         '.ring.on{animation:ripple .55s ease-out;}' +
-        '.dot{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:#3b82f6;box-shadow:0 0 0 4px rgba(59,130,246,.22);}' +
+        '.dot{position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:#3b82f6;box-shadow:0 0 0 5px rgba(59,130,246,.24),0 0 14px rgba(59,130,246,.8);}' +
+        '.halo{position:absolute;left:-20px;top:-20px;width:40px;height:40px;border-radius:50%;border:1.5px solid rgba(59,130,246,.55);animation:halo 2.1s ease-in-out infinite;}' +
+        '@keyframes halo{0%,100%{transform:scale(.72);opacity:.55}50%{transform:scale(1);opacity:.12}}' +
         '@keyframes ripple{0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(1.6)}}' +
         '</style>' +
         '<svg class="arrow" viewBox="0 0 18 24" aria-hidden="true">' +
         '<path d="M2 1.5 16 13.5l-6.4.9 3.2 6.1-2.8 1.4-3.1-6.2L2 19.7z" fill="#2563eb" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>' +
         '</svg>' +
-        '<span class="ring"></span><span class="dot"></span>';
+        '<span class="halo"></span><span class="ring"></span><span class="dot"></span>';
       document.documentElement.appendChild(node);
     }
     node.style.opacity = "1";
@@ -325,7 +327,7 @@ export function pointerScript(x: number, y: number, kind: string): string {
     // The pointer stays for the whole task. A three-second fade made it look
     // like the agent had stopped working whenever it paused to think.
     clearTimeout(window.__lantasPointerTimer);
-    window.__lantasPointerTimer = setTimeout(() => { if (node) node.style.opacity = "0"; }, 60000);
+    window.__lantasPointerTimer = setTimeout(() => { if (node) node.style.opacity = "0"; }, 120000);
     return { ok: true, x: px, y: py };
   `;
 }

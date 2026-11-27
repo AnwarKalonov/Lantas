@@ -638,3 +638,314 @@ html.reduce-motion .compare-pulse,
 html.reduce-motion .compare-caret {
   animation: none;
 }
+
+/* ── compare, before it starts ─────────────────────────────────────────── */
+
+/*
+ * Clicking Compare must not swap the screen. This card floats over the
+ * composer; the thread behind it stays exactly where it was. Only the
+ * Compare button on the card opens the two-column surface.
+ */
+.main {
+  position: relative;
+}
+
+.compare-setup-wrap {
+  position: absolute;
+  left: 50%;
+  bottom: 112px;
+  z-index: 80;
+  width: min(740px, calc(100% - 48px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.compare-setup {
+  pointer-events: auto;
+  /* The model menus must be able to leave the card; the header carries the
+     top radius so the corners still read as one rounded surface. */
+  overflow: visible;
+  border: 1px solid var(--line-strong);
+  border-radius: 15px;
+  background: var(--surface);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 22px 60px rgba(0, 0, 0, 0.42),
+    0 6px 18px rgba(0, 0, 0, 0.22);
+  animation: compare-setup-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes compare-setup-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+}
+
+[data-theme="light"] .compare-setup {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 22px 60px rgba(20, 24, 32, 0.16),
+    0 6px 18px rgba(20, 24, 32, 0.08);
+}
+
+.compare-setup-head {
+  border-radius: 15px 15px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--raised);
+}
+
+.compare-setup-mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--text-2);
+  background: var(--surface);
+}
+
+.compare-setup-title {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.compare-setup-note {
+  color: var(--text-4);
+  font-size: 11px;
+}
+
+.compare-setup-close {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  border-radius: 6px;
+  color: var(--text-4);
+}
+
+.compare-setup-close:hover {
+  background: var(--sel);
+  color: var(--text);
+}
+
+.compare-setup-models {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 12px 14px 4px;
+}
+
+.compare-setup-side {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.compare-setup-side-label {
+  flex: none;
+  color: var(--text-4);
+  font-size: 9.5px;
+  font-weight: 550;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.compare-setup-side .mp {
+  flex: 1;
+  min-width: 0;
+}
+
+.compare-setup-side .mp-trigger {
+  width: 100%;
+  height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 11.5px;
+}
+
+.compare-setup-side .mp-trigger:hover,
+.compare-setup-side .mp-trigger.is-open {
+  background: var(--sel);
+  color: var(--text);
+}
+
+.compare-setup-vs {
+  position: absolute;
+  left: -19px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-4);
+  font-size: 9.5px;
+  z-index: 1;
+}
+
+.compare-setup-question {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin: 10px 14px 0;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--bg);
+  transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+}
+
+.compare-setup-question:focus-within {
+  border-color: var(--accent, #4c8cff);
+  box-shadow: 0 0 0 3px rgba(76, 140, 255, 0.12);
+}
+
+.compare-setup-question textarea {
+  flex: 1;
+  min-width: 0;
+  max-height: 110px;
+  padding: 2px 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.compare-setup-question textarea::placeholder {
+  color: var(--text-4);
+}
+
+.compare-setup-start {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 11.5px;
+  font-weight: 550;
+  transition: opacity 150ms, transform 180ms var(--spring);
+}
+
+.compare-setup-start:hover:not(:disabled) {
+  transform: translateY(-1px);
+  opacity: 0.92;
+}
+
+.compare-setup-start:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.compare-setup-start svg {
+  transform: rotate(45deg);
+}
+
+.compare-setup-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px 11px;
+  color: var(--text-4);
+  font-size: 10.5px;
+}
+
+.compare-setup-key {
+  margin-left: auto;
+  white-space: nowrap;
+  opacity: 0.75;
+}
+
+/* Two chats opening: each pane slides out of the middle, then settles. */
+.compare-pane {
+  animation: compare-pane-left 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.compare-pane:nth-child(2) {
+  animation-name: compare-pane-right;
+}
+
+@keyframes compare-pane-left {
+  from {
+    opacity: 0;
+    transform: translateX(18px) scale(0.985);
+  }
+}
+
+@keyframes compare-pane-right {
+  from {
+    opacity: 0;
+    transform: translateX(-18px) scale(0.985);
+  }
+}
+
+.compare-pair {
+  position: relative;
+}
+
+.compare-pair::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--line);
+  transform: scaleY(0);
+  transform-origin: top center;
+  animation: compare-divider 520ms 80ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes compare-divider {
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@media (max-width: 720px) {
+  .compare-setup-models {
+    grid-template-columns: 1fr;
+  }
+
+  .compare-setup-vs {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compare-setup,
+  .compare-pane,
+  .compare-pair::before {
+    animation: none;
+    transform: none;
+  }
+}
+
+html.reduce-motion .compare-setup,
+html.reduce-motion .compare-pane,
+html.reduce-motion .compare-pair::before {
+  animation: none;
+  transform: none;
+}

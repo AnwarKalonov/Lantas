@@ -32,6 +32,8 @@ const OPEN = "<tool_call>";
 const CLOSE = "</tool_call>";
 /** A browser call written without tags: `browsertype {`, `browsesteps {`. */
 const CALL = /(?<![A-Za-z0-9_.])brows(?:er|e)?[a-z0-9_.]{0,20}[ \t]*\{/i;
+/** A bare ask_user payload, which is a tool call even without its wrapper. */
+const ASK = /\{\s*"question"\s*:/;
 /** The same name at the end of the text, still waiting for its `{`. */
 const PARTIAL = /(?<![A-Za-z0-9_.])brows(?:er|e)?[a-z0-9_.]{0,20}[ \t]*$/i;
 
@@ -173,6 +175,19 @@ export function parseToolCalls(
     // takes an `action` key, so it can only mean the browser.
     if (!name && BROWSER_ACTIONS.has(String(record.action ?? ""))) {
       name = "browser";
+      args = record;
+    }
+    // A model sometimes writes the ask_user arguments as the whole reply:
+    // {"question":"…","fields":[…]}. That is a question card, not prose, and
+    // showing it as JSON leaves the user with nothing to answer. Recognise the
+    // shape and run the real tool. The record itself is the argument object
+    // here, not a `name` + `arguments` wrapper.
+    if (
+      !name &&
+      typeof record.question === "string" &&
+      ("fields" in record || "options" in record || "kind" in record)
+    ) {
+      name = "ask_user";
       args = record;
     }
     if (!name) return;
@@ -433,11 +448,16 @@ export class ToolStream {
       }
 
       const call = CALL.exec(this.buffer);
+      const ask = ASK.exec(this.buffer);
       const tag = this.buffer.indexOf(OPEN);
+      const opener =
+        ask && (!call || ask.index < call.index)
+          ? { index: ask.index, length: ask[0].length }
+          : call;
 
-      if (call && (tag < 0 || call.index < tag)) {
-        if (call.index > 0) this.emit(this.buffer.slice(0, call.index));
-        this.buffer = this.buffer.slice(call.index + call[0].length - 1);
+      if (opener && (tag < 0 || opener.index < tag)) {
+        if (opener.index > 0) this.emit(this.buffer.slice(0, opener.index));
+        this.buffer = this.buffer.slice(opener.index + opener.length - 1);
         this.inside = true;
         this.seen = 0;
         this.depth = 0;
@@ -500,8 +520,17 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
   // one model response, or retrying one that failed, is not.
   const seen = new Map<string, { outcome: ToolOutcome; step: number }>();
   let toolCalls = 0;
+  let actionCalls = 0;
+  let askedUser = false;
   let parseRetries = 0;
+  let completionNudges = 0;
   const seesImages = canSeeImages(options.provider, options.model);
+  // A request that names an action must end with that action, not with a
+  // plan or a question. Explaining, summarising and reviewing are not here.
+  const wantsWork =
+    /\b(fill|type|enter|click|tap|open|go to|navigate|submit|send|book|order|buy|download|apply|sign|log ?in|create|write|edit|fix|add|remove|build|run|install|commit|push|pull|delete|rename|move|copy|upload|schedule|set|turn|enable|disable|start|stop|make|change|update)\b/i.test(
+      options.ctx.task ?? "",
+    );
 
   for (let step = 0; step < budget; step += 1) {
     if (options.signal.aborted) throw new DOMException("aborted", "AbortError");
@@ -548,6 +577,41 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
           ].join("\n\n"),
         });
         options.onNote?.("The tool call did not read cleanly; asking the model again.");
+        continue;
+      }
+      // The “answer” is sometimes a refusal or a question the model could
+      // answer itself: “You didn't fill out the form”, a bare form spec, or a
+      // trailing question with no action behind it. For a request that names
+      // an action, run one more round instead of ending there.
+      const formSpec = /"fields"\s*:\s*\[/i.test(raw);
+      const stuck =
+        formSpec ||
+        /(you (didn'?t|did not)|please (fill|enter|provide|complete)|fill (out|in) the form|i (can'?t|cannot|couldn'?t)|unable to|need you to)/i.test(
+          raw,
+        ) ||
+        // A trailing question with no action behind it is a stall; after real
+        // work, “anything else?” is a normal sign-off and must not loop.
+        (actionCalls === 0 && /[?]\s*$/.test(raw.trim()));
+      if (wantsWork && !askedUser && completionNudges < 2 && stuck) {
+        completionNudges += 1;
+        turns.push({ role: "assistant", content: raw.slice(0, 16_000) });
+        turns.push({
+          role: "user",
+          content: [
+            actionCalls === 0
+              ? "The request is not finished. No action has run yet, so do not stop here."
+              : "The request is not finished. Some steps ran, but the user's goal is not done, so do not stop here.",
+            formSpec
+              ? 'That JSON is an ask_user question, not a visible answer. Either fill the fields from what the user already told you, or call ask_user with the complete wrapper so they get a real form: <tool_call>{"name":"ask_user","arguments":{"question":"…","fields":[…]}}</tool_call>'
+              : "Take the next real tool action now. If one value is genuinely only known by the user, call ask_user once; otherwise fill in what you know and continue.",
+            options.ctx.task
+              ? `The user asked: ${options.ctx.task.slice(0, 600)}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+        });
+        options.onNote?.("Not finished — continuing the task.");
         continue;
       }
       return { steps: step + 1, toolCalls, stopped: "answer" };
@@ -666,6 +730,8 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
         };
       }
       seen.set(signature, { outcome, step });
+      if (call.name === "ask_user") askedUser = true;
+      if (isActionCall(call)) actionCalls += 1;
       options.onToolDone(id, outcome, outcome.ok ? "done" : "error");
       results.push(encodeResult(call, outcome));
       if (outcome.images?.length && seesImages) images.push(...outcome.images.slice(0, 2));
@@ -707,6 +773,31 @@ export async function runToolLoop(options: ToolLoopOptions): Promise<ToolLoopRes
   );
 
   return { steps: budget, toolCalls, stopped: "limit" };
+}
+
+/** Tools that change something, as opposed to reading it. */
+function isActionCall(call: ToolCall): boolean {
+  if (
+    ["write", "edit", "terminal", "git", "preview", "deliver", "screen", "todo"].includes(
+      call.name,
+    )
+  ) {
+    return call.name !== "todo";
+  }
+  if (call.name !== "browser") return false;
+  const action = String(call.args.action ?? "");
+  return ![
+    "",
+    "snapshot",
+    "extract",
+    "find",
+    "wait",
+    "screenshot",
+    "tabs",
+    "back",
+    "forward",
+    "reload",
+  ].includes(action);
 }
 
 function encodeResult(call: ToolCall, outcome: ToolOutcome): string {

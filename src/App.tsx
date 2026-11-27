@@ -52,7 +52,7 @@ import {
   writeWorkspacePath,
 } from "./lib/workspace";
 import { looksLikePath } from "./lib/paths";
-import { ringDone } from "./lib/chime";
+import { playChime } from "./lib/chime";
 import { gitStatus } from "./lib/git";
 import { recordAudit } from "./lib/audit";
 import { askUser } from "./lib/userAsk";
@@ -60,6 +60,7 @@ import type { ChromeEvent } from "./lib/chrome";
 import type {
   AgentId,
   Attachment,
+  CompareSide,
   Message,
   Mode,
   Part,
@@ -78,6 +79,7 @@ import { IdeView } from "./components/IdeView";
 import { setEngineModel } from "./lib/browserSidecar";
 import { CommandPalette } from "./components/CommandPalette";
 import { CompareView } from "./components/CompareView";
+import { CompareSetup } from "./components/CompareSetup";
 import { ContextPanel } from "./components/ContextPanel";
 import { Home } from "./components/Home";
 import { IntegrationsView } from "./components/IntegrationsView";
@@ -160,6 +162,12 @@ export function App() {
   } | null>(null);
   const [cliRequest, setCliRequest] = useState(0);
   const [compareOpen, setCompareOpen] = useState(false);
+  /** The setup card is showing; the chat itself has not changed. */
+  const [compareArmed, setCompareArmed] = useState(false);
+  const [compareStart, setCompareStart] = useState<{
+    sides: [CompareSide, CompareSide];
+    question: string;
+  } | null>(null);
   const compareSeed = useMemo(() => {
     const lastUser = activeSession?.messages.filter((message) => message.role === "user").at(-1);
     const text = lastUser?.parts.find((part) => part.kind === "text");
@@ -1322,8 +1330,10 @@ export function App() {
             drive: browserMode ? undefined : state.settings.computerControl,
             // The question form lives at App level now, so any surface can ask
             // instead of ending the turn with "please type your password here".
-            askUser: (question, kind, extra) =>
-              askUser({ question, kind, ...extra }, controller.signal),
+            askUser: (question, kind, extra) => {
+              if (state.settings.sound) playChime(state.settings.chimeAsk, "ask");
+              return askUser({ question, kind, ...extra }, controller.signal);
+            },
             settings: {
               theme: state.settings.theme,
               reduceMotion: state.settings.reduceMotion,
@@ -1355,6 +1365,31 @@ export function App() {
                   ? `${(await homeDir()).replace(/\/$/, "")}/${path.slice(2)}`
                   : path;
                 return await fs.readTextFile(full);
+              } catch {
+                return null;
+              }
+            },
+            readAbsoluteImage: async (path) => {
+              try {
+                const fs = await import("@tauri-apps/plugin-fs");
+                const { homeDir } = await import("@tauri-apps/api/path");
+                const full = path.startsWith("~/")
+                  ? `${(await homeDir()).replace(/\/$/, "")}/${path.slice(2)}`
+                  : path;
+                const bytes = await fs.readFile(full);
+                const lower = full.toLowerCase();
+                const mime = lower.endsWith(".png")
+                  ? "image/png"
+                  : lower.endsWith(".webp")
+                    ? "image/webp"
+                    : lower.endsWith(".gif")
+                      ? "image/gif"
+                      : "image/jpeg";
+                let binary = "";
+                for (let index = 0; index < bytes.length; index += 0x8000) {
+                  binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+                }
+                return { mime, data: btoa(binary) };
               } catch {
                 return null;
               }
@@ -1679,7 +1714,7 @@ export function App() {
             tokens: session.tokens + tokens,
             updated: Date.now(),
           }));
-          if (state.settings.sound) ringDone();
+          if (state.settings.sound) playChime(state.settings.chimeDone, "done");
         } else {
           const providerName =
             PROVIDERS.find((item) => item.id === provider)?.name ?? provider;
@@ -1706,6 +1741,7 @@ export function App() {
       } catch (error) {
         closeReasoning();
         const aborted = error instanceof DOMException && error.name === "AbortError";
+        if (!aborted && state.settings.sound) playChime(state.settings.chimeError, "error");
         const detail =
           error instanceof Error ? error.message.slice(0, 400) : String(error).slice(0, 400);
 
@@ -1749,6 +1785,9 @@ export function App() {
       state.settings.defaultProvider,
       state.settings.notifications,
       state.settings.sound,
+      state.settings.chimeDone,
+      state.settings.chimeError,
+      state.settings.chimeAsk,
       state.settings.providers,
       state.settings.screenAccess,
       state.settings.permissionMode,
@@ -1909,7 +1948,9 @@ export function App() {
     const open = () => {
       setView("chats");
       setMode("chat");
-      setCompareOpen(true);
+      setCompareOpen(false);
+      setCompareStart(null);
+      setCompareArmed(true);
     };
     window.addEventListener("lantas:compare", open);
     return () => window.removeEventListener("lantas:compare", open);
@@ -1918,7 +1959,10 @@ export function App() {
   // Compare lives inside the Chat surface, not on top of the app. Leaving Chat
   // still closes it so Code and Browser are never covered by an old comparison.
   useEffect(() => {
-    if (state.mode !== "chat") setCompareOpen(false);
+    if (state.mode !== "chat") {
+      setCompareOpen(false);
+      setCompareArmed(false);
+    }
   }, [state.mode]);
 
   const overlayOpen =
@@ -1993,8 +2037,13 @@ export function App() {
                     <ErrorBoundary label="Compare">
                       <CompareView
                         session={activeSession}
-                        seed={compareSeed}
-                        onClose={() => setCompareOpen(false)}
+                        seed={compareStart?.question ?? compareSeed}
+                        initialSides={compareStart?.sides}
+                        autoAsk={Boolean(compareStart)}
+                        onClose={() => {
+                          setCompareOpen(false);
+                          setCompareStart(null);
+                        }}
                       />
                     </ErrorBoundary>
                   ) : activeSession && activeSession.messages.length > 0 ? (
@@ -2024,6 +2073,20 @@ export function App() {
                     />
                   ))}
               </>
+            )}
+
+            {state.view === "chats" && compareArmed && !compareOpen && (
+              <CompareSetup
+                session={activeSession}
+                seed={compareSeed}
+                onCancel={() => setCompareArmed(false)}
+                onConnect={() => openSettings("providers")}
+                onStart={(sides, question) => {
+                  setCompareStart({ sides, question });
+                  setCompareArmed(false);
+                  setCompareOpen(true);
+                }}
+              />
             )}
           </main>
 

@@ -300,6 +300,7 @@ export async function writeWorkspacePath(
 export async function watchWorkspace(
   root: string,
   onChange: (path: string, text: string) => void,
+  onRemove?: (path: string) => void,
 ): Promise<() => void> {
   if (!root || !isTauri()) return () => {};
   const fs = await import("@tauri-apps/plugin-fs");
@@ -312,10 +313,19 @@ export async function watchWorkspace(
         if (!normalized.startsWith(prefix)) continue;
         const relative = normalized.slice(prefix.length);
         if (!relative || relative.split("/").some((part) => SKIP.has(part))) continue;
-        if (!isTextFile(relative.split("/").pop() ?? relative)) continue;
+        // A removed folder never reaches the text-read path, so check the
+        // path itself first and let the store drop the folder and its children.
         void fs
-          .readTextFile(changed)
-          .then((text) => onChange(relative, text))
+          .exists(changed)
+          .then(async (exists) => {
+            if (!exists) {
+              onRemove?.(relative);
+              return;
+            }
+            if (!isTextFile(relative.split("/").pop() ?? relative)) return;
+            const text = await fs.readTextFile(changed).catch(() => null);
+            if (text !== null) onChange(relative, text);
+          })
           .catch(() => undefined);
       }
     },
@@ -364,14 +374,17 @@ export async function readWorkspaceWithExtras(
 export async function watchWorkspaceTree(
   primaryRoot: string,
   onChange: (path: string, text: string) => void,
+  onRemove?: (path: string) => void,
 ): Promise<() => void> {
   if (!primaryRoot) return () => {};
   const stops: Array<() => void> = [];
-  const primary = await watchWorkspace(primaryRoot, onChange);
+  const primary = await watchWorkspace(primaryRoot, onChange, onRemove);
   stops.push(primary);
   for (const extra of extraWorkspaceFolders()) {
-    const stop = await watchWorkspace(extra.root, (path, text) =>
-      onChange(`${extra.prefix}/${path}`, text),
+    const stop = await watchWorkspace(
+      extra.root,
+      (path, text) => onChange(`${extra.prefix}/${path}`, text),
+      onRemove ? (path) => onRemove(`${extra.prefix}/${path}`) : undefined,
     );
     stops.push(stop);
   }

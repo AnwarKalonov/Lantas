@@ -12,6 +12,7 @@ import { useStore } from "../lib/store";
 import { APP_VERSION, checkForUpdate, checkNativeUpdate } from "../lib/updates";
 import { inTauri, openExternal, openInVsCode, openPrivacySettings } from "../lib/native";
 import { clearAuditLog, getAuditLog, subscribeAudit } from "../lib/audit";
+import { ringDone } from "../lib/chime";
 import type { AgentId, ProviderId, ProviderMeta, ThemeMode } from "../lib/types";
 import { cx, uid } from "../lib/util";
 import { MarkGlyph } from "./Brand";
@@ -395,6 +396,15 @@ export function SettingsModal({
                 onChange={(next) => setSettings({ reduceMotion: next })}
               />
               <Toggle
+                label="Completion chime"
+                description="A soft two-note bell when a reply finishes."
+                checked={settings.sound}
+                onChange={(next) => {
+                  setSettings({ sound: next });
+                  if (next) ringDone();
+                }}
+              />
+              <Toggle
                 label="Usage telemetry"
                 description="Off. This build sends nothing anywhere."
                 checked={settings.telemetry}
@@ -728,7 +738,7 @@ export function SettingsModal({
               />
               <Toggle
                 label="Computer control"
-                description="Lets Lantas click, type and scroll inside Lantas Browser. It does not move your Mac pointer or control other apps."
+                description="Lets Lantas click, type and scroll in the browser and in the floating screen card, including other apps. Off by default."
                 checked={settings.computerControl}
                 onChange={(next) => setSettings({ computerControl: next })}
               />

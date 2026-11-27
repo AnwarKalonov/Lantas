@@ -7,8 +7,6 @@ dist-ssr
 # Rust / Tauri
 src-tauri/target
 src-tauri/gen
-# The OpenCode sidecar is copied by `npm run prepare:opencode` at build time.
-src-tauri/binaries/opencode-*
 
 # Local logs & scratch
 .cdp.pid

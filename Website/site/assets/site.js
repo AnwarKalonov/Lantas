@@ -1174,6 +1174,10 @@ function initAgentLoop() {
 
 const RELEASE_API =
   "https://api.github.com/repos/AnwarKalonov/Lantas/releases/latest";
+const DOWNLOADS_API =
+  "https://api.github.com/repos/AnwarKalonov/Lantas/releases?per_page=100";
+const DOWNLOADS_CACHE = "lantas:downloads:v1";
+const DOWNLOADS_CACHE_MS = 10 * 60 * 1000;
 
 const ASSET_KINDS = {
   dmg: (name) => name.endsWith(".dmg"),
@@ -1182,6 +1186,77 @@ const ASSET_KINDS = {
   updater: (name) => name === "Lantas.app.tar.gz",
   manifest: (name) => name === "latest.json",
 };
+
+/* The public download total. Only the builds a person installs are counted —
+   not the updater manifest or signatures the app fetches in the background. */
+function downloadCount(releases) {
+  return releases
+    .filter((release) => !release.draft && !release.prerelease)
+    .reduce((total, release) => {
+      const assets = Array.isArray(release.assets) ? release.assets : [];
+      return (
+        total +
+        assets.reduce((sum, asset) => {
+          const name = String(asset.name || "").toLowerCase();
+          const install = name.endsWith(".dmg") || name.endsWith(".app.zip") || name === "chrome-extension.zip";
+          return sum + (install ? Number(asset.download_count) || 0 : 0);
+        }, 0)
+      );
+    }, 0);
+}
+
+function cachedDownloads() {
+  try {
+    const raw = localStorage.getItem(DOWNLOADS_CACHE);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    if (!saved || typeof saved.total !== "number") return null;
+    if (Date.now() - Number(saved.at || 0) > DOWNLOADS_CACHE_MS) return null;
+    return saved.total;
+  } catch (error) {
+    return null;
+  }
+}
+
+function paintDownloads(total) {
+  if (!total) return;
+  $$("[data-download-total]").forEach((node) => {
+    node.textContent = total.toLocaleString("en-GB");
+  });
+  $$("[data-download-note]").forEach((node) => {
+    node.hidden = false;
+  });
+}
+
+async function initDownloads() {
+  const notes = $$("[data-download-note]");
+  if (!notes.length) return;
+
+  const cached = cachedDownloads();
+  if (cached) {
+    paintDownloads(cached);
+    return;
+  }
+
+  try {
+    const response = await fetch(DOWNLOADS_API, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!response.ok) return;
+    const releases = await response.json();
+    if (!Array.isArray(releases)) return;
+    const total = downloadCount(releases);
+    if (!total) return;
+    try {
+      localStorage.setItem(DOWNLOADS_CACHE, JSON.stringify({ at: Date.now(), total }));
+    } catch (error) {
+      /* private mode: the line still shows for this visit */
+    }
+    paintDownloads(total);
+  } catch (error) {
+    /* offline or rate-limited: the page simply omits the line */
+  }
+}
 
 let releasePromise = null;
 
@@ -1285,6 +1360,7 @@ function boot() {
   initDocNav();
   initDownload();
   initRelease();
+  initDownloads();
   initReveal();
 }
 

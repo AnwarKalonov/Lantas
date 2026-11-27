@@ -1,7 +1,7 @@
 import { useStore } from "../lib/store";
 import type { Attachment } from "../lib/types";
 import { SUGGESTIONS } from "../lib/data";
-import { isConfigured } from "../lib/providers";
+import { isConfigured, prettyModel } from "../lib/providers";
 import { Composer } from "./Composer";
 import { Lockup } from "./Brand";
 import { Icon, type IconName } from "./Icons";
@@ -30,12 +30,9 @@ export function Home({ onSend, onOpenSettings, onScreenToggle }: HomeProps) {
       <div className="home-inner">
         <div className="home-head">
           <Lockup className="home-lockup" />
-          {state.workspaceName ? (
-            <p className="home-kicker">Working in {state.workspaceName}</p>
-          ) : null}
-          <h1 className="home-title">What can I help with?</h1>
+          <h1 className="home-title">Ask, build or browse</h1>
           <p className="home-line">
-            A quick chat, or open a workspace to build in a project folder.
+            One thread for the folder, the screen and the page in front of you.
           </p>
         </div>
 
@@ -60,31 +57,29 @@ export function Home({ onSend, onOpenSettings, onScreenToggle }: HomeProps) {
               type="button"
               className="suggestion"
               onClick={() => onSend(item.prompt)}
+              title={item.body}
             >
               <span className="suggestion-icon">
                 <Icon name={SUGGESTION_ICONS[item.icon]} size={15} />
               </span>
               <span className="suggestion-title">{item.title}</span>
-              <span className="suggestion-body">{item.body}</span>
-              <Icon name="chevronRight" size={14} className="suggestion-arrow" />
             </button>
           ))}
         </div>
 
         <div className="home-foot">
           <span className="home-foot-item">
-            <Icon name="folder" size={13} /> {state.workspaceName || "No folder"}
+            <Icon name="folder" size={13} /> {state.workspaceName || "No folder open"}
           </span>
-          <span className="home-foot-item">
-            <Icon name="branch" size={13} /> {state.workspaceName ? "main" : "—"}
-          </span>
+          {state.workspaceName ? (
+            <span className="home-foot-item">
+              <Icon name="branch" size={13} /> main
+            </span>
+          ) : null}
+          <span className="home-foot-spacer" />
           <span className="home-foot-item">
             <span className={`status-dot ${configured ? "is-ok" : "is-idle"}`} aria-hidden="true" />
-            {configured ? "Provider configured" : "No provider connected"}
-          </span>
-          <span className="home-foot-spacer" />
-          <span className="home-foot-item dim">
-            {state.skills.filter((skill) => skill.enabled).length} skills on
+            {configured ? prettyModel(state.settings.defaultModel) : "No provider connected"}
           </span>
         </div>
       </div>

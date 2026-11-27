@@ -32,9 +32,19 @@ export function SessionView({
   onApprovePlan,
   onOpenFile,
 }: SessionViewProps) {
-  const { renameSession, deleteSession, notify } = useStore();
+  const {
+    renameSession,
+    deleteSession,
+    notify,
+    staged,
+    keepChange,
+    discardChange,
+    keepStaged,
+    discardStaged,
+  } = useStore();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(session.title);
+  const [busyPath, setBusyPath] = useState<string | null>(null);
   const agentName = AGENTS.find((item) => item.id === session.agent)?.name ?? "Agent";
   const scrollRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -63,6 +73,24 @@ export function SessionView({
   const commitRename = () => {
     if (draft.trim()) renameSession(session.id, draft);
     setEditing(false);
+  };
+
+  const keepOne = async (path: string) => {
+    setBusyPath(path);
+    const ok = await keepChange(path);
+    setBusyPath(null);
+    notify(ok ? `Kept ${path.split("/").pop()}` : `Could not write ${path}`, ok ? "default" : "error");
+  };
+
+  const keepAll = async () => {
+    const count = await keepStaged();
+    if (count) notify(`Kept ${count} file${count === 1 ? "" : "s"}`);
+  };
+
+  const discardAll = () => {
+    const count = staged.length;
+    discardStaged();
+    if (count) notify(`Discarded ${count} change${count === 1 ? "" : "s"}`);
   };
 
   const copyTranscript = () => {
@@ -112,7 +140,6 @@ export function SessionView({
         </button>
         <span className="chat-sub">
           {agentName} · {prettyModel(session.model)}
-          {session.opencodeSessionId ? " · OpenCode" : ""}
         </span>
         </div>
 
@@ -141,7 +168,38 @@ export function SessionView({
         </div>
       </header>
 
-      <Transcript session={session} scrollRef={scrollRef} onOpenFile={onOpenFile} />
+      <Transcript
+        session={session}
+        scrollRef={scrollRef}
+        onOpenFile={onOpenFile}
+        staged={staged}
+        onKeepChange={(path) => void keepOne(path)}
+        onDiscardChange={discardChange}
+        busyPath={busyPath}
+      />
+
+      {staged.length > 0 && (
+        <div className="chat-review" role="status">
+          <span className="chat-review-dot" aria-hidden="true" />
+          <span className="chat-review-label">
+            {staged.length} file{staged.length === 1 ? "" : "s"} changed
+          </span>
+          <span className="chat-review-files" title={staged.map((change) => change.path).join("\n")}>
+            {staged
+              .slice(0, 2)
+              .map((change) => change.path.split("/").pop())
+              .join(", ")}
+            {staged.length > 2 ? ` +${staged.length - 2}` : ""}
+          </span>
+          <span className="chat-review-spacer" />
+          <button type="button" className="chat-review-discard" onClick={discardAll}>
+            Discard all
+          </button>
+          <button type="button" className="chat-review-keep" onClick={() => void keepAll()}>
+            Keep all
+          </button>
+        </div>
+      )}
 
       {session.agent === "plan" &&
         !streaming &&

@@ -15,10 +15,10 @@ import "./styles-chat.css";
 import "./styles-code.css";
 import "./styles-permissions.css";
 import "./styles-polish.css";
-import "./styles-compare.css";
 import "./styles-reui.css";
 import "./styles-screen.css";
-import "./styles-openwork.css";
+import "./styles-clean.css";
+import "./styles-compare.css";
 
 // The transparent pointing layer is its own window; it renders nothing but a
 // canvas and never mounts the app, so it cannot capture or send anything.

@@ -13,6 +13,8 @@ No account, no subscription, no telemetry. Bring a model key, or run a model loc
 
 **[Download for macOS →](https://lantas-phi.vercel.app/download.html)** · [Website](https://lantas-phi.vercel.app)
 
+[![Total downloads](https://img.shields.io/github/downloads/AnwarKalonov/Lantas/total?style=flat-square&label=downloads&color=2c6a4e)](https://github.com/AnwarKalonov/Lantas/releases)
+
 ![Lantas — a monolithic dark-glass window in a pale cloudscape with the LANTAS wordmark](docs/readme-hero.png)
 
 ![Lantas Home](docs/screenshots/home.png)
@@ -29,6 +31,7 @@ No account, no subscription, no telemetry. Bring a model key, or run a model loc
 - [Project layout](#project-layout)
 - [Development](#development)
 - [Release and updates](#release-and-updates)
+- [Changelog](#changelog)
 - [Troubleshooting](#troubleshooting)
 - [Credits](#credits)
 - [Licence and credit](#licence-and-credit)
@@ -141,12 +144,6 @@ The browser tool can list, switch, open and close tabs through the same tab stri
 - `evaluate` is available for a site's documented API and verification, not for reading private storage or changing unrelated settings.
 - Chrome page access stays in the user's own profile through the extension; the app does not receive the user's Chrome password.
 
-### Relationship to Dao Browser
-
-The browser interaction model is informed by [Dao Browser](https://github.com/msgbyte/dao-browser), a BSD-3-Clause Chromium fork. In particular, Lantas follows the same broad ideas: a catalog of small browser tools, explicit tab control, observe-act-verify steps, and a preference for reading the live page over guessing.
-
-Lantas is not a Chromium fork and does not vendor or reproduce Dao source code. It is a Tauri application using a native webview plus a Chrome extension. Features that depend on Chromium internals — network/console instrumentation and a native sidebar — are not copied. The agent pointer is a page overlay in both engines, and the agents workspace is an ordinary Chrome tab group rather than hidden tabs. The implementation here is written against Lantas's own browser bridge and accessibility scan.
-
 ## What is in the app
 
 - **Build, Plan and Chat agents.** Build can write and run; Plan and Chat are read-only. Plan approval and max-step continuation keep long tasks predictable.
@@ -173,7 +170,7 @@ The app is ad-hoc signed and not notarized. On first launch, macOS may ask you t
 2. Find the Lantas notice and click **Open Anyway**.
 3. Authenticate.
 
-The current source tree is version **1.2.0**. The tagged macOS workflow builds the `.dmg`, app zip, Chrome extension and updater assets, then publishes them with the workflow's built-in GitHub token.
+The current source tree is version **1.3.0**. The tagged macOS workflow builds the `.dmg`, app zip, Chrome extension and updater assets, then publishes them with the workflow's built-in GitHub token.
 
 ### Run from source
 
@@ -249,9 +246,9 @@ Keys live in the app's local storage, unencrypted. Use a scoped key you can rota
 
 ## Permissions and privacy
 
-Lantas asks before it uses anything. On first launch a permission sheet lists the four capabilities, and each one is a separate grant: **files** (read and edit the folder you opened), **commands** (builds, tests and git in that folder), **screen** (attach a screenshot to a turn) and **computer control** (click, type and scroll in the browser). *Allow these* saves the grants; *Not now* leaves them off. Reopen the sheet any time from **Settings → Permissions → Review permissions**.
+Lantas asks before it uses anything. On first launch a permission sheet lists the four capabilities, and each one is a separate grant: **files** (read and edit the folder you opened), **commands** (builds, tests and git in that folder), **screen** (attach a screenshot to a turn) and **computer control** (click, type and scroll in the browser, or in the floating screen card across apps). *Allow these* saves the grants; *Not now* leaves them off. Reopen the sheet any time from **Settings → Permissions → Review permissions**.
 
-The grants are enforced in the tool layer, not just in the interface: `read`, `glob`, `grep`, `write`, `edit` and `semantic_search` are refused without file access, `terminal` without the command grant, and every browser action except `snapshot`, `extract` and `find` without computer control. A denied tool returns a plain “not allowed” message that tells the model to ask, not to retry another way.
+The grants are enforced in the tool layer, not just in the interface: `read`, `glob`, `grep`, `write`, `edit` and `semantic_search` are refused without file access, `terminal` without the command grant, and every browser action except `snapshot`, `extract` and `find` without computer control. The floating screen card uses the same switch before it touches the pointer or keyboard. A denied tool returns a plain “not allowed” message that tells the model to ask, not to retry another way.
 
 Screen Recording and Accessibility are also granted by macOS. Lantas opens the right System Settings pane and offers a one-frame capture test, but only the user can flip the switch; Screen Recording takes effect after a relaunch.
 
@@ -311,7 +308,7 @@ When changing an agent action, update the guide, the tool result text and the ex
 
 Tagged releases are built by `.github/workflows/macos.yml` on an Apple Silicon runner. The workflow:
 
-1. checks the tag matches `package.json`;
+1. checks the tag matches `src-tauri/tauri.conf.json`;
 2. builds the Tauri app;
 3. verifies the app signature;
 4. packages the `.dmg`, app zip, Chrome extension and updater assets;
@@ -323,6 +320,14 @@ The public site is generated from `public-repo/`. Vercel deploys that folder fro
 The repository is public, so GitHub serves release assets and the `latest.json` updater feed to anyone.
 
 Download links on the site never need editing. Every button points at `releases/latest` and carries a `data-dl` kind (`dmg`, `app`, `extension`); `assets/site.js` reads the latest release from the GitHub API on load and swaps in that build's real asset URLs, name and version. If the API is unreachable the buttons still land on the newest release page instead of a dead file.
+
+The website's download total and the badge above both read GitHub's asset download counts. The site sums every public release in the browser and caches the answer for ten minutes; the badge is generated by shields.io from the same public numbers. Nothing is tracked per person.
+
+## Changelog
+
+Every version, and what changed in it, is recorded in [`CHANGELOG.md`](CHANGELOG.md). Product changes are written there as they land, under **Unreleased**, and move under the version number when a release is cut. The long-form notes for the current release are in [`RELEASE_NOTES.md`](RELEASE_NOTES.md).
+
+When changing the app or site, add a short entry in the same commit. Keep it about what a person using Lantas will notice, not internal process. [`PUBLISH.md`](PUBLISH.md) covers the version bump, tag, build and site sync.
 
 ## Troubleshooting
 
@@ -352,10 +357,8 @@ Check the Actions run. The publish step uses the workflow's built-in `GITHUB_TOK
 
 ## Credits
 
-- Browser interaction design is informed by [Dao Browser](https://github.com/msgbyte/dao-browser), copyright Dao Browser Authors, BSD-3-Clause. No Dao source code is vendored in this repository.
-- The Code surface follows the modern editor layout that [Zed](https://github.com/zed-industries/zed) popularised — an activity rail, editor tabs, a command palette, an integrated terminal and an agent panel. It is built on Monaco and written from scratch here; Zed is GPL-3.0, so none of its source is copied, vendored or linked into Lantas.
-- Chromium, Chrome and their marks belong to their respective owners. Lantas is not affiliated with Google or the Dao project.
-- Lantas uses React, Vite, Monaco, Tauri and the providers listed in `package.json`.
+- Chromium, Chrome and their marks belong to their respective owners. Lantas is not affiliated with Google.
+- The interface is built on React, Vite, Monaco and Tauri, with the model providers listed in `package.json`.
 
 ## Licence and credit
 

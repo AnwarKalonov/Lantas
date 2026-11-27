@@ -1,3 +1,17 @@
+Lantas 1.3.0
+
+- **The original lockup is back on Home.** The full cloud-and-wordmark artwork sits above the greeting again, at the size it had before the detour — the first thing you see when Lantas opens.
+- **The app is quiet again.** One neutral surface treatment across the sidebar, title bar, composer, transcript, approval card, question card and permissions sheet. Workspace and provider status live in the footer, thread titles get the room, and the IDE assistant no longer crowds the editor.
+- **Chat reads like a conversation.** Reasoning stays out of the reply, a long run folds into one line that opens when you want it, and file edits arrive as a single review card with Keep and Discard rather than a trail of diffs.
+- **Every click has a feel.** Controls press in fast and release on a spring, small controls squash more than full-width rows, menus and questions grow from their anchor, and a new thread settles into the list. **Reduce motion** in Settings, or the system setting, turns all of it off.
+- **Light theme is finished.** The same palette in both themes, one primary action colour, green only for live status. Browser, IDE, menus, dialogs and the transcript were checked in light mode.
+- **The IDE follows the folder.** Edits made in another editor are read back, new files appear without reopening the folder, and a file or folder deleted outside Lantas disappears from the tree and from any pending review.
+- **GitHub is in the workspace.** Connect a personal access token, choose an existing repository or create one, set the origin, then stage, commit, pull and push from the Code surface. The token stays in local app storage and is sent only to GitHub.
+- **Your Mac, from the assistant.** The floating screen card can read the front window through Accessibility, press the control it names, type into it and draw the pointer where it acts. Screen Recording and Accessibility stay macOS switches you grant yourself.
+- **Downloads are counted in public.** The home page, download page, versions page and README show the total from the public release assets.
+
+This build is ad-hoc signed and not notarized. macOS may ask you to approve Lantas once: open **System Settings → Privacy & Security**, click **Open Anyway**, and authenticate.
+
 Lantas 1.2.0
 
 - **Compare two models on one question.** The composer and the thread header open a two-column Compare view: the same question, both models streaming at once, each with its own model picker, time and token count, and a quiet "Faster" mark on the one that finished first. Both answers use the thread history and the open workspace, so the comparison is about your files rather than a generic prompt.
@@ -96,7 +110,7 @@ This build is ad-hoc signed and not notarized. macOS may ask you to approve Lant
 Lantas 1.0.6
 
 - **The browser now works one step at a time.** The model gets one `browser` tool with explicit actions for opening a page, reading its controls, clicking, typing, filling, selecting, checking, hovering, waiting, scrolling, going back and going forward. It has to read the page again after each action, so a second step like “open the graphing calculator” starts from the controls that are actually on screen.
-- **Tabs are first-class browser targets.** `tabs`, `switch_tab`, `new_tab` and `close_tab` act on the same tab strip the user sees, in either the native engine or Chrome. The last tab is never closed by the agent. The interaction model follows the tool-catalog approach used by Dao Browser (BSD-3-Clause); no Dao source code is included.
+- **Tabs are first-class browser targets.** `tabs`, `switch_tab`, `new_tab` and `close_tab` act on the same tab strip the user sees, in either the native engine or Chrome. The last tab is never closed by the agent.
 - **Broken browser calls are recovered instead of shown as JSON.** Models that send a bare `{ "action": "navigate", ... }`, a fenced block, or a URL split across newlines are parsed into a real call. The browser guide now tells the model to take one action per turn and verify the result before answering.
 - **The model chooses every destination.** The app no longer maps product names, infers a route from the request, repairs a malformed address or falls back to a Google search. `navigate` accepts a full `https://` URL only; an incomplete value is returned to the model as an actionable error so it can choose the real page on the next step. Site-specific typing shortcuts were removed as well, leaving the same observe-act-verify loop for every page.
 - **A browser chat is its own chat.** **New thread** in Browser mode starts a browser-only conversation with its own history and a browser-specific prompt. The browser tool is the only tool that prompt exposes, so small local models stop reaching for file or terminal tools while driving a page.

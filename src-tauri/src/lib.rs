@@ -2,7 +2,6 @@ mod bookmarks;
 mod bridge;
 mod control;
 mod git;
-mod opencode;
 mod terminal;
 mod vscode;
 mod workspace;
@@ -1017,11 +1016,7 @@ pub fn run() {
         // release, and every bundle is checked against the key in tauri.conf.json.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        // OpenWork's engine: a bundled `opencode serve` process, one per
-        // workspace folder, spoken to over authenticated loopback.
-        .plugin(tauri_plugin_shell::init())
         .manage(terminal::TerminalState::default())
-        .manage(opencode::OpenCodeState::default())
         // Loopback WebSocket the Lantas Chrome extension connects to.
         .setup(|_app| {
             bridge::start();
@@ -1100,15 +1095,8 @@ pub fn run() {
             terminal::terminal_stop,
             vscode::vscode_import,
             bookmarks::browser_bookmarks,
-            bookmarks::browser_profile_paths,
-            opencode::opencode_start,
-            opencode::opencode_stop
+            bookmarks::browser_profile_paths
         ])
-        .build(tauri::generate_context!())
-        .expect("error while building Lantas")
-        .run(|app, event| {
-            if let tauri::RunEvent::Exit = event {
-                opencode::stop_all(app);
-            }
-        });
+        .run(tauri::generate_context!())
+        .expect("error while running Lantas");
 }

@@ -1,14 +1,14 @@
 {
-  "label": "Lantas 2.0.0 development build",
+  "label": "Lantas 1.8.0 development build",
   "dev": true,
-  "builtAt": "2026-11-27T02:46:59Z",
-  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-2.0.0-arm64.dmg",
-  "size": 76209260,
-  "sha256": "b47a1319581343210e250fa1813498fa17de07bee640c028bd0517c54f7acdbe",
+  "builtAt": "2026-11-27T01:39:00Z",
+  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.8.0-arm64.dmg",
+  "size": 10407631,
+  "sha256": "7a5b2a56839ac0b5da3117b764e431675700cc70acf1f783dab9c64ccf64c14d",
   "changes": [
-    "Workspace coding now runs on OpenCode's engine: Lantas starts a bundled `opencode serve` for each project folder, so threads use its sessions, tools, file edits and terminal commands — the same engine OpenWork runs.",
-    "One engine session per workspace chat, so follow-up turns keep their context. Workspace threads from before 2.0.0 are handed to the engine with a compact transcript the first time they are opened.",
-    "Approvals still come through Lantas: Ask mode shows the existing approval sheet for commands and edits (with the diff), while Auto mode answers immediately.",
-    "Chat and Browser keep Lantas's own loop, including screen control, page tools and the Code/Browser workspace tabs."
+    "Screen: the computer-use card now floats above every app and every full-screen Space, top-centre, so it no longer disappears when you go full screen in Safari or an editor.",
+    "Screen: the live preview is gone. You see only the card, its steps and the blue pointer; the agent sees a private, much denser labelled grid of the front window with every control boxed and numbered, and can zoom into a region when something is too small.",
+    "Screen: clicks and typing go through Accessibility first, so they land on the actual control, and the agent can target a named cell, a fraction of the window or an exact point. Models without vision skip the picture entirely.",
+    "Screen: captures the target window alone, without its shadow, so the grid, the boxes and the pointer line up with the window you are looking at."
   ]
 }

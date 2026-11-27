@@ -42,8 +42,8 @@ const ITEMS: GrantItem[] = [
   {
     key: "computerControl",
     title: "Click and type for you",
-    detail: "Lets Lantas click, type and scroll inside Lantas Browser. It cannot move your Mac pointer or use other apps.",
-    note: "macOS asks for Accessibility the first time it controls the page.",
+    detail: "Lets Lantas click, type and scroll in the browser and in the floating screen card, including other apps. It stays off until you turn it on.",
+    note: "macOS asks for Accessibility the first time it uses the pointer.",
     icon: "cursor",
   },
 ];

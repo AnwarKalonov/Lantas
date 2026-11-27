@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Lantas",
-  "version": "2.0.0",
+  "version": "1.3.0",
   "identifier": "app.lantas.desktop",
   "build": {
-    "beforeDevCommand": "npm run prepare:opencode && npm run dev",
+    "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build && npm run prepare:opencode",
+    "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -50,10 +50,8 @@
     "longDescription": "Lantas is a desktop coding agent that reads your workspace, watches your screen, and can act on your computer.",
     "resources": {
       "../chrome-extension/": "chrome-extension/",
-      "../cli/": "cli/",
-      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
+      "../cli/": "cli/"
     },
-    "externalBin": ["binaries/opencode"],
     "macOS": {
       "signingIdentity": "-",
       "hardenedRuntime": false,

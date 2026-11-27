@@ -16,19 +16,6 @@ export type AgentId = "build" | "plan" | "chat";
 export type ThemeMode = "dark" | "light" | "system";
 export type ViewId = "chats" | "skills" | "integrations";
 export type Mode = "chat" | "code" | "browser";
-/** The two homes in the top bar: ordinary chat, or a project workspace. */
-export type Scope = "chat" | "workspace";
-
-export interface Workspace {
-  id: string;
-  name: string;
-  /** Absolute folder on disk. Empty until the folder is chosen. */
-  root: string;
-  /** Dot colour in the sidebar, like OpenWork's workspace marks. */
-  color: string;
-  created: number;
-  updated: number;
-}
 
 export interface Attachment {
   id: string;
@@ -55,6 +42,8 @@ export interface StagedChange {
   after: string;
   existed: boolean;
   at: number;
+  /** Chat writes immediately so tools see the file; Discard reverts it. */
+  applied?: boolean;
 }
 
 export interface WorkspaceFile {
@@ -73,7 +62,16 @@ export interface WorkspaceFile {
   relative?: string;
 }
 
-export type ToolKind = "read" | "grep" | "edit" | "terminal" | "plan" | "web" | "deliver";
+export type ToolKind =
+  | "read"
+  | "grep"
+  | "edit"
+  | "terminal"
+  | "plan"
+  | "web"
+  | "deliver"
+  | "git"
+  | "preview";
 export type ToolState = "run" | "done" | "error";
 
 export interface DiffLine {
@@ -92,9 +90,29 @@ export type Part =
       state: "run" | "done";
       durationMs?: number;
     }
-  | { id: string; kind: "tool"; tool: ToolKind; label: string; detail?: string; state: ToolState }
+  | {
+      id: string;
+      kind: "tool";
+      tool: ToolKind;
+      /** Raw tool name, so the transcript can label a step precisely. */
+      name?: string;
+      label: string;
+      detail?: string;
+      state: ToolState;
+      /** Wall-clock time this step took, shown at the end of its row. */
+      durationMs?: number;
+      /** A connected app or product mark for the step icon. */
+      brand?: string;
+    }
   | { id: string; kind: "diff"; path: string; added: number; removed: number; lines: DiffLine[] }
-  | { id: string; kind: "shell"; command: string; output: string[]; state: ToolState }
+  | {
+      id: string;
+      kind: "shell";
+      command: string;
+      output: string[];
+      state: ToolState;
+      durationMs?: number;
+    }
   | { id: string; kind: "note"; text: string }
   | {
       id: string;
@@ -159,10 +177,6 @@ export interface Session {
   surface?: Mode;
   /** Kept at the top of the sidebar, above the project groups. */
   pinned?: boolean;
-  /** The project this chat belongs to; absent for ordinary Chat threads. */
-  workspaceId?: string;
-  /** The matching OpenCode session, once this thread runs on that engine. */
-  opencodeSessionId?: string;
   /** Message snapshots for /undo and /redo. */
   past?: Message[][];
   future?: Message[][];
@@ -266,6 +280,8 @@ export interface Settings {
   permissionsReviewed: boolean;
   telemetry: boolean;
   notifications: boolean;
+  /** A soft bell when a reply finishes. */
+  sound: boolean;
   /** "provider/model" keys pinned to the top of every model list. */
   favoriteModels: string[];
   /** Actions the user chose to stop asking about, from the approval sheet. */
@@ -279,10 +295,6 @@ export interface AppState {
   activeId: string | null;
   view: ViewId;
   mode: Mode;
-  /** Ordinary chat, or project workspaces. */
-  scope: Scope;
-  workspaces: Workspace[];
-  activeWorkspaceId: string | null;
   browserUrl: string;
   workspace: WorkspaceFile[];
   workspaceName: string;

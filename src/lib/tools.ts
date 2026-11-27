@@ -52,11 +52,10 @@ import {
 /**
  * Lantas' tool registry.
  *
- * Modelled on opencode's built-ins (`read`, `glob`, `grep`, `write`, `edit`,
- * `skill`) and its permission model: a tool gets a small typed argument object,
- * returns model-facing text plus an optional UI event, and never reaches
- * outside the workspace the user opened. Browser and integration tools use the
- * same contract so one approval path covers all of them.
+ * Every tool gets a small typed argument object, returns model-facing text
+ * plus an optional UI event, and never reaches outside the workspace the user
+ * opened. Browser and integration tools use the same contract so one approval
+ * path covers all of them.
  */
 
 export interface ToolContext {
@@ -68,6 +67,12 @@ export interface ToolContext {
   saveFile: (path: string, text: string) => Promise<boolean>;
   /** Reads the file back from disk. Null means verification is unavailable. */
   readFile?: (path: string) => Promise<string | null>;
+  /** Reads any file the app can reach, by absolute path. */
+  readAbsoluteFile?: (path: string) => Promise<string | null>;
+  /** Creates or replaces any file the app can reach, by absolute path. */
+  writeAbsoluteFile?: (path: string, text: string) => Promise<boolean>;
+  /** Opens a local address in Lantas' own browser panel. */
+  openPreview?: (url: string) => void;
   /** A live stdout/stderr line from the terminal tool. */
   onShellLine?: (line: string) => void;
   /** Overrides the browser drive switch for one turn (the Chrome panel's Act mode). */
@@ -155,6 +160,8 @@ export const TOOL_NAMES = [
   "skill",
   "settings",
   "terminal",
+  "git",
+  "preview",
   "browser",
   "ask_user",
   "integrations",
@@ -175,6 +182,8 @@ export const TOOL_LABELS: Record<string, string> = {
   skill: "Load skill",
   settings: "Settings",
   terminal: "Terminal",
+  git: "Run git",
+  preview: "Preview",
   browser: "Browser",
   ask_user: "Ask you",
   integrations: "Connected apps",
@@ -182,7 +191,117 @@ export const TOOL_LABELS: Record<string, string> = {
   screen: "Screen",
 };
 
+/** Display names for the apps a step can touch, used by the timeline. */
+const APP_NAMES: Record<string, string> = {
+  gmail: "Gmail",
+  googlemail: "Gmail",
+  googledrive: "Google Drive",
+  gdrive: "Google Drive",
+  drive: "Google Drive",
+  slack: "Slack",
+  linear: "Linear",
+  notion: "Notion",
+  github: "GitHub",
+  figma: "Figma",
+  vercel: "Vercel",
+};
+
+function appName(raw: string): string | undefined {
+  const flat = raw.toLowerCase().replace(/[^a-z]/g, "");
+  for (const [key, name] of Object.entries(APP_NAMES)) {
+    if (flat.includes(key)) return name;
+  }
+  return undefined;
+}
+
+/** What a connected-app call did, in the past-tense voice the timeline uses. */
+function integrationVerb(slug: string): string {
+  const flat = slug.toLowerCase();
+  if (/search|find|query|lookup/.test(flat)) return "Searched";
+  if (/create|add|insert|post|send|upload|write/.test(flat)) return "Created";
+  if (/update|edit|patch|move|rename/.test(flat)) return "Updated";
+  if (/delete|remove|archive/.test(flat)) return "Deleted";
+  if (/list|fetch|get|read|download|retrieve/.test(flat)) return "Read";
+  return "Used";
+}
+
+/** A chat-like label for a connected-app step, e.g. “Searched issues · Linear”. */
+function integrationStepLabel(args: Record<string, unknown>): string {
+  const action = String(args.action ?? "").toLowerCase();
+  const toolkit = String(args.toolkit ?? "");
+  const slug = String(args.slug ?? "");
+  const app = appName(toolkit) ?? appName(slug);
+  switch (action) {
+    case "apps":
+      return "Connected apps";
+    case "inbox":
+      return app ? `Read inbox · ${app}` : "Read inbox";
+    case "search_email": {
+      const query = String(args.query ?? "").trim();
+      return `Searched email · Gmail${query ? ` — “${query.slice(0, 40)}”` : ""}`;
+    }
+    case "tools":
+      return app ? `Looked up tools · ${app}` : "Looked up tools";
+    case "run": {
+      const verb = integrationVerb(slug || toolkit);
+      const subject = app ? stepSubject(verb, app) : slug.replace(/[_-]+/g, " ").toLowerCase();
+      const inner = args.arguments;
+      const query =
+        inner && typeof inner === "object"
+          ? String(
+              (inner as Record<string, unknown>).query ??
+                (inner as Record<string, unknown>).q ??
+                "",
+            ).trim()
+          : "";
+      return [
+        subject ? `${verb} ${subject}` : verb,
+        query ? `— “${query.slice(0, 40)}”` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }
+    default:
+      return action ? `Used apps · ${action}` : "Connected apps";
+  }
+}
+
+/** “Searched issues · Linear” reads better than “Searched Linear · Linear”. */
+function stepSubject(verb: string, app: string): string {
+  const plural: Record<string, string> = {
+    Linear: "issues",
+    Notion: "pages",
+    Slack: "messages",
+    "Google Drive": "files",
+    Gmail: "email",
+    GitHub: "code",
+    Figma: "files",
+  };
+  const singular: Record<string, string> = {
+    Linear: "issue",
+    Notion: "page",
+    Slack: "message",
+    "Google Drive": "file",
+    Gmail: "email",
+    GitHub: "code",
+    Figma: "file",
+  };
+  if (verb === "Searched" && plural[app]) return `${plural[app]} · ${app}`;
+  if (verb === "Read" && singular[app]) return `${singular[app]} · ${app}`;
+  return app;
+}
+
 export function toolLabel(call: ToolCall): string {
+  if (call.name === "integrations") return integrationStepLabel(call.args);
+  if (call.name === "git") {
+    const action = String(call.args.action ?? "status").toLowerCase();
+    return `Ran git · ${action}`;
+  }
+  if (call.name === "preview") {
+    const action = String(call.args.action ?? "open").toLowerCase();
+    const url = String(call.args.url ?? "");
+    return url ? `Opened preview · ${url}` : `Preview · ${action}`;
+  }
   const base = TOOL_LABELS[call.name] ?? call.name;
   const target =
     call.name === "browser"
@@ -220,22 +339,58 @@ export function toolResource(call: ToolCall): string {
     const slug = call.args.slug ?? call.args.toolkit ?? "";
     return slug ? `${action} ${String(slug)}` : action;
   }
+  if (call.name === "git") return `git ${String(call.args.action ?? "status")}`;
+  if (call.name === "preview") {
+    const action = String(call.args.action ?? "open");
+    return `${action} ${String(call.args.url ?? "")}`.trim();
+  }
   return String(
     call.args.path ?? call.args.pattern ?? call.args.query ?? call.args.name ?? "*",
   );
 }
 
+function isAbsolutePath(value: string): boolean {
+  return value.startsWith("/") || /^[A-Za-z]:\//.test(value) || value.startsWith("~/");
+}
+
+/**
+ * Paths inside the workspace stay relative and cannot climb out with `..`.
+ * An absolute path is allowed on purpose: the user asked Lantas to read and
+ * create any file, and every write still passes the permission sheet first.
+ */
 function normalizePath(raw: unknown): string {
   const value = String(raw ?? "").replace(/\\/g, "/").trim();
   if (!value) throw new Error("A path is required.");
-  if (value.startsWith("/") || /^[A-Za-z]:\//.test(value)) {
-    throw new Error("Use a path relative to the open workspace, not an absolute path.");
-  }
+  if (isAbsolutePath(value)) return value;
   const parts = value.split("/").filter((part) => part && part !== ".");
   if (parts.some((part) => part === "..")) {
-    throw new Error("That path leaves the workspace.");
+    throw new Error("Use an absolute path to work outside the open workspace.");
   }
   return parts.join("/");
+}
+
+/** One file read, from the workspace or anywhere on disk. */
+function readOutcome(
+  path: string,
+  text: string,
+  offset: number,
+  limit: number,
+): ToolOutcome {
+  const all = text.split("\n");
+  const slice = all.slice(offset, offset + limit);
+  const numbered = slice
+    .map((line, index) => `${String(offset + index + 1).padStart(5)} | ${line}`)
+    .join("\n");
+  return {
+    ok: true,
+    summary: `${path} · ${slice.length} lines`,
+    content: truncate(
+      `${path} (${languageFor(path)}, ${all.length} lines)${
+        offset || limit < all.length ? `, lines ${offset + 1}–${offset + slice.length}` : ""
+      }\n${numbered}`,
+    ),
+    resource: path,
+  };
 }
 
 /**
@@ -455,13 +610,32 @@ export async function runTool(
       }
 
       case "read": {
-        const path = normalizePath(call.args.path);
+        const requested = String(call.args.path ?? "");
+        const path = normalizePath(requested);
+        const offset = Math.max(0, Number(call.args.offset ?? 0) || 0);
+        const limit = Math.min(2000, Math.max(1, Number(call.args.limit ?? 400) || 400));
+
+        if (isAbsolutePath(requested)) {
+          const text = context.readAbsoluteFile
+            ? await context.readAbsoluteFile(path)
+            : null;
+          if (text === null) {
+            return {
+              ok: false,
+              summary: `No file at ${path}`,
+              content: `Could not read ${path}. Check that the path exists and that macOS has given Lantas access to that folder.`,
+              resource: path,
+            };
+          }
+          return readOutcome(path, text, offset, limit);
+        }
+
         const file = findFile(files, path);
         if (!file) {
           return {
             ok: false,
             summary: `No file at ${path}`,
-            content: `No file matches ${path}. Use glob to find the right path.`,
+            content: `No file matches ${path}. Use glob to find the right path, or pass an absolute path to read outside the workspace.`,
             resource: path,
           };
         }
@@ -473,23 +647,7 @@ export async function runTool(
             resource: file.path,
           };
         }
-        const offset = Math.max(0, Number(call.args.offset ?? 0) || 0);
-        const limit = Math.min(2000, Math.max(1, Number(call.args.limit ?? 400) || 400));
-        const all = file.text.split("\n");
-        const slice = all.slice(offset, offset + limit);
-        const numbered = slice
-          .map((line, index) => `${String(offset + index + 1).padStart(5)} | ${line}`)
-          .join("\n");
-        return {
-          ok: true,
-          summary: `${file.path} · ${slice.length} lines`,
-          content: truncate(
-            `${file.path} (${languageFor(file.path)}, ${all.length} lines)${
-              offset || limit < all.length ? `, lines ${offset + 1}–${offset + slice.length}` : ""
-            }\n${numbered}`,
-          ),
-          resource: file.path,
-        };
+        return readOutcome(file.path, file.text, offset, limit);
       }
 
       case "glob": {
@@ -581,8 +739,52 @@ export async function runTool(
             resource: "write",
           };
         }
-        const path = normalizePath(call.args.path);
+        const requested = String(call.args.path ?? "");
+        const path = normalizePath(requested);
         const text = String(call.args.content ?? "");
+
+        if (isAbsolutePath(requested)) {
+          if (!context.writeAbsoluteFile) {
+            return {
+              ok: false,
+              summary: "Cannot write outside the workspace here",
+              content: "This surface can only write inside the open folder. Open the desktop app to create files elsewhere.",
+              resource: path,
+            };
+          }
+          const before = context.readAbsoluteFile
+            ? (await context.readAbsoluteFile(path)) ?? ""
+            : "";
+          const written = await context.writeAbsoluteFile(path, text);
+          if (!written) {
+            return {
+              ok: false,
+              summary: `Could not write ${path}`,
+              content: `macOS or the app refused the write to ${path}. Ask the user to grant access to that folder, then retry.`,
+              resource: path,
+            };
+          }
+          const after = context.readAbsoluteFile
+            ? await context.readAbsoluteFile(path)
+            : null;
+          if (after !== null && after !== text) {
+            return {
+              ok: false,
+              summary: `Write verification failed for ${path}`,
+              content: `The disk copy of ${path} does not match what was written.`,
+              resource: path,
+            };
+          }
+          const diff = diffLines(before, text);
+          return {
+            ok: true,
+            summary: `${before ? "Updated" : "Created"} ${path} (+${diff.added} −${diff.removed})`,
+            content: `${before ? "Updated" : "Created"} ${path} (${text.split("\n").length} lines) outside the workspace.`,
+            diff: { path, added: diff.added, removed: diff.removed, lines: diff.lines },
+            resource: path,
+          };
+        }
+
         const existing = findFile(files, path);
         const before = existing?.text ?? "";
         const saved = await context.saveFile(path, text);
@@ -613,7 +815,67 @@ export async function runTool(
             resource: "edit",
           };
         }
-        const path = normalizePath(call.args.path);
+        const requested = String(call.args.path ?? "");
+        const path = normalizePath(requested);
+        const oldString = String(call.args.oldString ?? "");
+        const newString = String(call.args.newString ?? "");
+        if (!oldString) throw new Error("oldString is required for edit.");
+
+        if (isAbsolutePath(requested)) {
+          const before = context.readAbsoluteFile
+            ? await context.readAbsoluteFile(path)
+            : null;
+          if (before === null) {
+            return {
+              ok: false,
+              summary: `No file at ${path}`,
+              content: `Could not read ${path} to edit it. Check the path and folder access.`,
+              resource: path,
+            };
+          }
+          const occurrences = before.split(oldString).length - 1;
+          if (!occurrences) {
+            return {
+              ok: false,
+              summary: `oldString not found in ${path}`,
+              content:
+                "That exact text is not in the file. Read the current file and copy the text verbatim, including indentation.",
+              resource: path,
+            };
+          }
+          if (occurrences > 1 && !call.args.replaceAll) {
+            return {
+              ok: false,
+              summary: `${occurrences} matches in ${path}`,
+              content:
+                "oldString appears more than once. Include more surrounding lines to make it unique, or pass replaceAll: true.",
+              resource: path,
+            };
+          }
+          const next = call.args.replaceAll
+            ? before.split(oldString).join(newString)
+            : before.replace(oldString, newString);
+          const written = context.writeAbsoluteFile
+            ? await context.writeAbsoluteFile(path, next)
+            : false;
+          if (!written) {
+            return {
+              ok: false,
+              summary: `Could not write ${path}`,
+              content: `macOS or the app refused the write to ${path}.`,
+              resource: path,
+            };
+          }
+          const diff = diffLines(before, next);
+          return {
+            ok: true,
+            summary: `Edited ${path} (+${diff.added} −${diff.removed})`,
+            content: `Edited ${path} outside the workspace.`,
+            diff: { path, added: diff.added, removed: diff.removed, lines: diff.lines },
+            resource: path,
+          };
+        }
+
         const file = findFile(files, path);
         if (!file) {
           return {
@@ -623,9 +885,6 @@ export async function runTool(
             resource: path,
           };
         }
-        const oldString = String(call.args.oldString ?? "");
-        const newString = String(call.args.newString ?? "");
-        if (!oldString) throw new Error("oldString is required for edit.");
         const occurrences = file.text.split(oldString).length - 1;
         if (occurrences === 0) {
           const relaxed = call.args.replaceAll === false ? null : relaxedMatch(file.text, oldString);
@@ -719,6 +978,21 @@ export async function runTool(
 
       case "terminal":
         return await runTerminalTool(call.args, context);
+
+      case "git":
+        if (grants && !grants.terminal) {
+          return {
+            ok: false,
+            summary: "Running commands is off",
+            content:
+              "Git needs the Run commands permission. Ask the user to allow it in Settings → Permissions, then retry.",
+            resource: toolResource(call),
+          };
+        }
+        return await runGitTool(call.args, context);
+
+      case "preview":
+        return await runPreviewTool(call.args, context);
 
       case "browser":
         return await runBrowserTool(
@@ -995,6 +1269,263 @@ async function runTerminalTool(
       content: error instanceof Error ? error.message : String(error),
       resource,
     };
+  }
+}
+
+/** One argument, quoted for the login shell the terminal tool runs. */
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Git as a real tool, not a shell syntax the model has to remember.
+ *
+ * Commit, pull and push run in the open workspace and return git's own output.
+ * Nothing here forces, resets or discards: a failed fast-forward is reported
+ * back to the model so it can ask the user instead of rewriting history.
+ */
+async function runGitTool(
+  args: Record<string, unknown>,
+  context: ToolContext,
+): Promise<ToolOutcome> {
+  const action = String(args.action ?? "status").toLowerCase();
+  const resource = `git ${action}`;
+  const root = context.root;
+  const fail = (summary: string, content = summary): ToolOutcome => ({
+    ok: false,
+    summary,
+    content,
+    resource,
+  });
+
+  if (context.agent !== "build") {
+    return fail(
+      "Read-only agent",
+      "This agent cannot change the repository. Switch to Build to commit, pull or push.",
+    );
+  }
+  if (!root) {
+    return fail("No workspace is open", "Open a project folder before using git.");
+  }
+
+  const path = typeof args.path === "string" ? args.path : "";
+  const branch = typeof args.branch === "string" ? args.branch : "";
+  const remote = typeof args.remote === "string" ? args.remote : "";
+  const limit = Math.min(50, Math.max(1, Number(args.limit ?? 12) || 12));
+  let command = "";
+
+  switch (action) {
+    case "status":
+      command = "git status --short --branch";
+      break;
+    case "diff":
+      command = `git diff${args.staged ? " --staged" : ""}${path ? ` -- ${shellQuote(path)}` : ""}`;
+      break;
+    case "log":
+      command = `git log --oneline -n ${limit}`;
+      break;
+    case "show":
+      command = `git show --stat --oneline -n ${limit}`;
+      break;
+    case "branch":
+      command = "git branch --show-current";
+      break;
+    case "add":
+      command = path ? `git add -- ${shellQuote(path)}` : "git add -A";
+      break;
+    case "commit": {
+      const message = String(args.message ?? "").trim();
+      if (!message) return fail("A commit message is required", 'Pass {"action":"commit","message":"…"}.');
+      const stage = args.all === false ? "" : "git add -A && ";
+      command = `${stage}git commit -m ${shellQuote(message)}`;
+      break;
+    }
+    case "pull":
+      // Fast-forward only: a pull that would create a merge commit or rewrite
+      // local work stops and reports, so the user decides.
+      command = `git pull --ff-only${remote ? ` ${shellQuote(remote)}` : ""}${branch ? ` ${shellQuote(branch)}` : ""}`;
+      break;
+    case "push":
+      command = `git push${remote ? ` ${shellQuote(remote)}` : ""}${branch ? ` ${shellQuote(branch)}` : ""}`;
+      break;
+    case "checkout": {
+      const name = String(args.name ?? branch ?? "").trim();
+      if (!name) return fail("A branch name is required");
+      command = `git checkout ${shellQuote(name)}`;
+      break;
+    }
+    default:
+      return fail(
+        `Unknown git action ${action}`,
+        "Use status, diff, log, show, add, commit, pull, push, checkout or branch.",
+      );
+  }
+
+  try {
+    const result = await runTerminalCommand(root, command, 120_000);
+    const output = result.output.slice(-160);
+    const body = [
+      `$ ${command}`,
+      ...output,
+      result.timedOut
+        ? "The command timed out; it may still be running."
+        : `Exit code: ${result.code === null ? "unknown" : result.code}`,
+    ].join("\n");
+    return {
+      ok: !result.timedOut && result.code === 0,
+      summary:
+        result.code === 0
+          ? `git ${action} finished`
+          : `git ${action} failed · exit ${result.code ?? "?"}`,
+      content: truncate(body, 16_000),
+      shell: {
+        command,
+        output,
+        state: !result.timedOut && result.code === 0 ? "done" : "error",
+      },
+      resource,
+    };
+  } catch (error) {
+    return fail(
+      "Git is unavailable",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
+/**
+ * Starts a project's dev server and opens it in Lantas' browser panel.
+ *
+ * This is the desktop-app equivalent of a preview pane: the model can run the
+ * app it just changed, watch the port come up, then keep working with the
+ * page in front of the user. The server is detached with nohup so the turn
+ * does not hold it open.
+ */
+async function runPreviewTool(
+  args: Record<string, unknown>,
+  context: ToolContext,
+): Promise<ToolOutcome> {
+  const action = String(args.action ?? "open").toLowerCase();
+  const raw = String(args.url ?? args.address ?? "").trim();
+  const port = Number(args.port ?? 5173) || 5173;
+  const target = raw
+    ? /^(localhost|127\.|0\.0\.0\.0)/i.test(raw) && !/^https?:/i.test(raw)
+      ? `http://${raw}`
+      : raw
+    : `http://localhost:${port}`;
+  const resource = `preview ${target}`;
+  const fail = (summary: string, content = summary): ToolOutcome => ({
+    ok: false,
+    summary,
+    content,
+    resource,
+  });
+
+  if (action === "open") {
+    if (!context.openPreview) {
+      return fail(
+        "The browser panel is unavailable here",
+        "Preview opens in the desktop app. Open the address in a browser instead.",
+      );
+    }
+    context.openPreview(target);
+    return {
+      ok: true,
+      summary: `Opened ${target} in Lantas`,
+      content: `Opened ${target} in Lantas' browser panel. It is visible to the user now.`,
+      resource,
+    };
+  }
+
+  if (action !== "start") {
+    return fail("Unknown preview action", 'Use {"action":"start"} or {"action":"open"}.');
+  }
+
+  if (context.agent !== "build") {
+    return fail("Read-only agent", "Switch to Build to start a dev server.");
+  }
+  if (!context.grants?.terminal) {
+    return fail(
+      "Running commands is off",
+      "Ask the user to allow Run commands in Settings → Permissions, then start the preview again.",
+    );
+  }
+
+  const command = String(args.command ?? "").trim() || "npm run dev";
+  const log = ".lantas-preview.log";
+  try {
+    const started = await runTerminalCommand(
+      context.root,
+      `nohup ${command} > ${log} 2>&1 & echo $!`,
+      8_000,
+    );
+    if (started.code !== 0) {
+      return fail(
+        "The preview command did not start",
+        [
+          `$ ${command}`,
+          ...started.output.slice(-30),
+          "Check the command, then try again with an explicit command.",
+        ].join("\n"),
+      );
+    }
+
+    // Wait for the address to answer instead of showing a blank frame. A dev
+    // server usually needs a few seconds to compile the first page.
+    let ready = false;
+    let lastCode = "";
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      await sleep(900);
+      const probe = await runTerminalCommand(
+        context.root,
+        `curl -s -o /dev/null -w '%{http_code}' ${shellQuote(target)}`,
+        4_000,
+      ).catch(() => null);
+      if (!probe) continue;
+      lastCode = probe.output.join("").trim().split(/\s+/).pop() ?? "";
+      if (/^[23]\d\d$/.test(lastCode)) {
+        ready = true;
+        break;
+      }
+    }
+
+    context.openPreview?.(target);
+    const tail = await runTerminalCommand(
+      context.root,
+      `tail -n 20 ${log}`,
+      4_000,
+    ).catch(() => null);
+    return {
+      ok: true,
+      summary: ready
+        ? `Preview is live at ${target}`
+        : `Preview started at ${target}`,
+      content: [
+        `$ ${command}`,
+        ready
+          ? `The server answered ${lastCode} and ${target} is open in Lantas' browser panel.`
+          : `The server was launched but ${target} has not answered yet${lastCode ? ` (last status ${lastCode})` : ""}. It may still be compiling; check the panel before assuming it failed.`,
+        "The process is detached; it keeps running after this turn.",
+        tail ? `Log (${log}):\n${tail.output.slice(-30).join("\n")}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+      shell: {
+        command,
+        output: tail?.output.slice(-30) ?? [],
+        state: "done",
+      },
+      resource,
+    };
+  } catch (error) {
+    return fail(
+      "Preview could not start",
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }
 
@@ -1528,8 +2059,7 @@ async function runBrowserTool(
      * that need a real browser (trusted input, downloads, sign-in, multi-page
      * work) rather than one synthesised click.
      */
-    case "steps":
-    case "run": {
+    case "steps": {
       const raw = Array.isArray(args.steps)
         ? args.steps
         : Array.isArray(args.actions)
@@ -1797,7 +2327,9 @@ export const TOOL_MANUAL = [
   '- edit {"path","oldString","newString","replaceAll?"} — exact replacement; oldString must be unique.',
   '- skill {"name"} — load the full instructions of an enabled skill when the task matches it.',
   '- settings {"action","value"?,"flag"?,"panel"?} — the app itself: get, theme {"value":"light|dark|system"}, flag {"flag":"reduceMotion|notifications|sendOnEnter","value":true|false}, open {"panel":"appearance|providers|models|agents|permissions|general"}. Use it when the user asks for a change in how Lantas looks or behaves; it applies at once, so confirm in one line instead of telling them to open Settings.',
-  '- terminal {"command","timeoutMs?"} — run a command in the open workspace and return its real stdout and stderr. Use this for tests, builds, git and shell commands. Never claim a command ran without a terminal result.',
+  '- terminal {"command","timeoutMs?"} — run a command in the open workspace and return its real stdout and stderr. Use this for tests, builds and shell commands. Never claim a command ran without a terminal result.',
+  '- git {"action","message?","path?","branch?","remote?","staged?"} — real git in the open repository. status, diff, log, show, add, commit {"message"}, pull (fast-forward only), push, checkout {"name"}. Every call returns git output. Commit, pull and push change the repository, so they ask first unless the user is on Auto. Never force push, never reset, and never claim a push landed without a successful result.',
+  '- preview {"action":"start|open","command?","url?","port?"} — run the project (default `npm run dev`), wait for the port, and open it in Lantas\' own browser panel so the user sees the app inside the app. Use this after building a web app: start it, then check the page with the browser tool at the same URL.',
   '- browser {"action",...} — actions: snapshot, extract, screenshot, find {"query"}, wait {"text","timeoutMs?","gone?"}, click {"target"|"ref"}, click_at {"x","y"}, hover {"target"}, type/fill {"text","selector?","submit?"}, select {"target","value"}, check {"target","checked?"}, execute {"code","timeoutMs?","screenshot?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, steps {"steps":[...]}, tabs, switch_tab {"id"|"index"}, new_tab {"url"}, close_tab {"id"|"index"}, navigate {"url"}, task {"task","maxSteps?"}, open_in_chrome {"url"}, back, forward, reload.',
   "- browser execute is the unbounded browser step: write async JavaScript for the live page (`await`, loops, `fetch`, `return` a compact value) and get the value plus console logs back. The page session stays alive, so a later execute sees the same tab, cookies and DOM. Use it instead of many single actions when the work is mechanical, and add \"screenshot\":true when you also need to see the result.",
   "- browser screenshot returns the page as an image you can see. Take one for layout, canvas or overlay questions, or when the DOM says something happened but the page looks wrong.",
@@ -1811,12 +2343,13 @@ export const TOOL_MANUAL = [
   '- deliver {"name","format?","content?","files?"} — build a file the user can download: txt, md, csv, json, html, svg, pdf, or zip (pass files: [{"name","content"}] for a zip). The format is inferred from the name when omitted. Use it for any "make me a …", "export", "write a report" or "bundle these files" request instead of pasting the whole thing into chat.',
   "",
   "Rules:",
-  "- Paths are relative to the workspace root. Never use absolute paths or ..",
+  "- Paths are relative to the workspace root. An absolute path reads or creates a file anywhere else on the machine, which the user has allowed; writes still require approval unless auto mode is on.",
   "- Prefer read and grep over inventing file contents. Quote real code when you explain it.",
   "- Keep edits minimal and in the project's existing style.",
+  "- When you change a web app, start its preview and check the page it opens before saying it works. The preview stays in front of the user.",
   "- When the user asks about their mail, use integrations; ask for a search query rather than assuming the mailbox is only six messages.",
   "- You can create files: when the user asks for a document, spreadsheet, export or bundle, call deliver. Never reply that you cannot make files or downloads.",
   "- Never paste a page's whole contents into the chat as a code block. Code the user asked for belongs on disk: call write to create it, then edit to change it, and tell them which file you wrote. A wall of code in the reply is not a saved change.",
-  "- If there is no workspace folder open, say that in one line and ask the user to open one. Do not dump the file into the chat as a substitute.",
+  "- If there is no workspace folder open, you can still read or create an absolute path the user names. Otherwise say in one line that a folder is needed; do not dump a file into the chat as a substitute.",
   "- Finish with a short answer that states what you changed and what you verified. If you could not verify something, say so.",
 ].join("\n");

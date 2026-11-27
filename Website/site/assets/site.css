@@ -8419,3 +8419,39 @@ img { transition: opacity 500ms var(--ease-out), filter 500ms var(--ease-out); }
 @media (prefers-reduced-motion: reduce) {
   .player, .btn, .hero-sky { transition: none !important; transform: none !important; translate: none !important; }
 }
+
+/* Public download total, read from GitHub release assets. */
+.download-count {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  color: var(--ink-3);
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.download-count[hidden] {
+  display: none;
+}
+
+.download-count::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.download-count b {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-facts + .download-count,
+.download-count + .dl-facts {
+  margin-top: 12px;
+}

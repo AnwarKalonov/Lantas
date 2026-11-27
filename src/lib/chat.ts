@@ -47,7 +47,7 @@ export function buildSystemPrompt(
   // answers by pasting the file into the chat. Say it once, in the prompt.
   const noFolderBlock = hasFolder
     ? ""
-    : "\n\nNo workspace folder is open, so you cannot read or write files. Say that in one line and ask the user to open a folder. Do not paste file contents into the chat as a substitute.";
+    : "\n\nNo workspace folder is open. You can still read or create a file at an absolute path the user names; otherwise ask them to open a folder. Do not paste file contents into the chat as a substitute.";
   const summaryBlock = runningSummary
     ? `\n\nCondensed earlier conversation (older turns were dropped from the live history; treat it as context, not a new request):\n${runningSummary}`
     : "";
@@ -58,6 +58,9 @@ export function buildSystemPrompt(
     AGENT_ROLE[session.agent],
     "Only state that an account, page or file is available when a tool result or the context below says so. If you did not check, say you did not check.",
     "Be concise and specific. Use sentence case. No emoji. Prefer short paragraphs, and use inline code for identifiers.",
+    "Work first, then answer. Do not narrate what you are about to do between tool calls; the interface already shows the steps. When the work is done, lead with the outcome in one short paragraph, then add only the details the user needs to act.",
+    "Never paste a whole file or a tool result into the reply. Name the file and the change; the diff is already visible in the thread.",
+    "Look before asking. If the workspace can answer the question, read it instead of asking the user.",
     TOOL_MANUAL,
   ].join("\n\n") +
     treeBlock +
@@ -122,7 +125,7 @@ export function buildBrowserSystemPrompt(session: Session, page: ElPage | null):
     "5. Verify the outcome on the page before saying it worked. If the result is not what the user asked for, try one different supported action.",
     "6. You cannot edit files, run commands or use integrations in this mode. Answer only about the browser and the page.",
     "7. If a login or form needs information only the user has, call ask_user and wait for the answer. State why briefly, then continue the same task. Do not ask for a password unless the user asked you to sign in and the page has a password field.",
-    "8. Write a short, human answer. Never mention the tool protocol or show raw JSON.",
+    "8. Write a short, human answer with the result first. Do not narrate each step, never mention the tool protocol and never show raw JSON.",
     "",
     `Workspace context: ${session.cwd}. This does not give you file tools here.`,
   ].join("\n");

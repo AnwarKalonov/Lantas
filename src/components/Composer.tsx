@@ -236,7 +236,7 @@ export function Composer({
           spellCheck={false}
           autoComplete="off"
           aria-label="Message Lantas"
-          placeholder={variant === "home" ? "Describe your task…" : "Ask a follow-up…"}
+          placeholder={variant === "home" ? "Ask anything, or describe a task" : "Follow up…"}
           value={text}
           onChange={(event) => setText(event.target.value)}
           onPaste={(event) => {
@@ -428,10 +428,10 @@ export function Composer({
                 notify(
                   state.settings.computerControl
                     ? "Computer control off"
-                    : "Computer control on — Lantas can click and type in the browser",
+                    : "Computer control on — Lantas can click and type on your Mac",
                 );
               }}
-              title="Let Lantas click, type and scroll in the browser"
+              title="Let Lantas click, type and scroll on your Mac"
               aria-label="Computer control"
             >
               <Icon name="cursor" size={14} />

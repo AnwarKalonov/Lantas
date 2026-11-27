@@ -183,7 +183,9 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
   const [draft, setDraft] = useState("");
   const [problem, setProblem] = useState("");
   const [steps, setSteps] = useState<string[]>([]);
-  const [control, setControl] = useState(true);
+  // One switch for the whole app: the browser's drive permission and the
+  // floating card's pointer/keyboard permission cannot disagree.
+  const [control, setControl] = useState(() => state.settings.computerControl);
   const [pendingAsk, setPendingAsk] = useState(getActiveUserAsk);
   // null means "not checked yet" (or an older build without the command).
   const [allowed, setAllowed] = useState<boolean | null>(null);
@@ -193,6 +195,10 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
   const controller = useRef<AbortController | null>(null);
   const hideTimer = useRef<number | undefined>(undefined);
   const native = inTauri();
+
+  useEffect(() => {
+    setControl(state.settings.computerControl);
+  }, [state.settings.computerControl]);
 
   const model =
     state.sessions.find((item) => item.id === state.activeId)?.model || state.settings.defaultModel;
@@ -628,7 +634,11 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
           <button
             type="button"
             className={cx("ss-control", control && "is-on")}
-            onClick={() => setControl((value) => !value)}
+            onClick={() => {
+              const next = !control;
+              setControl(next);
+              setSettings({ computerControl: next });
+            }}
             title={
               control
                 ? "Control is on: Lantas can use the pointer and keyboard"

@@ -20,10 +20,9 @@ export interface PermissionDecision {
 }
 
 /**
- * Rules are evaluated in order and the last match wins, the same way opencode
- * resolves its permission config: put the broad catch-all first and the
- * specific exceptions after it. `*` matches any run of characters and `?`
- * matches one.
+ * Rules are evaluated in order and the last match wins: put the broad
+ * catch-all first and the specific exceptions after it. `*` matches any run
+ * of characters and `?` matches one.
  */
 export function matchesPattern(pattern: string, value: string): boolean {
   if (pattern === "*") return true;
@@ -86,6 +85,15 @@ export function defaultRules(mode: "auto" | "ask", buildAgent: boolean): Permiss
     { tool: "integrations", pattern: "tools*", effect: "allow" },
     { tool: "integrations", pattern: "get_*", effect: "allow" },
     { tool: "integrations", pattern: "list_*", effect: "allow" },
+    // Reading history and diffs changes nothing; committing, pulling and
+    // pushing do, so those follow the approval mode below.
+    { tool: "git", pattern: "status*", effect: "allow" },
+    { tool: "git", pattern: "diff*", effect: "allow" },
+    { tool: "git", pattern: "log*", effect: "allow" },
+    { tool: "git", pattern: "show*", effect: "allow" },
+    // Opening a preview is local and reversible; starting one runs a command,
+    // so that falls through to the approval mode below.
+    { tool: "preview", pattern: "open*", effect: "allow" },
   ];
 
   if (!buildAgent) {
@@ -94,6 +102,8 @@ export function defaultRules(mode: "auto" | "ask", buildAgent: boolean): Permiss
       { tool: "write", pattern: "*", effect: "deny" },
       { tool: "edit", pattern: "*", effect: "deny" },
       { tool: "terminal", pattern: "*", effect: "deny" },
+      { tool: "git", pattern: "*", effect: "deny" },
+      { tool: "preview", pattern: "start*", effect: "deny" },
       { tool: "browser", pattern: "click*", effect: "deny" },
       { tool: "browser", pattern: "type*", effect: "deny" },
       { tool: "browser", pattern: "fill*", effect: "deny" },
@@ -124,6 +134,11 @@ export function defaultRules(mode: "auto" | "ask", buildAgent: boolean): Permiss
     // A command can touch anything the app can reach, so it follows the same
     // approval mode as writes rather than silently running on Auto.
     { tool: "terminal", pattern: "*", effect: mode === "auto" ? "allow" : "ask" },
+    { tool: "git", pattern: "*", effect: mode === "auto" ? "allow" : "ask" },
+    { tool: "git", pattern: "status*", effect: "allow" },
+    { tool: "git", pattern: "diff*", effect: "allow" },
+    { tool: "git", pattern: "log*", effect: "allow" },
+    { tool: "git", pattern: "show*", effect: "allow" },
     // Broad rule first, then the read-only exceptions, because the last
     // matching rule wins.
     { tool: "browser", pattern: "*", effect: mode === "auto" ? "allow" : "ask" },
@@ -149,6 +164,10 @@ export function describeAction(tool: string, resource: string): string {
       return `Edit ${resource}`;
     case "terminal":
       return `Run in the terminal: ${resource}`;
+    case "git":
+      return `Git: ${resource}`;
+    case "preview":
+      return `Open a preview: ${resource}`;
     case "browser":
       return `Browser: ${resource}`;
     case "integrations":

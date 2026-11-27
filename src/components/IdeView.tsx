@@ -36,7 +36,7 @@ import { Icon } from "./Icons";
 import { MonacoEditor } from "./MonacoEditor";
 import { TerminalPanel } from "./TerminalPanel";
 import { Transcript } from "./Transcript";
-import { TrustPalette, TrustPanelHead } from "./TrustPanelHead";
+import { TrustPanelHead } from "./TrustPanelHead";
 import { StagedDiffReview } from "./DiffViewer";
 
 type Activity = "explorer" | "search" | "git" | "extensions" | "skills";
@@ -193,7 +193,6 @@ export function IdeView({
   const [activity, setActivity] = useState<Activity>("explorer");
   const [sideOpen, setSideOpen] = useState(true);
   const [assistantOpen, setAssistantOpen] = useState(true);
-  const [promptOpen, setPromptOpen] = useState(true);
   const [tabs, setTabs] = useState<string[]>(() => [...bufferCache.tabs]);
   const [active, setActive] = useState<string | null>(() => bufferCache.active);
   const [drafts, setDrafts] = useState<Record<string, string>>(() => ({ ...bufferCache.drafts }));
@@ -242,11 +241,6 @@ export function IdeView({
   });
 
   const files = state.workspace;
-  const idePrompts = [
-    "Summarize this project",
-    "Find the riskiest code",
-    "Fix the failing check",
-  ];
   const tree = useMemo(() => buildTree(files), [files]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -264,6 +258,28 @@ export function IdeView({
 
   const activeFile = files.find((file) => file.path === active) ?? null;
   const activeText = active ? (drafts[active] ?? activeFile?.text ?? "") : "";
+
+  // Live sync also covers files that disappear outside Lantas: close their
+  // tabs and drop their drafts instead of leaving a tab that opens nothing.
+  useEffect(() => {
+    if (!files.length) return;
+    const present = new Set(files.map((file) => file.path));
+    setTabs((current) => {
+      const next = current.filter((path) => present.has(path));
+      return next.length === current.length ? current : next;
+    });
+    setDrafts((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const path of Object.keys(next)) {
+        if (present.has(path)) continue;
+        delete next[path];
+        changed = true;
+      }
+      return changed ? next : current;
+    });
+    if (active && !present.has(active)) setActive(null);
+  }, [active, files]);
 
   // A restored buffer can point at a file that was renamed or deleted while the
   // user was in chat.
@@ -762,7 +778,11 @@ export function IdeView({
 
   return (
     <div
-      className={cx("ide", dropping && "is-dropping")}
+      className={cx(
+        "ide",
+        !state.workspaceRoot && files.length === 0 && "is-new",
+        dropping && "is-dropping",
+      )}
       onDragOver={(event) => {
         event.preventDefault();
         setDropping(true);
@@ -1304,8 +1324,8 @@ export function IdeView({
                 </h1>
                 <p>
                   {state.workspaceRoot
-                    ? "Nothing is open in the editor yet. Create a file here and it is written to the folder on disk, or pick one from the explorer."
-                    : "The editor is VS Code's Monaco, running locally. Files are read from the folder you pick, edits save back to it, and Lantas can read the same workspace when you ask."}
+                    ? "Nothing is open yet. Pick a file from the explorer or create one here."
+                    : "Open a project folder to read and edit its files, with the assistant in the same window."}
                 </p>
                 <div className="ide-welcome-actions">
                   {state.workspaceRoot && (
@@ -1382,7 +1402,7 @@ export function IdeView({
         {assistantOpen && (
           <aside className="ide-assistant trust-panel">
             <TrustPanelHead
-              title={session?.title || "New chat"}
+              title="Assistant"
               onNewChat={() => {
                 createSession();
                 notify("New thread ready");
@@ -1449,16 +1469,6 @@ export function IdeView({
               }
             />
 
-            {promptOpen && (
-              <TrustPalette
-                items={idePrompts}
-                onPick={(item) => {
-                  onAsk(item);
-                  notify("Sent to Lantas");
-                }}
-                onDismiss={() => setPromptOpen(false)}
-              />
-            )}
 
             {(() => {
               const mention = /(?:^|\s)@([\w./-]*)$/.exec(askDraft);

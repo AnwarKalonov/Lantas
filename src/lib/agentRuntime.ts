@@ -21,12 +21,11 @@ import { uid } from "./util";
 /**
  * The agent loop.
  *
- * opencode runs its tools through a typed registry and a permission check
- * before every call. Lantas does the same, with one difference forced by the
- * providers we support: the tool call travels in a small text protocol instead
- * of a native `tool_calls` field, because Ollama, LM Studio and most
- * OpenAI-compatible gateways do not implement the same schema. The loop,
- * permissions and results are identical; only the wire format differs.
+ * Tools run through a typed registry and a permission check before every call.
+ * Calls travel in a small text protocol instead of a native `tool_calls` field,
+ * because Ollama, LM Studio and most OpenAI-compatible gateways do not
+ * implement the same schema. The loop, permissions and results stay the same;
+ * only the wire format differs.
  */
 
 const OPEN = "<tool_call>";

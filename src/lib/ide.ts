@@ -230,8 +230,8 @@ export function countLines(text: string): number {
  * selected text and the TypeScript/CSS/JSON diagnostics Monaco already holds.
  *
  * A coding agent that only gets the typed sentence has to spend a round trip
- * reading the file to find the line the user is pointing at. OpenCode sends
- * the open file and selection with the prompt; this is the same idea.
+ * reading the file to find the line the user is pointing at. Sending the open
+ * file and selection with the prompt removes that guesswork.
  */
 export interface EditorContext {
   line: number;

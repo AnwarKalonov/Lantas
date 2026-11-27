@@ -1,169 +1,388 @@
 /* ==========================================================================
-   Compare Models
-   One question, two answers, nothing decorative between them. The sheet is a
-   desk, not a modal: two columns with their own scroll, a shared ask line, and
-   time/tokens under each answer. Colour marks only the faster answer and the
-   one failure state.
+   Compare — two chats on one surface
+   The chat does not go away. It splits: the thread you were reading stays
+   above, each question opens a pair of conversations, and a slim bar keeps
+   both models in reach. No sheet, no back button, one scroll.
    ========================================================================== */
 
-.compare-overlay {
-  padding: 3vh 2vw;
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  z-index: 80;
-}
-
-.compare-sheet {
-  width: min(1480px, 96vw);
-  height: min(92vh, 980px);
+.chat-compare {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--line-strong);
-  border-radius: 16px;
-  box-shadow: var(--shadow-float);
-  overflow: hidden;
-  animation: compare-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  background: var(--chat-bg);
+  animation: compare-surface 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-@keyframes compare-in {
+@keyframes compare-surface {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.995);
+    transform: translateY(4px);
   }
 }
 
-.compare-head {
-  flex: 0 0 54px;
+/* ── the model bar ─────────────────────────────────────────────────────── */
+
+.compare-top {
+  flex: 0 0 44px;
+  min-height: 44px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 0 16px 0 18px;
+  gap: 12px;
+  padding: 0 14px;
   border-bottom: 1px solid var(--line);
   background: var(--bg);
 }
 
-.compare-title {
+.compare-top-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.compare-top-label svg {
+  opacity: 0.7;
+}
+
+.compare-top-models {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   min-width: 0;
 }
 
-.compare-title h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.compare-count {
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--raised);
-  color: var(--text-3);
-  font-size: 10.5px;
-  white-space: nowrap;
-}
-
-.compare-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.compare-new {
+.compare-top-model {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 11px;
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  gap: 6px;
+  min-width: 0;
+}
+
+.compare-top-model .mp,
+.compare-top-model .mp-trigger {
+  max-width: 210px;
+}
+
+.compare-top .mp-trigger {
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.compare-top .mp-trigger:hover,
+.compare-top .mp-trigger.is-open {
+  border-color: var(--line-strong);
   background: var(--raised);
   color: var(--text);
-  font-size: 11.5px;
-  transition: background 150ms ease, border-color 150ms ease;
 }
 
-.compare-new:hover {
-  background: var(--raised-2);
-  border-color: color-mix(in srgb, var(--text-3) 40%, var(--line-strong));
+.compare-vs {
+  flex: 0 0 auto;
+  display: inline;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text-4);
+  font-size: 10px;
 }
 
-.compare-grid {
+.compare-top-models,
+.compare-top-model {
+  flex-wrap: nowrap;
+}
+
+.compare-top .mp-menu {
+  z-index: 90;
+}
+
+.compare-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.compare-clear,
+.compare-exit {
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.compare-clear:hover,
+.compare-exit:hover {
+  border-color: var(--line);
+  background: var(--raised);
+  color: var(--text);
+}
+
+/* ── one shared scroll ─────────────────────────────────────────────────── */
+
+.compare-stream {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.compare-inner {
+  width: 100%;
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 22px 26px 6px;
+}
+
+.compare-tail {
+  height: 18px;
+}
+
+/* The thread that led here, kept quiet so the answers stay the subject. */
+.compare-history {
+  margin: 0 0 18px;
+}
+
+.compare-history-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  height: 30px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11px;
+  text-align: left;
+}
+
+.compare-history-toggle:hover {
+  color: var(--text);
+}
+
+.compare-history-toggle svg {
+  flex: 0 0 auto;
+  opacity: 0.65;
+}
+
+.compare-history-count {
+  color: var(--text-4);
+  font-size: 10.5px;
+}
+
+.compare-history-hint {
+  margin-left: auto;
+  color: var(--text-4);
+  font-size: 10.5px;
+}
+
+.compare-history .transcript {
+  flex: none;
+  overflow: visible;
+  margin-top: 2px;
+  border-top: 1px solid var(--line);
+}
+
+.compare-history .transcript-inner {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+}
+
+.compare-history .msg {
+  padding: 10px 0;
+}
+
+.compare-history .msg + .msg {
+  border-top: 1px solid var(--line);
+}
+
+.compare-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: min(46vh, 340px);
+  padding: 30px 20px 40px;
+  text-align: center;
+}
+
+.compare-welcome-mark {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  background: var(--bg);
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-2);
+}
+
+.compare-welcome h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 560;
+  letter-spacing: -0.015em;
+}
+
+.compare-welcome p {
+  max-width: 46ch;
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+/* ── a question and its two chats ──────────────────────────────────────── */
+
+.compare-turn {
+  margin: 0 0 34px;
+}
+
+.compare-question {
+  margin-bottom: 12px;
+}
+
+.compare-question .user-card {
+  padding: 10px 14px;
+}
+
+.compare-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
 }
 
 .compare-pane {
-  min-width: 0;
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--line);
+  min-width: 0;
+  border: 1px solid var(--card-line);
+  border-radius: 14px;
+  background: var(--card-bg);
+  animation: compare-pane-in 380ms var(--spring) both;
+}
+
+@keyframes compare-pane-in {
+  from {
+    opacity: 0;
+    transform: translateY(9px) scale(0.994);
+  }
+}
+
+.compare-pane:first-child {
+  transform-origin: right center;
 }
 
 .compare-pane:last-child {
-  border-right: 0;
+  transform-origin: left center;
 }
 
-.compare-pane-head {
-  flex: 0 0 46px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
-}
-
-.compare-pane-head .model-picker,
-.compare-pane-head button {
-  max-width: 260px;
-}
-
-.compare-win {
-  flex: 0 0 auto;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--ok) 14%, transparent);
-  color: var(--ok);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+.compare-pane.is-fast {
+  border-color: color-mix(in srgb, var(--ok) 34%, var(--card-line));
 }
 
 .compare-body {
   flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 16px 18px 22px;
-  font-size: 13px;
-  line-height: 1.62;
-  color: var(--text-2);
-  scrollbar-width: thin;
-}
-
-.compare-text {
-  white-space: pre-wrap;
+  padding: 14px 15px 16px;
+  color: var(--chat-ink);
+  font-size: 13.5px;
+  line-height: 1.66;
   overflow-wrap: anywhere;
 }
 
-.compare-text code {
+.compare-body .md {
+  font-size: 13.5px;
+}
+
+.compare-body .md > :first-child {
+  margin-top: 0;
+}
+
+.compare-body .md > :last-child {
+  margin-bottom: 0;
+}
+
+.compare-model-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.compare-meta {
+  flex: 0 0 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 0 12px;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  font-size: 10px;
+  color: var(--text-4);
+}
+
+.compare-win {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+.compare-stat {
   font-family: var(--font-mono);
-  font-size: 11.5px;
-  padding: 1px 4px;
-  border-radius: 4px;
-  background: var(--code-bg);
-  color: var(--code-fg);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.compare-stat:first-of-type {
+  margin-left: auto;
+}
+
+.compare-copy {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--text-4);
+}
+
+.compare-copy:hover:not(:disabled) {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.compare-copy:disabled {
+  opacity: 0.35;
 }
 
 .compare-wait {
@@ -178,19 +397,19 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--accent);
-  animation: compare-pulse 1.2s ease-in-out infinite;
+  background: var(--probe);
+  animation: compare-pulse 1.3s ease-in-out infinite;
 }
 
 @keyframes compare-pulse {
   0%,
   100% {
-    opacity: 0.35;
-    transform: scale(0.9);
+    opacity: 0.3;
+    transform: scale(0.85);
   }
   50% {
     opacity: 1;
-    transform: scale(1.15);
+    transform: scale(1.2);
   }
 }
 
@@ -198,9 +417,9 @@
   display: inline-block;
   width: 6px;
   height: 14px;
-  margin-left: 2px;
+  margin-left: 3px;
   vertical-align: -2px;
-  background: var(--text-2);
+  background: var(--text-3);
   animation: compare-caret 1s steps(2, jump-none) infinite;
 }
 
@@ -210,232 +429,155 @@
   }
 }
 
-.compare-error {
-  margin: 6px 0;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--err) 30%, var(--line));
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--err) 7%, transparent);
-  color: var(--err);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.compare-meta {
-  flex: 0 0 40px;
+.compare-fail {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 16px;
-  border-top: 1px solid var(--line);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.compare-fail-mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--raised);
+  color: var(--text-3);
+}
+
+.compare-fail-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 550;
+}
+
+.compare-fail-text {
+  margin: 0;
+}
+
+.compare-fail button {
+  height: 26px;
+  margin-top: 3px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
   background: var(--surface);
-  font-size: 10.5px;
-  color: var(--text-3);
+  color: var(--text-2);
+  font-size: 11px;
 }
 
-.compare-copy {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 24px;
-  padding: 0 7px;
-  border-radius: 6px;
-  color: var(--text-3);
-  font-size: 10.5px;
+.compare-fail button:hover {
+  border-color: var(--text-4);
 }
 
-.compare-copy:hover:not(:disabled) {
+.compare-fail button:hover {
   background: var(--raised);
   color: var(--text);
 }
 
-.compare-copy:disabled {
-  opacity: 0.4;
+/* ── under the pair ────────────────────────────────────────────────────── */
+
+.compare-turn-foot {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 30px;
+  margin-top: 7px;
+  padding: 0 2px;
+  color: var(--text-4);
+  font-size: 10.5px;
 }
 
-.compare-stat {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: -0.01em;
+.compare-turn-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.compare-meta .compare-stat:first-of-type {
+.compare-pref-label {
   margin-left: auto;
+  white-space: nowrap;
 }
 
-.compare-empty {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 40px;
-  text-align: center;
-  background: var(--bg);
+.compare-pref {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--sel);
+  overflow: visible;
 }
 
-.compare-empty-mark {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  margin-bottom: 2px;
-  border: 1px solid var(--line-strong);
-  border-radius: 12px;
-  background: var(--surface);
-  color: var(--text-2);
-}
-
-.compare-empty h3 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.compare-empty p {
-  max-width: 430px;
-  margin: 0;
-  color: var(--text-3);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.compare-ask {
-  flex: 0 0 auto;
-  padding: 10px 14px 12px;
-  border-top: 1px solid var(--line);
-  background: var(--surface);
-}
-
-.compare-context {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 22px;
-  margin-bottom: 7px;
-  font-size: 10.5px;
-  color: var(--text-3);
+.compare-pref button {
+  height: 21px;
+  max-width: 130px;
+  padding: 0 7px;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.compare-pref button:hover {
+  color: var(--text);
+}
+
+.compare-pref button.is-on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.compare-turn-index {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-4);
+}
+
+/* ── the shared ask line ───────────────────────────────────────────────── */
+
+.compare-dock .composer {
+  padding: 11px 12px 8px;
 }
 
 .compare-chip {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 7px;
+  max-width: 220px;
+  height: 24px;
+  padding: 0 8px;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg);
   color: var(--text-2);
+  font-size: 10.5px;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.compare-models {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-}
-
-.compare-verdict {
-  margin-left: auto;
-  color: var(--ok);
-  white-space: nowrap;
-}
-
-.compare-input {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  padding: 7px 7px 7px 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: 12px;
-  background: var(--bg);
-  transition: border-color 160ms ease, box-shadow 160ms ease;
-}
-
-.compare-input:focus-within {
-  border-color: color-mix(in srgb, var(--text-3) 50%, var(--line-strong));
-  box-shadow: 0 0 0 3px var(--sel);
-}
-
-.compare-input textarea {
-  flex: 1;
-  min-height: 24px;
-  max-height: 120px;
-  padding: 3px 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 12.5px;
-  line-height: 1.5;
-  resize: none;
-  outline: none;
-}
-
-.compare-input textarea::placeholder {
+.compare-ask-note {
   color: var(--text-4);
-}
-
-.compare-send {
-  flex: 0 0 28px;
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  transition: transform 120ms ease, opacity 120ms ease;
-}
-
-.compare-send:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.compare-send:disabled {
-  opacity: 0.35;
-}
-
-.compare-send.is-stop {
-  background: var(--raised-2);
-  color: var(--err);
-}
-
-@media (max-width: 900px) {
-  .compare-overlay {
-    padding: 0;
-  }
-
-  .compare-sheet {
-    width: 100vw;
-    height: 100vh;
-    border-radius: 0;
-    border: 0;
-  }
-
-  .compare-grid {
-    grid-template-columns: 1fr;
-    overflow-y: auto;
-  }
-
-  .compare-pane {
-    min-height: 46vh;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .compare-sheet,
-  .compare-caret,
-  .compare-pulse {
-    animation: none;
-  }
+  font-size: 10.5px;
+  white-space: nowrap;
 }
 
 /* Composer entry point, next to the model chip it compares with. */
@@ -452,26 +594,47 @@
   opacity: 0.8;
 }
 
-.nav-panel-head {
-  gap: 2px;
+@media (max-width: 980px) {
+  .compare-top-label {
+    display: none;
+  }
+
+  .compare-inner {
+    padding: 18px 18px 6px;
+  }
 }
 
-.compare-idle {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  color: var(--text-4);
-  font-size: 12px;
-  line-height: 1.6;
+@media (max-width: 860px) {
+  .compare-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .compare-top-model .mp,
+  .compare-top-model .mp-trigger {
+    max-width: 136px;
+  }
+
+  .compare-ask-note {
+    display: none;
+  }
+
+  .compare-turn-foot {
+    flex-wrap: wrap;
+  }
 }
 
-.compare-idle svg {
-  flex: 0 0 auto;
-  margin-top: 3px;
-  opacity: 0.7;
+@media (prefers-reduced-motion: reduce) {
+  .chat-compare,
+  .compare-pane,
+  .compare-pulse,
+  .compare-caret {
+    animation: none;
+  }
 }
 
-.compare-idle p {
-  margin: 0;
-  max-width: 300px;
+html.reduce-motion .chat-compare,
+html.reduce-motion .compare-pane,
+html.reduce-motion .compare-pulse,
+html.reduce-motion .compare-caret {
+  animation: none;
 }

@@ -17,33 +17,21 @@ import type {
   Mode,
   ProviderConfig,
   ProviderId,
-  Scope,
   Session,
   Settings,
   Skill,
   StagedChange,
   ViewId,
-  Workspace,
   WorkspaceFile,
 } from "./types";
 import { DEFAULT_SETTINGS, PROVIDERS, SKILL_SEEDS, seedState } from "./data";
 import { uid } from "./util";
-import { writeWorkspacePath } from "./workspace";
+import { deleteWorkspacePath, writeWorkspacePath } from "./workspace";
 
 const STORAGE_KEY = "lantas.app.v2";
 /** Threads that shipped as sample content in earlier builds. */
 const DEMO_THREADS = new Set(["ses_streams", "ses_auth", "ses_ci"]);
 const LEGACY_KEY = "lantas.workspace.v1";
-
-/** Workspace dots, cycled in order like OpenWork's project marks. */
-const WORKSPACE_COLORS = [
-  "#df5b43",
-  "#2f5bd0",
-  "#2f8f5b",
-  "#b06f1f",
-  "#7a55cf",
-  "#1f8792",
-];
 
 export interface ToastMessage {
   id: string;
@@ -54,12 +42,7 @@ export interface ToastMessage {
 interface Store {
   state: AppState;
   activeSession: Session | null;
-  createSession: (
-    agent?: AgentId,
-    provider?: ProviderId,
-    model?: string,
-    surface?: Mode,
-  ) => string;
+  createSession: (agent?: AgentId, provider?: ProviderId, model?: string) => string;
   selectSession: (id: string | null) => void;
   deleteSession: (id: string) => void;
   renameSession: (id: string, title: string) => void;
@@ -81,23 +64,18 @@ interface Store {
   setCommands: (commands: CustomCommand[]) => void;
   setView: (view: ViewId) => void;
   setMode: (mode: Mode) => void;
-  setScope: (scope: Scope) => void;
-  /** Create (or reuse) a project folder and make it the active workspace. */
-  createWorkspace: (name: string, root: string) => string;
-  selectWorkspace: (id: string) => void;
-  updateWorkspace: (id: string, patch: Partial<Workspace>) => void;
-  deleteWorkspace: (id: string) => void;
   setBrowserUrl: (url: string) => void;
   setWorkspace: (name: string, files: WorkspaceFile[], root?: string) => void;
   patchWorkspaceFile: (path: string, text: string) => void;
+  removeWorkspaceFile: (path: string) => void;
   clearWorkspace: () => void;
   /** Assistant edits waiting for Keep or Decline in the IDE. */
   staged: StagedChange[];
-  stageChange: (path: string, after: string) => void;
+  stageChange: (path: string, after: string, applied?: boolean) => void;
   keepStaged: () => Promise<number>;
-  discardStaged: () => void;
+  discardStaged: () => Promise<void>;
   keepChange: (path: string) => Promise<boolean>;
-  discardChange: (path: string) => void;
+  discardChange: (path: string) => Promise<void>;
   /** Replace the current state with the last good copy written to disk. */
   recoverSession: () => Promise<boolean>;
   /** Force an immediate disk save, used after each assistant turn. */
@@ -125,7 +103,6 @@ function normalizeSession(raw: any): Session {
     provider: (raw.provider as ProviderId) ?? (raw.model === "gpt" ? "openai" : "anthropic"),
     model: legacy[model] ?? model,
     surface: raw.surface === "browser" || raw.surface === "code" ? raw.surface : "chat",
-    workspaceId: typeof raw.workspaceId === "string" ? raw.workspaceId : undefined,
   } as Session;
 }
 
@@ -168,70 +145,11 @@ function stateFromStored(parsed: Partial<AppState> | null, fallback: AppState): 
   // A dropped-file workspace lives only in memory. Keeping its name after a
   // reload would label an empty workspace as if the folder were still open.
   const workspaceRoot = typeof parsed.workspaceRoot === "string" ? parsed.workspaceRoot : "";
-  // Older builds had a single folder. It becomes the first workspace so no
-  // project or chat is lost when the workspace layer arrives.
-  const saved = Array.isArray(parsed.workspaces)
-    ? (parsed.workspaces as Workspace[])
-        .filter((item) => item && typeof item.id === "string" && typeof item.name === "string")
-        .map((item, index) => ({
-          ...item,
-          root: typeof item.root === "string" ? item.root : "",
-          color:
-            typeof item.color === "string"
-              ? item.color
-              : WORKSPACE_COLORS[index % WORKSPACE_COLORS.length],
-          created: typeof item.created === "number" ? item.created : Date.now(),
-          updated: typeof item.updated === "number" ? item.updated : Date.now(),
-        }))
-    : [];
-  const workspaces =
-    saved.length > 0
-      ? saved
-      : workspaceRoot
-        ? [
-            {
-              id: "ws_migrated",
-              name: parsed.workspaceName || "Workspace",
-              root: workspaceRoot,
-              color: WORKSPACE_COLORS[0],
-              created: Date.now(),
-              updated: Date.now(),
-            },
-          ]
-        : [];
-  const activeWorkspaceId = workspaces.some((item) => item.id === parsed.activeWorkspaceId)
-    ? (parsed.activeWorkspaceId as string)
-    : (workspaces[0]?.id ?? null);
-  const belongs = new Set(workspaces.map((item) => item.id));
-  const scopedSessions = sessions.map((session) =>
-    session.workspaceId && !belongs.has(session.workspaceId)
-      ? { ...session, workspaceId: undefined }
-      : session,
-  );
-  const scope = parsed.scope === "workspace" && activeWorkspaceId ? "workspace" : "chat";
-  // A restored active chat must belong to the restored scope, or the app opens
-  // a workspace while showing an ordinary chat (and the other way round).
-  const known = scopedSessions.find((session) => session.id === activeId);
-  const scopeMismatch =
-    (scope === "workspace" && known?.workspaceId !== activeWorkspaceId) ||
-    (scope === "chat" && Boolean(known?.workspaceId));
-  const scopedActiveId = scopeMismatch
-    ? (scopedSessions
-        .filter((session) =>
-          scope === "workspace"
-            ? session.workspaceId === activeWorkspaceId
-            : !session.workspaceId,
-        )
-        .sort((a, b) => b.updated - a.updated)[0]?.id ?? null)
-    : activeId;
   return {
-    sessions: scopedSessions,
-    activeId: scopedActiveId,
+    sessions,
+    activeId,
     view: (parsed.view as ViewId) ?? "chats",
     mode: (parsed.mode as Mode) ?? "chat",
-    scope,
-    workspaces,
-    activeWorkspaceId,
     browserUrl: typeof parsed.browserUrl === "string" ? parsed.browserUrl : "https://example.com",
     workspace: [],
     workspaceName: workspaceRoot ? parsed.workspaceName ?? "" : "",
@@ -405,9 +323,6 @@ function stateForDisk(state: AppState) {
     activeId: state.activeId,
     view: state.view,
     mode: state.mode,
-    scope: state.scope,
-    workspaces: state.workspaces,
-    activeWorkspaceId: state.activeWorkspaceId,
     browserUrl: state.browserUrl,
     workspaceName: state.workspaceName,
     workspaceRoot: state.workspaceRoot,
@@ -432,13 +347,6 @@ export function LantasProvider({ children }: { children: ReactNode }) {
   stagedRef.current = staged;
   const diskWarned = useRef(false);
   const wasStreaming = useRef(false);
-
-  // Pending assistant edits belong to the folder they were made in. Switching
-  // projects discards the review instead of writing those edits into another
-  // repository; nothing has touched disk yet.
-  const forgetStagedForRoot = useCallback((nextRoot: string) => {
-    if (nextRoot !== stateRef.current.workspaceRoot) setStaged([]);
-  }, []);
 
   // Desktop boots from the last disk write. localStorage is the fallback for
   // the browser build and for a first launch where no file exists yet.
@@ -571,21 +479,13 @@ export function LantasProvider({ children }: { children: ReactNode }) {
     }
   }, [notify]);
 
-  const createSession = useCallback<Store["createSession"]>((agent, provider, model, requestedSurface) => {
-    const surface = requestedSurface ?? stateRef.current.mode;
-    const workspace =
-      stateRef.current.scope === "workspace"
-        ? stateRef.current.workspaces.find(
-            (item) => item.id === stateRef.current.activeWorkspaceId,
-          )
-        : undefined;
+  const createSession = useCallback<Store["createSession"]>((agent, provider, model) => {
+    const surface = stateRef.current.mode;
     // “New thread” on an untouched thread should focus that thread rather than
     // stacking empty ones in the sidebar every time the plus is pressed.
     const active = stateRef.current.sessions.find(
       (session) =>
-        session.id === stateRef.current.activeId &&
-        (session.surface ?? "chat") === surface &&
-        (session.workspaceId ?? null) === (workspace?.id ?? null),
+        session.id === stateRef.current.activeId && (session.surface ?? "chat") === surface,
     );
     if (active && active.messages.length === 0) {
       setState((prev) => ({ ...prev, activeId: active.id }));
@@ -598,8 +498,8 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       const local = PROVIDERS.find((item) => item.id === nextProvider)?.local;
       const session: Session = {
         id,
-        title: "New chat",
-        cwd: workspace?.root || "~",
+        title: "New session",
+        cwd: "~/dev/lantas",
         branch: "main",
         created: Date.now(),
         updated: Date.now(),
@@ -613,59 +513,17 @@ export function LantasProvider({ children }: { children: ReactNode }) {
         provider: nextProvider,
         model: nextModel,
         surface,
-        workspaceId: workspace?.id,
       };
-      return {
-        ...prev,
-        sessions: [session, ...prev.sessions],
-        activeId: id,
-        mode: surface,
-        view: surface === "chat" ? "chats" : prev.view,
-      };
+      return { ...prev, sessions: [session, ...prev.sessions], activeId: id };
     });
     return id;
   }, []);
 
   const selectSession = useCallback<Store["selectSession"]>((id) => {
-    const incoming = stateRef.current.sessions.find((session) => session.id === id);
-    const incomingWorkspace = stateRef.current.workspaces.find(
-      (workspace) => workspace.id === incoming?.workspaceId,
-    );
-    if (incomingWorkspace) forgetStagedForRoot(incomingWorkspace.root);
     setState((prev) => {
       const session = prev.sessions.find((item) => item.id === id);
       const surface = session?.surface ?? "chat";
-      if (!session) {
-        return { ...prev, activeId: id, mode: id ? surface : prev.mode };
-      }
-      const workspace = prev.workspaces.find((item) => item.id === session.workspaceId);
-      // A chat reopens its project's folder, so the agent is never pointed at
-      // the files of the workspace you were looking at a moment ago. An
-      // ordinary chat drops a project folder rather than silently using it.
-      const projectRoot =
-        !workspace &&
-        Boolean(prev.workspaceRoot) &&
-        prev.workspaces.some((item) => item.root === prev.workspaceRoot);
-      const sameRoot = workspace ? prev.workspaceRoot === workspace.root : !projectRoot;
-      return {
-        ...prev,
-        activeId: id,
-        mode: surface,
-        view: "chats",
-        scope: workspace ? "workspace" : "chat",
-        activeWorkspaceId: workspace?.id ?? prev.activeWorkspaceId,
-        workspaceName: workspace
-          ? workspace.name
-          : projectRoot
-            ? ""
-            : prev.workspaceName,
-        workspaceRoot: workspace
-          ? workspace.root
-          : projectRoot
-            ? ""
-            : prev.workspaceRoot,
-        workspace: sameRoot ? prev.workspace : [],
-      };
+      return { ...prev, activeId: id, mode: id ? surface : prev.mode, view: id ? "chats" : prev.view };
     });
   }, []);
 
@@ -787,185 +645,12 @@ export function LantasProvider({ children }: { children: ReactNode }) {
     setState((prev) => {
       const current = prev.sessions.find((session) => session.id === prev.activeId);
       if (current && (current.surface ?? "chat") === mode) return { ...prev, mode };
-      // Each surface reopens the thread you last used there, inside the same
-      // scope (ordinary Chat or this workspace) instead of another project.
+      // Each surface reopens the thread you last used there instead of dragging
+      // the chat conversation into the browser or the editor.
       const next = prev.sessions
-        .filter(
-          (session) =>
-            (session.surface ?? "chat") === mode &&
-            (prev.scope === "workspace"
-              ? session.workspaceId === prev.activeWorkspaceId
-              : !session.workspaceId),
-        )
+        .filter((session) => (session.surface ?? "chat") === mode)
         .sort((a, b) => b.updated - a.updated)[0];
       return { ...prev, mode, activeId: next?.id ?? null };
-    });
-  }, []);
-
-  const setScope = useCallback<Store["setScope"]>((scope) => {
-    const current = stateRef.current;
-    const target =
-      scope === "workspace"
-        ? current.workspaces.find((item) => item.id === current.activeWorkspaceId) ??
-          current.workspaces[0]
-        : undefined;
-    forgetStagedForRoot(
-      scope === "workspace"
-        ? (target?.root ?? "")
-        : current.workspaces.some((item) => item.root === current.workspaceRoot)
-          ? ""
-          : current.workspaceRoot,
-    );
-    setState((prev) => {
-      if (scope === "chat") {
-        const next = prev.sessions
-          .filter((session) => !session.workspaceId)
-          .sort((a, b) => b.updated - a.updated)[0];
-        // Ordinary Chat is not attached to a project. A folder the user opened
-        // directly in Chat stays; a workspace's folder does not leak into it.
-        const projectRoot =
-          Boolean(prev.workspaceRoot) &&
-          prev.workspaces.some((item) => item.root === prev.workspaceRoot);
-        return {
-          ...prev,
-          scope,
-          mode: "chat",
-          view: "chats",
-          activeId: next?.id ?? null,
-          workspaceRoot: projectRoot ? "" : prev.workspaceRoot,
-          workspaceName: projectRoot ? "" : prev.workspaceName,
-          workspace: projectRoot ? [] : prev.workspace,
-        };
-      }
-      const workspace =
-        prev.workspaces.find((item) => item.id === prev.activeWorkspaceId) ??
-        prev.workspaces[0];
-      const next = prev.sessions
-        .filter(
-          (session) =>
-            session.workspaceId === workspace?.id && (session.surface ?? "chat") === "chat",
-        )
-        .sort((a, b) => b.updated - a.updated)[0];
-      return {
-        ...prev,
-        scope,
-        mode: "chat",
-        view: "chats",
-        activeWorkspaceId: workspace?.id ?? null,
-        workspaceName: workspace?.name ?? prev.workspaceName,
-        workspaceRoot: workspace?.root ?? "",
-        workspace: workspace && prev.workspaceRoot === workspace.root ? prev.workspace : [],
-        activeId: next?.id ?? null,
-      };
-    });
-  }, []);
-
-  const createWorkspace = useCallback<Store["createWorkspace"]>((name, root) => {
-    const existing = stateRef.current.workspaces.find((item) => item.root === root);
-    forgetStagedForRoot(root);
-    if (existing) {
-      setState((prev) => {
-        const next = prev.sessions
-          .filter(
-            (session) =>
-              session.workspaceId === existing.id && (session.surface ?? "chat") === "chat",
-          )
-          .sort((a, b) => b.updated - a.updated)[0];
-        return {
-          ...prev,
-          scope: "workspace",
-          activeWorkspaceId: existing.id,
-          mode: "chat",
-          view: "chats",
-          activeId: next?.id ?? null,
-          workspaceName: existing.name,
-          workspaceRoot: existing.root,
-          workspace: prev.workspaceRoot === existing.root ? prev.workspace : [],
-        };
-      });
-      return existing.id;
-    }
-    const id = uid("ws");
-    setState((prev) => ({
-      ...prev,
-      scope: "workspace",
-      workspaces: [
-        ...prev.workspaces,
-        {
-          id,
-          name,
-          root,
-          color: WORKSPACE_COLORS[prev.workspaces.length % WORKSPACE_COLORS.length],
-          created: Date.now(),
-          updated: Date.now(),
-        },
-      ],
-      activeWorkspaceId: id,
-      mode: "chat",
-      view: "chats",
-      activeId: null,
-      workspaceName: name,
-      workspaceRoot: root,
-      workspace: [],
-    }));
-    return id;
-  }, []);
-
-  const selectWorkspace = useCallback<Store["selectWorkspace"]>((id) => {
-    const target = stateRef.current.workspaces.find((item) => item.id === id);
-    if (target) forgetStagedForRoot(target.root);
-    setState((prev) => {
-      const workspace = prev.workspaces.find((item) => item.id === id);
-      if (!workspace) return prev;
-      const next = prev.sessions
-        .filter(
-          (session) => session.workspaceId === id && (session.surface ?? "chat") === "chat",
-        )
-        .sort((a, b) => b.updated - a.updated)[0];
-      const sameRoot = prev.workspaceRoot === workspace.root;
-      return {
-        ...prev,
-        scope: "workspace",
-        activeWorkspaceId: id,
-        mode: "chat",
-        view: "chats",
-        activeId: next?.id ?? null,
-        workspaceName: workspace.name,
-        workspaceRoot: workspace.root,
-        workspace: sameRoot ? prev.workspace : [],
-      };
-    });
-  }, []);
-
-  const updateWorkspace = useCallback<Store["updateWorkspace"]>((id, patch) => {
-    setState((prev) => ({
-      ...prev,
-      workspaces: prev.workspaces.map((workspace) =>
-        workspace.id === id ? { ...workspace, ...patch, updated: Date.now() } : workspace,
-      ),
-    }));
-  }, []);
-
-  const deleteWorkspace = useCallback<Store["deleteWorkspace"]>((id) => {
-    if (stateRef.current.activeWorkspaceId === id) forgetStagedForRoot("");
-    setState((prev) => {
-      const workspaces = prev.workspaces.filter((workspace) => workspace.id !== id);
-      const active = prev.activeWorkspaceId === id;
-      const sessions = prev.sessions.map((session) =>
-        session.workspaceId === id ? { ...session, workspaceId: undefined } : session,
-      );
-      const next = workspaces[0];
-      return {
-        ...prev,
-        workspaces,
-        sessions,
-        activeWorkspaceId: active ? (next?.id ?? null) : prev.activeWorkspaceId,
-        scope: active && !next ? "chat" : prev.scope,
-        activeId: active ? null : prev.activeId,
-        workspaceName: active ? (next?.name ?? prev.workspaceName) : prev.workspaceName,
-        workspaceRoot: active ? (next?.root ?? "") : prev.workspaceRoot,
-        workspace: active && next?.root !== prev.workspaceRoot ? [] : prev.workspace,
-      };
     });
   }, []);
 
@@ -1006,6 +691,20 @@ export function LantasProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  /** A file or folder disappeared on disk: drop it, its children and its review. */
+  const removeWorkspaceFile = useCallback<Store["removeWorkspaceFile"]>((path) => {
+    const prefix = `${path}/`;
+    setStaged((current) =>
+      current.filter((change) => change.path !== path && !change.path.startsWith(prefix)),
+    );
+    setState((prev) => ({
+      ...prev,
+      workspace: prev.workspace.filter(
+        (file) => file.path !== path && !file.path.startsWith(prefix),
+      ),
+    }));
+  }, []);
+
   const clearWorkspace = useCallback(() => {
     setStaged([]);
     setState((prev) => ({ ...prev, workspaceName: "", workspaceRoot: "", workspace: [] }));
@@ -1015,7 +714,7 @@ export function LantasProvider({ children }: { children: ReactNode }) {
    * Holds one assistant edit in memory. Nothing reaches disk until Keep, so a
    * bad turn costs a click rather than a git checkout.
    */
-  const stageChange = useCallback((path: string, after: string) => {
+  const stageChange = useCallback((path: string, after: string, applied = false) => {
     const file = stateRef.current.workspace.find((entry) => entry.path === path);
     setStaged((current) => {
       const existing = current.find((entry) => entry.path === path);
@@ -1025,6 +724,7 @@ export function LantasProvider({ children }: { children: ReactNode }) {
         after,
         existed: existing?.existed ?? Boolean(file),
         at: Date.now(),
+        applied: existing?.applied || applied,
       };
       return existing
         ? current.map((entry) => (entry.path === path ? next : entry))
@@ -1064,8 +764,19 @@ export function LantasProvider({ children }: { children: ReactNode }) {
     return written;
   }, [notify]);
 
-  const discardStaged = useCallback(() => {
+  const discardStaged = useCallback(async () => {
     const changes = stagedRef.current;
+    const root = stateRef.current.workspaceRoot;
+    for (const change of changes) {
+      if (!change.applied || !root) continue;
+      try {
+        if (change.existed) await writeWorkspacePath(root, change.path, change.before);
+        else await deleteWorkspacePath(root, change.path);
+      } catch {
+        // The in-memory copy is still restored below; a disk error is surfaced
+        // by the next read rather than leaving the list half-cleared.
+      }
+    }
     setState((prev) => {
       let workspace = prev.workspace;
       for (const change of changes) {
@@ -1085,23 +796,34 @@ export function LantasProvider({ children }: { children: ReactNode }) {
   const keepChange = useCallback(async (path: string) => {
     const change = stagedRef.current.find((entry) => entry.path === path);
     if (!change) return false;
-    let ok = false;
-    try {
-      ok = await writeWorkspacePath(
-        stateRef.current.workspaceRoot,
-        change.path,
-        change.after,
-      );
-    } catch {
-      ok = false;
+    let ok = Boolean(change.applied);
+    if (!ok) {
+      try {
+        ok = await writeWorkspacePath(
+          stateRef.current.workspaceRoot,
+          change.path,
+          change.after,
+        );
+      } catch {
+        ok = false;
+      }
     }
     setStaged((current) => current.filter((entry) => entry.path !== path));
     return ok;
   }, []);
 
-  const discardChange = useCallback((path: string) => {
+  const discardChange = useCallback(async (path: string) => {
     const change = stagedRef.current.find((entry) => entry.path === path);
     if (!change) return;
+    const root = stateRef.current.workspaceRoot;
+    if (change.applied && root) {
+      try {
+        if (change.existed) await writeWorkspacePath(root, change.path, change.before);
+        else await deleteWorkspacePath(root, change.path);
+      } catch {
+        // Keep the archive honest even if the disk rejected the revert.
+      }
+    }
     setState((prev) => ({
       ...prev,
       workspace: change.existed
@@ -1184,14 +906,10 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       setCommands,
       setView,
       setMode,
-      setScope,
-      createWorkspace,
-      selectWorkspace,
-      updateWorkspace,
-      deleteWorkspace,
       setBrowserUrl,
       setWorkspace,
       patchWorkspaceFile,
+      removeWorkspaceFile,
       clearWorkspace,
       staged,
       stageChange,
@@ -1229,14 +947,10 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       setCommands,
       setView,
       setMode,
-      setScope,
-      createWorkspace,
-      selectWorkspace,
-      updateWorkspace,
-      deleteWorkspace,
       setBrowserUrl,
       setWorkspace,
       patchWorkspaceFile,
+      removeWorkspaceFile,
       clearWorkspace,
       staged,
       stageChange,

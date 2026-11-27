@@ -6,23 +6,28 @@ repository to update.
 
 ## Cut a release
 
-1. Bump the version in `src-tauri/tauri.conf.json` and `APP_VERSION` in
-   `src/lib/updates.ts`.
-2. Commit, then push a matching tag:
+1. Bump the version in `package.json` (and the lockfile), `src-tauri/tauri.conf.json`,
+   `src-tauri/Cargo.toml`, `cli/lantas.mjs` and `APP_VERSION` in
+   `src/lib/updates.ts`. Keep the static fallbacks on the website in step.
+2. Move the **unreleased** entries in `CHANGELOG.md` under the new version,
+   update `RELEASE_NOTES.md`, and commit. The release workflow publishes the
+   whole of `RELEASE_NOTES.md` as the release body.
+3. Push a matching tag:
 
    ```bash
-   git tag v1.2.0
+   git tag v1.3.0
    git push origin main --tags
    ```
 
-3. The `Build macOS app` workflow builds on an Apple Silicon runner, verifies
+4. The `Build macOS app` workflow builds on an Apple Silicon runner, verifies
    the signature, packages the `.dmg`, app zip, Chrome extension and updater
    assets, and publishes a GitHub release in this repository. It uses the
    workflow's built-in `GITHUB_TOKEN`; no classic PAT is required.
-4. The website reads the newest release from this repository's GitHub API on
+5. The website reads the newest release from this repository's GitHub API on
    load. The home-page version, download buttons and versions page update
-   automatically when the release appears. No site edit or redeploy is needed
-   for a new release.
+   automatically when the release appears. The total-download line and the
+   README badge read the same public asset counts, so neither needs editing.
+   No site edit or redeploy is needed for a new release.
 
 Without Apple Developer ID secrets the build remains ad-hoc signed and users
 approve it once in **System Settings → Privacy & Security → Open Anyway**. With

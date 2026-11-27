@@ -178,7 +178,7 @@ function defaultProviders(): Record<ProviderId, ProviderConfig> {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  theme: "light",
+  theme: "dark",
   sendOnEnter: true,
   reduceMotion: false,
   defaultAgent: "build",
@@ -195,6 +195,7 @@ export const DEFAULT_SETTINGS: Settings = {
   allowedRules: [],
   telemetry: false,
   notifications: true,
+  sound: true,
   favoriteModels: [],
   providers: defaultProviders(),
   editor: {
@@ -230,24 +231,23 @@ export const AGENTS: AgentMeta[] = [
 
 export const SUGGESTIONS = [
   {
-    title: "Think it through",
-    body: "Compare the options and recommend one",
+    title: "Explain this codebase",
+    body: "Map entry points, data flow and conventions",
     prompt:
-      "Help me think this through: lay out the realistic options, their tradeoffs, and the one you would choose. Ask me for the missing detail first if it changes the answer.",
+      "Give me a tour of this codebase: entry points, how data flows, and the conventions I should follow.",
     icon: "compass" as const,
   },
   {
-    title: "Write something",
-    body: "Draft an email, post or short doc",
-    prompt:
-      "Draft a concise, specific piece of writing for me. Ask for the audience and the one outcome it should produce, then write it.",
+    title: "Fix the failing check",
+    body: "Reproduce it, then patch the cause",
+    prompt: "The typecheck is failing. Reproduce it, find the cause and fix it.",
     icon: "wrench" as const,
   },
   {
-    title: "Review my thinking",
-    body: "Find the weak spots before you commit",
+    title: "Review my changes",
+    body: "Read the working tree and flag real risks",
     prompt:
-      "Here is my plan. Find the weak spots, the missing evidence and the risk I am underestimating, then give me the stronger version.",
+      "Review the uncommitted changes in this repo and flag anything that would break in production.",
     icon: "diff" as const,
   },
 ];
@@ -571,9 +571,6 @@ export function seedState(): AppState {
     activeId: null,
     view: "chats",
     mode: "chat",
-    scope: "chat",
-    workspaces: [],
-    activeWorkspaceId: null,
     browserUrl: "https://example.com",
     workspace: [],
     workspaceName: "",

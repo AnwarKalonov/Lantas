@@ -8,6 +8,7 @@ import {
   type UserAskField,
 } from "../lib/userAsk";
 import { Icon } from "./Icons";
+import { MarkGlyph } from "./Brand";
 
 /**
  * A small reply bubble for a question the browser agent asks mid-turn, such
@@ -130,19 +131,16 @@ export function AgentQuestion({ inline = false }: { inline?: boolean }) {
     >
       <div className="trust-question-head">
         <span className="trust-question-mark" aria-hidden="true">
-          <Icon name="bot" size={13} />
+          <MarkGlyph size={15} />
         </span>
         <div>
-          <strong>
-            {credentials
-              ? "Sign in to continue"
-              : hasOptions && !hasFields
-                ? ask.multiple
-                  ? "Choose one or more"
-                  : "Choose an answer"
-                : "Lantas needs a few details"}
-          </strong>
-          <p>{ask.question}</p>
+          <strong>{credentials ? "Sign in to continue" : ask.question}</strong>
+          {credentials ? <p>{ask.question}</p> : null}
+          {hasOptions && !hasFields ? (
+            <span className="trust-question-hint">
+              {ask.multiple ? "Select all that apply" : "Pick one"}
+            </span>
+          ) : null}
         </div>
       </div>
 

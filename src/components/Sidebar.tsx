@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../lib/store";
-import type { Session, Workspace } from "../lib/types";
+import { PROVIDERS } from "../lib/data";
+import { isConfigured, prettyModel } from "../lib/providers";
+import type { Session } from "../lib/types";
 import { cx, timeAgo } from "../lib/util";
-import { Icon } from "./Icons";
-import { MarkGlyph } from "./Brand";
+import { Icon, type IconName } from "./Icons";
 
 interface RowMenu {
   sessionId: string;
@@ -11,19 +12,32 @@ interface RowMenu {
   y: number;
 }
 
-interface WorkspaceMenu {
-  workspaceId: string;
-  x: number;
-  y: number;
+const NAV: Array<{ id: "chats" | "skills" | "integrations"; label: string; icon: IconName }> = [
+  { id: "chats", label: "Threads", icon: "message" },
+  { id: "skills", label: "Skills", icon: "book" },
+  { id: "integrations", label: "Integrations", icon: "plug" },
+];
+
+function projectName(cwd: string) {
+  const parts = cwd.split("/").filter((part) => part && part !== "~" && part !== ".");
+  const last = parts[parts.length - 1] ?? "Workspace";
+  return last.charAt(0).toUpperCase() + last.slice(1);
+}
+
+function folderLabel(root: string) {
+  if (!root) return "Choose a project folder";
+  return root.replace(/^\/Users\/[^/]+/, "~");
 }
 
 export function Sidebar({
   onOpenSettings,
-  onAddWorkspace,
+  onOpenFolder,
+  onAddFolder,
   historyCollapsed = false,
 }: {
   onOpenSettings: () => void;
-  onAddWorkspace: () => void;
+  onOpenFolder: () => void;
+  onAddFolder: () => void;
   historyCollapsed?: boolean;
 }) {
   const {
@@ -33,41 +47,26 @@ export function Sidebar({
     deleteSession,
     renameSession,
     updateSession,
-    selectWorkspace,
-    deleteWorkspace,
-    updateWorkspace,
     setView,
     setMode,
-    setScope,
     notify,
     toggleSidebar,
   } = useStore();
   const [menu, setMenu] = useState<RowMenu | null>(null);
-  const [wsMenu, setWsMenu] = useState<WorkspaceMenu | null>(null);
+  const [workspaceMenu, setWorkspaceMenu] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
-  const [renamingWs, setRenamingWs] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
-  const [pinnedCollapsed, setPinnedCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const wsMenuRef = useRef<HTMLDivElement | null>(null);
+  const workspaceMenuRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
 
-  const activeWorkspace = state.workspaces.find(
-    (workspace) => workspace.id === state.activeWorkspaceId,
-  );
-
-  // Ordinary chat and each workspace keep separate histories. The sidebar
-  // shows the list that belongs to the scope you are in.
+  // Chat, browser and code keep separate thread lists; the sidebar shows the
+  // ones that belong to the surface you are in.
   const surfaceSessions = useMemo(
-    () =>
-      state.sessions.filter((session) => {
-        if ((session.surface ?? "chat") !== state.mode) return false;
-        return state.scope === "workspace"
-          ? session.workspaceId === state.activeWorkspaceId
-          : !session.workspaceId;
-      }),
-    [state.sessions, state.mode, state.scope, state.activeWorkspaceId],
+    () => state.sessions.filter((session) => (session.surface ?? "chat") === state.mode),
+    [state.sessions, state.mode],
   );
 
   const wanted = query.trim().toLowerCase();
@@ -87,23 +86,35 @@ export function Sidebar({
     () => matched.filter((session) => session.pinned).sort((a, b) => b.updated - a.updated),
     [matched],
   );
-  const recent = useMemo(
-    () =>
-      matched.filter((session) => !session.pinned).sort((a, b) => b.updated - a.updated),
-    [matched],
-  );
+
+  const projects = useMemo(() => {
+    const map = new Map<string, Session[]>();
+    matched
+      .filter((session) => !session.pinned)
+      .forEach((session) => {
+        const key = session.cwd || "~/dev/lantas";
+        map.set(key, [...(map.get(key) ?? []), session]);
+      });
+    return Array.from(map.entries())
+      .map(([cwd, items]) => ({
+        cwd,
+        label: projectName(cwd),
+        items: [...items].sort((a, b) => b.updated - a.updated),
+      }))
+      .sort((a, b) => (b.items[0]?.updated ?? 0) - (a.items[0]?.updated ?? 0));
+  }, [matched]);
+
+  const provider = state.settings.defaultProvider;
+  const providerMeta = PROVIDERS.find((item) => item.id === provider);
+  const connected = isConfigured(provider, state.settings.providers[provider]);
 
   useEffect(() => {
-    if (!menu && !wsMenu) return;
+    if (!workspaceMenu) return;
     const close = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) setMenu(null);
-      if (!wsMenuRef.current?.contains(event.target as Node)) setWsMenu(null);
+      if (!workspaceMenuRef.current?.contains(event.target as Node)) setWorkspaceMenu(false);
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setMenu(null);
-        setWsMenu(null);
-      }
+      if (event.key === "Escape") setWorkspaceMenu(false);
     };
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", escape);
@@ -111,7 +122,23 @@ export function Sidebar({
       document.removeEventListener("mousedown", close);
       document.removeEventListener("keydown", escape);
     };
-  }, [menu, wsMenu]);
+  }, [workspaceMenu]);
+
+  useEffect(() => {
+    if (!menu) return;
+    const close = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setMenu(null);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenu(null);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [menu]);
 
   // ⌘F inside the thread view focuses this field instead of the browser's
   // find bar, which cannot search threads.
@@ -138,23 +165,9 @@ export function Sidebar({
   const commitRename = () => {
     if (renaming && draft.trim()) {
       renameSession(renaming, draft);
-      notify("Chat renamed");
+      notify("Thread renamed");
     }
     setRenaming(null);
-  };
-
-  const startRenameWorkspace = (workspace: Workspace) => {
-    setDraft(workspace.name);
-    setRenamingWs(workspace.id);
-    setWsMenu(null);
-  };
-
-  const commitWorkspaceRename = () => {
-    if (renamingWs && draft.trim()) {
-      updateWorkspace(renamingWs, { name: draft.trim() });
-      notify("Workspace renamed");
-    }
-    setRenamingWs(null);
   };
 
   const openSession = (id: string) => {
@@ -166,25 +179,21 @@ export function Sidebar({
     const session = state.sessions.find((item) => item.id === id);
     const next = !session?.pinned;
     updateSession(id, (current) => ({ ...current, pinned: next }));
-    notify(next ? "Chat pinned" : "Chat unpinned");
+    notify(next ? "Thread pinned" : "Thread unpinned");
     setMenu(null);
   };
 
-  const newChat = () => {
-    if (state.scope === "workspace" && !activeWorkspace) {
-      onAddWorkspace();
-      return;
-    }
-    setView("chats");
-    createSession(undefined, undefined, undefined, "chat");
-  };
-
   const renderRow = (session: Session) => {
+    const available = isConfigured(session.provider, state.settings.providers[session.provider]);
     const active = session.id === state.activeId && state.view === "chats";
     return (
       <div
         key={session.id}
-        className={cx("thread-row ow-thread", active && "is-active", renaming === session.id && "is-editing")}
+        className={cx(
+          "thread-row",
+          active && "is-active",
+          renaming === session.id && "is-editing",
+        )}
         onClick={() => openSession(session.id)}
         onDoubleClick={() => startRename(session.id)}
         role="button"
@@ -211,6 +220,7 @@ export function Sidebar({
             <span className="thread-title" title={session.title}>
               {session.title}
             </span>
+            {!available && <span className="thread-dot" title="Provider not connected" />}
             <span className="thread-time">{timeAgo(session.updated)}</span>
             <button
               type="button"
@@ -219,7 +229,11 @@ export function Sidebar({
               onClick={(event) => {
                 event.stopPropagation();
                 const rect = event.currentTarget.getBoundingClientRect();
-                setMenu({ sessionId: session.id, x: rect.right, y: rect.bottom + 6 });
+                setMenu({
+                  sessionId: session.id,
+                  x: rect.right,
+                  y: rect.bottom + 6,
+                });
               }}
             >
               <Icon name="more" size={14} />
@@ -231,275 +245,257 @@ export function Sidebar({
   };
 
   return (
-    <aside className={cx("sidebar ow-sidebar", historyCollapsed && "is-collapsed")}>
-      <div className="ow-side-head">
+    <aside className={cx("sidebar shell-nav", historyCollapsed && "is-collapsed")}>
+      <div className="rail">
         <button
           type="button"
-          className="ow-brand"
-          onClick={() => setScope("chat")}
-          title="Lantas"
+          className={cx("rail-button rail-collapse", historyCollapsed && "is-flipped")}
+          onClick={toggleSidebar}
+          aria-label={historyCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={historyCollapsed ? "Expand sidebar (⌘B)" : "Collapse history (⌘B)"}
         >
-          <MarkGlyph size={17} />
-          <span>Lantas</span>
+          <Icon name="panelLeft" size={16} />
         </button>
-        <span className="ow-side-head-actions">
-          <button
-            type="button"
-            className="icon-button"
-            onClick={newChat}
-            title="New chat (⌘N)"
-            aria-label="New chat"
-          >
-            <Icon name="plus" size={15} />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={toggleSidebar}
-            title="Collapse sidebar (⌘B)"
-            aria-label="Collapse sidebar"
-          >
-            <Icon name="panelLeft" size={15} />
-          </button>
-        </span>
+
+        <button
+          type="button"
+          className="rail-button"
+          onClick={() => createSession()}
+          title="New thread (⌘N)"
+          aria-label="New thread"
+        >
+          <Icon name="plus" size={16} />
+        </button>
+
+        <div className="rail-group">
+          {NAV.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={cx("rail-button", state.view === item.id && "is-active")}
+              onClick={() => {
+                setMode("chat");
+                setView(item.id);
+              }}
+              title={item.label}
+              aria-label={item.label}
+            >
+              <Icon name={item.icon} size={16} />
+            </button>
+          ))}
+        </div>
+
+        <span className="rail-spacer" />
+
+        <button
+          type="button"
+          className="rail-button"
+          onClick={() => window.dispatchEvent(new CustomEvent("lantas:compare"))}
+          title="Compare two models"
+          aria-label="Compare two models"
+        >
+          <Icon name="diff" size={16} />
+        </button>
+
+        <button
+          type="button"
+          className="rail-button"
+          onClick={onOpenSettings}
+          title="Settings (⌘,)"
+          aria-label="Settings"
+        >
+          <Icon name="settings" size={16} />
+        </button>
       </div>
 
-      <label className="ow-search">
-        <Icon name="search" size={14} />
-        <input
-          ref={searchRef}
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") setQuery("");
-          }}
-          placeholder="Search sessions"
-          aria-label="Search sessions"
-          spellCheck={false}
-        />
-        {query ? (
+      <div
+        className={cx("nav-panel", historyCollapsed && "is-collapsed")}
+        inert={historyCollapsed ? true : undefined}
+        aria-hidden={historyCollapsed}
+      >
+        <div className="nav-workspace" ref={workspaceMenuRef}>
           <button
             type="button"
-            className="ow-search-clear"
-            onClick={() => setQuery("")}
-            aria-label="Clear search"
+            className={cx("workspace-switch", !state.workspaceRoot && "is-empty")}
+            onClick={() => setWorkspaceMenu((open) => !open)}
+            aria-expanded={workspaceMenu}
+            aria-haspopup="menu"
           >
-            <Icon name="close" size={12} />
-          </button>
-        ) : (
-          <kbd>⌘F</kbd>
-        )}
-      </label>
-
-      <div className="ow-side-scroll">
-        <section className="ow-side-section">
-          <div className="ow-side-label">
-            <span>Workspaces</span>
-            <button
-              type="button"
-              className="ow-label-action"
-              onClick={onAddWorkspace}
-              title="New workspace"
-              aria-label="New workspace"
-            >
-              <Icon name="plus" size={13} />
-            </button>
-          </div>
-
-          {state.workspaces.length === 0 && (
-            <button type="button" className="ow-ws-row is-empty" onClick={onAddWorkspace}>
-              <span className="ow-ws-plus">
-                <Icon name="plus" size={13} />
+            <span className="workspace-switch-icon">
+              <Icon name="folder" size={14} />
+            </span>
+            <span className="workspace-switch-copy">
+              <span className="workspace-switch-name">
+                {state.workspaceName || "Open a folder"}
               </span>
-              <span className="ow-ws-name">Add a project folder</span>
-            </button>
-          )}
+              <span className="workspace-switch-path">
+                {folderLabel(state.workspaceRoot)}
+              </span>
+            </span>
+            <Icon name="chevronDown" size={12} className="workspace-switch-caret" />
+          </button>
 
-          {state.workspaces.map((workspace) => {
-            const count = state.sessions.filter(
-              (session) => session.workspaceId === workspace.id,
-            ).length;
-            const active =
-              workspace.id === state.activeWorkspaceId && state.scope === "workspace";
-            return (
-              <div
-                key={workspace.id}
-                className={cx("ow-ws-row", active && "is-active")}
-                role="button"
-                tabIndex={0}
-                onClick={() => selectWorkspace(workspace.id)}
-                onDoubleClick={() => startRenameWorkspace(workspace)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") selectWorkspace(workspace.id);
+          {workspaceMenu && (
+            <div className="workspace-menu" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setWorkspaceMenu(false);
+                  onOpenFolder();
                 }}
               >
-                <span className="ow-ws-dot" style={{ background: workspace.color }} />
-                {renamingWs === workspace.id ? (
-                  <input
-                    className="ow-ws-rename"
-                    value={draft}
-                    autoFocus
-                    onChange={(event) => setDraft(event.target.value)}
-                    onBlur={commitWorkspaceRename}
-                    onClick={(event) => event.stopPropagation()}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") commitWorkspaceRename();
-                      if (event.key === "Escape") setRenamingWs(null);
-                    }}
-                  />
-                ) : (
-                  <span className="ow-ws-name" title={workspace.root || workspace.name}>
-                    {workspace.name}
-                  </span>
-                )}
-                {count > 0 && <span className="ow-ws-count">{count}</span>}
+                <Icon name="folder" size={14} />
+                <span>Open folder…</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={!state.workspaceRoot}
+                onClick={() => {
+                  setWorkspaceMenu(false);
+                  onAddFolder();
+                }}
+              >
+                <Icon name="folderPlus" size={14} />
+                <span>Add folder…</span>
+              </button>
+              <div className="workspace-menu-sep" />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setWorkspaceMenu(false);
+                  onOpenSettings();
+                }}
+              >
+                <Icon name="settings" size={14} />
+                <span>Permissions and settings</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="nav-panel-head">
+            <label className="nav-search">
+            <Icon name="search" size={13} />
+            <input
+              ref={searchRef}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setQuery("");
+              }}
+              placeholder="Search"
+              aria-label="Search threads"
+              spellCheck={false}
+            />
+            {query ? (
+              <button
+                type="button"
+                className="nav-search-clear"
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+              >
+                <Icon name="close" size={12} />
+              </button>
+            ) : null}
+          </label>
+          <button
+            type="button"
+            className="nav-new"
+            onClick={() => createSession()}
+            title="New thread (⌘N)"
+            aria-label="New thread"
+          >
+            <Icon name="plus" size={14} />
+          </button>
+        </div>
+
+        <div className="nav-scroll">
+          {pinned.length > 0 && (
+            <section className="project nav-pinned">
+              <div className="nav-section-label">
+                <Icon name="pin" size={14} />
+                <span>Pinned</span>
+                <span className="project-count">{pinned.length}</span>
+              </div>
+              <div className="thread-rows">{pinned.map(renderRow)}</div>
+            </section>
+          )}
+
+          {projects.map((project) => {
+            const open = !collapsed[project.cwd];
+            return (
+              <section className="project" key={project.cwd}>
                 <button
                   type="button"
-                  className="ow-ws-menu"
-                  aria-label={`Actions for ${workspace.name}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    const rect = event.currentTarget.getBoundingClientRect();
-                    setWsMenu({ workspaceId: workspace.id, x: rect.right, y: rect.bottom + 4 });
-                  }}
+                  className="project-head"
+                  onClick={() =>
+                    setCollapsed((prev) => ({ ...prev, [project.cwd]: open }))
+                  }
+                  aria-expanded={open}
                 >
-                  <Icon name="more" size={13} />
+                  <Icon
+                    name="chevronDown"
+                    size={12}
+                    className={cx("project-caret", !open && "is-closed")}
+                  />
+                  <span className="project-name">{project.label}</span>
+                  <span className="project-count">{project.items.length}</span>
                 </button>
-              </div>
+
+                {open && (
+                  <div className="project-body">
+                    <div className="thread-rows">{project.items.map(renderRow)}</div>
+                  </div>
+                )}
+              </section>
             );
           })}
 
-          <button type="button" className="ow-add-workspace" onClick={onAddWorkspace}>
-            <Icon name="plus" size={13} />
-            Add workspace
-          </button>
-        </section>
-
-        {state.scope === "workspace" && (
-          <section className="ow-side-section ow-chat-section">
-            <div className="ow-side-label">
-              <span>{activeWorkspace ? `Chats in ${activeWorkspace.name}` : "Chats"}</span>
-              {activeWorkspace && (
-                <button
-                  type="button"
-                  className="ow-label-action"
-                  onClick={newChat}
-                  title="New chat"
-                  aria-label="New chat"
-                >
-                  <Icon name="plus" size={13} />
-                </button>
-              )}
-            </div>
-
-            {!activeWorkspace ? (
-              <p className="ow-side-empty">Choose a workspace above, or add a folder to start.</p>
-            ) : matched.length === 0 ? (
-              <div className="ow-side-empty">
-                <p>{wanted ? `No chat matches “${query.trim()}”` : "No chats in this workspace yet."}</p>
-                {!wanted && (
-                  <button className="text-button" onClick={newChat} type="button">
-                    Start the first one
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="ow-thread-list">
-                {pinned.length > 0 && (
-                  <>
-                    <button
-                      type="button"
-                      className="ow-pinned-toggle"
-                      onClick={() => setPinnedCollapsed((value) => !value)}
-                    >
-                      <Icon
-                        name="chevronDown"
-                        size={11}
-                        className={cx(pinnedCollapsed && "is-closed")}
-                      />
-                      Pinned
-                    </button>
-                    {!pinnedCollapsed && pinned.map(renderRow)}
-                  </>
-                )}
-                {recent.map(renderRow)}
-              </div>
-            )}
-          </section>
-        )}
-
-        {state.scope === "chat" && (
-          <section className="ow-side-section ow-chat-section">
-            <div className="ow-side-label">
-              <span>Chats</span>
-            </div>
-            {matched.length === 0 ? (
-              <div className="ow-side-empty">
-                <p>{wanted ? `No chat matches “${query.trim()}”` : "No chats yet."}</p>
-                {!wanted && (
-                  <button className="text-button" onClick={newChat} type="button">
+          {matched.length === 0 && (
+            <div className="nav-empty">
+              {wanted ? (
+                <p>No thread matches “{query.trim()}”</p>
+              ) : (
+                <>
+                  <p>
+                    {state.mode === "browser"
+                      ? "No browser threads yet"
+                      : state.mode === "code"
+                        ? "No code threads yet"
+                        : "No threads yet"}
+                  </p>
+                  <button className="text-button" onClick={() => createSession()} type="button">
                     Start one
                   </button>
-                )}
-              </div>
-            ) : (
-              <div className="ow-thread-list">
-                {pinned.length > 0 && (
-                  <>
-                    <button
-                      type="button"
-                      className="ow-pinned-toggle"
-                      onClick={() => setPinnedCollapsed((value) => !value)}
-                    >
-                      <Icon
-                        name="chevronDown"
-                        size={11}
-                        className={cx(pinnedCollapsed && "is-closed")}
-                      />
-                      Pinned
-                    </button>
-                    {!pinnedCollapsed && pinned.map(renderRow)}
-                  </>
-                )}
-                {recent.map(renderRow)}
-              </div>
-            )}
-          </section>
-        )}
-      </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
-      <div className="ow-side-foot">
-        <button
-          type="button"
-          className="ow-foot-row"
-          onClick={() => {
-            setMode("chat");
-            setView("skills");
-          }}
-        >
-          <Icon name="book" size={14} />
-          Skills
-        </button>
-        <button
-          type="button"
-          className="ow-foot-row"
-          onClick={() => {
-            setMode("chat");
-            setView("integrations");
-          }}
-        >
-          <Icon name="plug" size={14} />
-          Integrations
-        </button>
-        <button type="button" className="ow-foot-row" onClick={onOpenSettings}>
-          <Icon name="settings" size={14} />
-          Settings
-        </button>
+        <div className="nav-panel-foot">
+          <button type="button" className="nav-status" onClick={onOpenSettings}>
+            <span className={cx("status-dot", connected ? "is-ok" : "is-idle")} aria-hidden="true" />
+            <span className="nav-status-text">
+              <span className="nav-status-title">
+                {connected ? providerMeta?.name ?? "Model" : "No provider connected"}
+              </span>
+              <span className="nav-status-sub">
+                {connected
+                  ? prettyModel(state.settings.defaultModel)
+                  : "Connect one in Settings"}
+              </span>
+            </span>
+          </button>
+        </div>
       </div>
 
       {menu && (
         <div
-          className="row-menu ow-row-menu"
+          className="row-menu"
           ref={menuRef}
           style={{ top: menu.y, left: Math.min(menu.x - 168, window.innerWidth - 184) }}
         >
@@ -514,7 +510,9 @@ export function Sidebar({
           </button>
           <button type="button" onClick={() => togglePin(menu.sessionId)}>
             <Icon name="pin" size={14} />
-            {state.sessions.find((item) => item.id === menu.sessionId)?.pinned ? "Unpin" : "Pin"}
+            {state.sessions.find((item) => item.id === menu.sessionId)?.pinned
+              ? "Unpin"
+              : "Pin"}
           </button>
           <button type="button" onClick={() => startRename(menu.sessionId)}>
             <Icon name="file" size={14} /> Rename
@@ -524,7 +522,7 @@ export function Sidebar({
             onClick={() => {
               const session = state.sessions.find((item) => item.id === menu.sessionId);
               if (session) navigator.clipboard?.writeText(session.id).catch(() => {});
-              notify("Chat ID copied");
+              notify("Thread ID copied");
               setMenu(null);
             }}
           >
@@ -537,52 +535,10 @@ export function Sidebar({
             onClick={() => {
               deleteSession(menu.sessionId);
               setMenu(null);
-              notify("Chat deleted");
+              notify("Thread deleted");
             }}
           >
             <Icon name="trash" size={14} /> Delete
-          </button>
-        </div>
-      )}
-
-      {wsMenu && (
-        <div
-          className="row-menu ow-row-menu"
-          ref={wsMenuRef}
-          style={{ top: wsMenu.y, left: Math.min(wsMenu.x - 168, window.innerWidth - 184) }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              const workspace = state.workspaces.find((item) => item.id === wsMenu.workspaceId);
-              if (workspace) startRenameWorkspace(workspace);
-            }}
-          >
-            <Icon name="pencil" size={14} /> Rename
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const workspace = state.workspaces.find((item) => item.id === wsMenu.workspaceId);
-              if (workspace) navigator.clipboard?.writeText(workspace.root).catch(() => {});
-              notify("Workspace path copied");
-              setWsMenu(null);
-            }}
-          >
-            <Icon name="copy" size={14} /> Copy path
-          </button>
-          <div className="row-menu-sep" />
-          <button
-            className="danger"
-            type="button"
-            onClick={() => {
-              const workspace = state.workspaces.find((item) => item.id === wsMenu.workspaceId);
-              deleteWorkspace(wsMenu.workspaceId);
-              setWsMenu(null);
-              notify(`${workspace?.name ?? "Workspace"} removed — files stay on disk`);
-            }}
-          >
-            <Icon name="trash" size={14} /> Remove workspace
           </button>
         </div>
       )}

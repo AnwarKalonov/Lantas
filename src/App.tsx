@@ -3,9 +3,9 @@ import { runAppAction } from "./lib/appActions";
 import { aiDriving } from "./lib/el";
 import { getComposio, listConnections } from "./lib/composio";
 import { runToolLoop } from "./lib/agentRuntime";
-import { canUseOpenCode, runOpenCodeTurn } from "./lib/opencode";
 import { defaultRules, describeAction } from "./lib/permissions";
 import type { ToolCall, ToolContext } from "./lib/tools";
+import { brandForTool } from "./lib/brands";
 import { getElContext } from "./lib/el";
 import { consumeGoogleHash, getGoogleToken } from "./lib/google";
 import { hideScreenAssistant, inTauri, showScreenAssistant } from "./lib/native";
@@ -52,6 +52,7 @@ import {
   writeWorkspacePath,
 } from "./lib/workspace";
 import { looksLikePath } from "./lib/paths";
+import { ringDone } from "./lib/chime";
 import { gitStatus } from "./lib/git";
 import { recordAudit } from "./lib/audit";
 import { askUser } from "./lib/userAsk";
@@ -70,8 +71,6 @@ import type {
 import { cx, titleFrom, uid } from "./lib/util";
 import { BrowserView } from "./components/BrowserView";
 import { BrowserActivityDock } from "./components/BrowserActivityDock";
-import { ChatTabs } from "./components/ChatTabs";
-import { WorkspaceHome } from "./components/WorkspaceHome";
 import { ScreenShare } from "./components/ScreenShare";
 import { AgentQuestion } from "./components/AgentQuestion";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -81,7 +80,6 @@ import { CommandPalette } from "./components/CommandPalette";
 import { CompareView } from "./components/CompareView";
 import { ContextPanel } from "./components/ContextPanel";
 import { Home } from "./components/Home";
-import { Icon } from "./components/Icons";
 import { IntegrationsView } from "./components/IntegrationsView";
 import { SessionView } from "./components/SessionView";
 import { PermissionsSheet } from "./components/PermissionsSheet";
@@ -132,7 +130,6 @@ export function App() {
     state,
     activeSession,
     createSession,
-    selectSession,
     addMessage,
     patchMessage,
     updateSession,
@@ -140,12 +137,9 @@ export function App() {
     setMode,
     setBrowserUrl,
     setView,
-    setScope,
-    createWorkspace,
-    selectWorkspace,
-    updateWorkspace,
     setWorkspace,
     patchWorkspaceFile,
+    removeWorkspaceFile,
     stageChange,
     undo,
     redo,
@@ -190,38 +184,12 @@ export function App() {
   const autoAllowed = useRef(new Set<string>());
   const [limitAsk, setLimitAsk] = useState(false);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
-  const [openTabs, setOpenTabs] = useState<string[]>([]);
   const limitResolve = useRef<((more: boolean) => void) | null>(null);
   /** The last time the user approved extra rounds, so the prompt is not spam. */
   const lastLimitGrant = useRef(0);
   const runs = useRef<Record<string, AbortController>>({});
 
   const streaming = Boolean(activeSession?.messages.at(-1)?.streaming);
-  const activeWorkspace = state.workspaces.find(
-    (workspace) => workspace.id === state.activeWorkspaceId,
-  );
-
-  useEffect(() => {
-    const id = state.activeId;
-    if (!id || state.view !== "chats") return;
-    setOpenTabs((prev) => (prev.includes(id) ? prev : [...prev, id].slice(-8)));
-  }, [state.activeId, state.view]);
-
-  // Tabs are limited to the scope and surface you are looking at. A chat from
-  // another workspace is still open in the session list, just not in this rail.
-  const tabSessions = useMemo(
-    () =>
-      openTabs
-        .map((id) => state.sessions.find((session) => session.id === id))
-        .filter((session): session is Session => {
-          if (!session) return false;
-          if ((session.surface ?? "chat") !== state.mode) return false;
-          return state.scope === "workspace"
-            ? session.workspaceId === state.activeWorkspaceId
-            : !session.workspaceId;
-        }),
-    [openTabs, state.sessions, state.mode, state.scope, state.activeWorkspaceId],
-  );
 
   const openSettings = useCallback((tab: SettingsTab = "general") => {
     setSettingsTab(tab);
@@ -253,38 +221,31 @@ export function App() {
     document.documentElement.classList.toggle("reduce-motion", state.settings.reduceMotion);
   }, [state.settings.reduceMotion]);
 
-  // Reopen the project the current scope points at. Only the path is persisted,
-  // so the tree is always read fresh from disk — and switching workspace
-  // replaces the tree instead of leaving another project's files behind.
+  // Reopen the project from the last session. Only the path is persisted, so
+  // the tree is always read fresh from disk.
   // The watcher callback is long-lived; read the latest files through a ref so
   // it can tell an external edit from the agent's own write.
   const workspaceRef = useRef(state.workspace);
   workspaceRef.current = state.workspace;
-  const desiredRoot =
-    state.scope === "workspace" ? (activeWorkspace?.root ?? "") : state.workspaceRoot;
-  const desiredName =
-    state.scope === "workspace" ? (activeWorkspace?.name ?? "Workspace") : state.workspaceName;
+  const restoredRoot = useRef("");
   useEffect(() => {
-    if (!inTauri() || !desiredRoot) return;
-    if (state.workspace.length > 0 && state.workspaceRoot === desiredRoot) return;
-    void readWorkspaceWithExtras(desiredRoot)
+    if (!inTauri() || !state.workspaceRoot || state.workspace.length > 0) return;
+    if (restoredRoot.current === state.workspaceRoot) return;
+    restoredRoot.current = state.workspaceRoot;
+    void readWorkspaceWithExtras(state.workspaceRoot)
       .then((next) => {
-        if (!next) {
-          notify(`Could not reopen ${desiredRoot}`, "error");
-          return;
-        }
-        setWorkspace(desiredName, next.files, next.root);
-        setSettings({ fileAccess: true });
+        if (next) setWorkspace(next.name, next.files, next.root);
+        else notify(`Could not reopen ${state.workspaceRoot}`, "error");
       })
-      .catch((error) => {
+      .catch((error) =>
         notify(
-          `Could not reopen ${desiredRoot}: ${
+          `Could not reopen ${state.workspaceRoot}: ${
             error instanceof Error ? error.message : String(error)
           }`,
           "error",
-        );
-      });
-  }, [desiredName, desiredRoot, notify, setSettings, setWorkspace, state.workspace.length, state.workspaceRoot]);
+        ),
+      );
+  }, [notify, setWorkspace, state.workspace.length, state.workspaceRoot]);
 
   // External edits (VS Code, git checkout) would otherwise leave the agent
   // reading a stale copy of the file.
@@ -292,12 +253,19 @@ export function App() {
     if (!inTauri() || !state.workspaceRoot) return;
     let alive = true;
     let unwatch: (() => void) | null = null;
-    void watchWorkspaceTree(state.workspaceRoot, (path, text) => {
-      const current = workspaceRef.current.find((file) => file.path === path);
-      if (current?.text === text) return;
-      patchWorkspaceFile(path, text);
-      notify(`File changed on disk: ${path}`);
-    })
+    void watchWorkspaceTree(
+      state.workspaceRoot,
+      (path, text) => {
+        const current = workspaceRef.current.find((file) => file.path === path);
+        if (current?.text === text) return;
+        patchWorkspaceFile(path, text);
+        notify(`File changed on disk: ${path}`);
+      },
+      (path) => {
+        removeWorkspaceFile(path);
+        notify(`Removed on disk: ${path}`);
+      },
+    )
       .then((stop) => {
         if (alive) unwatch = stop;
         else stop();
@@ -316,7 +284,9 @@ export function App() {
       alive = false;
       unwatch?.();
     };
-  }, [notify, patchWorkspaceFile, state.workspace.length, state.workspaceRoot]);
+    // The callback reads the live file list through workspaceRef, so a change
+    // in the number of files must not tear down and restart the watcher.
+  }, [notify, patchWorkspaceFile, removeWorkspaceFile, state.workspaceRoot]);
 
   useEffect(() => () => {
     Object.values(runs.current).forEach((controller) => controller.abort());
@@ -521,9 +491,6 @@ export function App() {
       if (!next) return;
       clearExtraWorkspaceFolders();
       setWorkspace(next.name, next.files, next.root);
-      if (state.scope === "workspace" && activeWorkspace) {
-        updateWorkspace(activeWorkspace.id, { name: next.name, root: next.root });
-      }
       // Choosing a folder is explicit consent to read it, even if the sheet was
       // skipped earlier.
       setSettings({ fileAccess: true });
@@ -531,27 +498,7 @@ export function App() {
     } catch (error) {
       notify(error instanceof Error ? error.message : "Could not open that folder", "error");
     }
-  }, [activeWorkspace, notify, setSettings, setWorkspace, state.scope, updateWorkspace]);
-
-  /** Pick a folder and make it a project, the way OpenWork adds a workspace. */
-  const addWorkspace = useCallback(async () => {
-    try {
-      const next = await openWorkspaceFolder();
-      if (!next) return;
-      clearExtraWorkspaceFolders();
-      createWorkspace(next.name, next.root);
-      setWorkspace(next.name, next.files, next.root);
-      setSettings({ fileAccess: true });
-      notify(
-        `${next.name} ready — ${next.files.filter((file) => !file.dir).length} files`,
-      );
-    } catch (error) {
-      notify(
-        error instanceof Error ? error.message : "Could not add that workspace",
-        "error",
-      );
-    }
-  }, [createWorkspace, notify, setSettings, setWorkspace]);
+  }, [notify, setSettings, setWorkspace]);
 
   const addFolder = useCallback(async () => {
     if (!state.workspaceRoot) {
@@ -1102,39 +1049,10 @@ export function App() {
       const model = existing?.model || state.settings.defaultModel;
       const providerConfig = state.settings.providers[provider];
       const live = isConfigured(provider, providerConfig);
-      const useOpenCode =
-        live &&
-        canUseOpenCode() &&
-        state.scope === "workspace" &&
-        Boolean(state.workspaceRoot) &&
-        state.mode !== "browser" &&
-        // The engine writes and runs commands itself, so it only takes over
-        // after the same folder and terminal grants Lantas's own tools need.
-        state.settings.fileAccess &&
-        state.settings.terminalAccess;
       const seesImages = canSeeImages(provider, model);
       const snapshot: Session | null = existing ?? null;
       const assistantId = uid("msg");
       const isNew = !existing || existing.messages.length === 0;
-      // OpenCode sees the thread as it was before this user turn; the transcript
-      // is seeded from it only when the thread predates the engine switch.
-      const engineSession: Session = existing ?? {
-        id: sessionId,
-        title: titleFrom(text || attachments[0]?.name || "New thread"),
-        cwd: state.workspaceRoot,
-        branch: "",
-        created: Date.now(),
-        updated: Date.now(),
-        messages: [],
-        todos: [],
-        files: [],
-        tokens: 0,
-        contextWindow: 200_000,
-        cost: 0,
-        agent,
-        provider,
-        model,
-      };
 
       // A text-only model rejects the whole request when a frame is attached,
       // so screen sharing only sends pixels to a model that can read them.
@@ -1247,61 +1165,6 @@ export function App() {
       };
 
       try {
-        // Workspace chats run on OpenWork's engine: a bundled OpenCode server,
-        // its tools and its edits. Ordinary Chat and Browser keep Lantas's own
-        // loop, which is where the screen and page tools live.
-        if (useOpenCode) {
-          const openCodeImages = outgoing
-            .filter((file) => file.kind === "image")
-            .map((file) => parseImage(file.body))
-            .filter((image): image is { mime: string; data: string } => Boolean(image))
-            .slice(0, 4);
-          const fileText = outgoing
-            .filter((file) => file.kind === "text")
-            .map((file) => `<file name="${file.name}">\n${file.body.slice(0, 24_000)}\n</file>`)
-            .join("\n\n");
-          const outcome = await runOpenCodeTurn({
-            root: state.workspaceRoot,
-            session: engineSession,
-            text: [text, fileText].filter(Boolean).join("\n\n") || "(attachment)",
-            images: openCodeImages,
-            provider,
-            model,
-            providers: state.settings.providers,
-            autoApprove: state.settings.permissionMode === "auto",
-            signal: controller.signal,
-            patch,
-            onPermission: (request) => requestApproval(request.call, request.resource),
-            onSessionId: (id) =>
-              updateSession(sessionId, (session) => ({
-                ...session,
-                opencodeSessionId: id,
-              })),
-          });
-          closeReasoning();
-          const tokens =
-            outcome.input + outcome.output ||
-            Math.max(1, Math.round(text.length / 3.6) + Math.round(200 / 3.6));
-          patch((message) => ({
-            ...message,
-            streaming: false,
-            durationMs: Date.now() - started,
-            tokens,
-          }));
-          updateSession(sessionId, (session) => ({
-            ...session,
-            tokens: session.tokens + tokens,
-            cost: session.cost + outcome.cost,
-            updated: Date.now(),
-          }));
-          if (state.settings.notifications && !document.hasFocus() && "Notification" in window) {
-            if (Notification.permission === "granted") {
-              new Notification("Lantas", { body: "The turn finished." });
-            }
-          }
-          return;
-        }
-
         if (live) {
           let textPartId: string | null = null;
           let inputTokens = 0;
@@ -1481,6 +1344,48 @@ export function App() {
               state.mode === "code"
                 ? null
                 : readWorkspacePath(state.workspaceRoot, path),
+            // “Any file” means an absolute path is not a dead end: read and
+            // write through the FS plugin, which the capability allows across
+            // the home folder. A refusal becomes a plain tool error.
+            readAbsoluteFile: async (path) => {
+              try {
+                const fs = await import("@tauri-apps/plugin-fs");
+                const { homeDir } = await import("@tauri-apps/api/path");
+                const full = path.startsWith("~/")
+                  ? `${(await homeDir()).replace(/\/$/, "")}/${path.slice(2)}`
+                  : path;
+                return await fs.readTextFile(full);
+              } catch {
+                return null;
+              }
+            },
+            writeAbsoluteFile: async (path, content) => {
+              try {
+                const fs = await import("@tauri-apps/plugin-fs");
+                const { homeDir } = await import("@tauri-apps/api/path");
+                const full = path.startsWith("~/")
+                  ? `${(await homeDir()).replace(/\/$/, "")}/${path.slice(2)}`
+                  : path;
+                const parent = full.slice(0, full.lastIndexOf("/"));
+                if (parent) {
+                  await fs.mkdir(parent, { recursive: true }).catch(() => undefined);
+                }
+                await fs.writeTextFile(full, content);
+                return true;
+              } catch (error) {
+                notify(
+                  `Could not write ${path}: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                  "error",
+                );
+                return false;
+              }
+            },
+            openPreview: (url) => {
+              setBrowserUrl(url);
+              setMode("browser");
+            },
             onShellLine: (line) => {
               const partId = shellPart.current;
               if (!partId) return;
@@ -1505,16 +1410,21 @@ export function App() {
               };
               if (index >= 0) toolFiles[index] = entry;
               else toolFiles.push(entry);
-              // In the IDE an assistant edit is a proposal until the user keeps
-              // it, matching the review step in Cursor. Chat mode applies it.
+              // Every assistant edit is reviewable in place, in Chat and in
+              // the IDE. Chat writes immediately so a following command or
+              // test sees the file; Keep clears the review, Discard restores
+              // the before state. In the IDE nothing touches disk until Keep.
               if (state.mode === "code") {
                 stageChange(path, content);
                 patchWorkspaceFile(path, content);
                 return true;
               }
+              stageChange(path, content);
               patchWorkspaceFile(path, content);
               try {
-                return await writeWorkspacePath(state.workspaceRoot, path, content);
+                const written = await writeWorkspacePath(state.workspaceRoot, path, content);
+                if (written) stageChange(path, content, true);
+                return written;
               } catch (error) {
                 notify(
                   `Could not write ${path}: ${
@@ -1527,11 +1437,15 @@ export function App() {
             },
           };
 
-          const toolKind = (name: string): "read" | "grep" | "edit" | "terminal" | "web" | "plan" => {
+          const toolKind = (
+            name: string,
+          ): "read" | "grep" | "edit" | "terminal" | "web" | "plan" | "git" | "preview" => {
             if (name === "read") return "read";
             if (name === "grep" || name === "glob" || name === "semantic_search") return "grep";
             if (name === "edit" || name === "write") return "edit";
             if (name === "terminal") return "terminal";
+            if (name === "git") return "git";
+            if (name === "preview") return "preview";
             if (name === "browser" || name === "integrations") return "web";
             return "plan";
           };
@@ -1561,6 +1475,10 @@ export function App() {
           // The local browser engine runs browser-use with this session's own
           // provider and key, so a delegated browsing task needs no extra setup.
           setEngineModel({ provider, model, config: providerConfig });
+
+          // Every step's wall-clock time, so the transcript can show the same
+          // “Worked for 2s · 4 steps” timeline the user asked for.
+          const toolStarted = new Map<string, number>();
 
           await runToolLoop({
             provider,
@@ -1606,6 +1524,7 @@ export function App() {
             onReasoning: appendReasoning,
             onToolStart: (id, call, label) => {
               closeReasoning();
+              toolStarted.set(id, Date.now());
               if (call.name === "browser") {
                 browserToolRan = true;
                 browserToolIds.add(id);
@@ -1649,6 +1568,8 @@ export function App() {
                       id,
                       kind: "tool",
                       tool: toolKind(call.name),
+                      name: call.name,
+                      brand: brandForTool(call.name, call.args),
                       label,
                       state: "run",
                     },
@@ -1658,6 +1579,9 @@ export function App() {
               });
             },
             onToolDone: (id, outcome, stateOfTool) => {
+              const startedAt = toolStarted.get(id) ?? 0;
+              const durationMs = startedAt ? Date.now() - startedAt : undefined;
+              toolStarted.delete(id);
               if (shellPart.current === `${id}:shell`) shellPart.current = null;
               if (browserToolIds.has(id)) {
                 const page = getElContext();
@@ -1677,6 +1601,7 @@ export function App() {
                         ...part,
                         output: outcome.shell.output,
                         state: outcome.shell.state,
+                        durationMs,
                       },
                     ];
                   }
@@ -1685,6 +1610,7 @@ export function App() {
                     ...part,
                     detail: outcome.summary,
                     state: stateOfTool,
+                    durationMs,
                   };
                   const additions: Part[] = [];
                   if (outcome.diff) {
@@ -1753,6 +1679,7 @@ export function App() {
             tokens: session.tokens + tokens,
             updated: Date.now(),
           }));
+          if (state.settings.sound) ringDone();
         } else {
           const providerName =
             PROVIDERS.find((item) => item.id === provider)?.name ?? provider;
@@ -1821,16 +1748,14 @@ export function App() {
       state.settings.defaultModel,
       state.settings.defaultProvider,
       state.settings.notifications,
+      state.settings.sound,
       state.settings.providers,
       state.settings.screenAccess,
       state.settings.permissionMode,
-      state.settings.fileAccess,
-      state.settings.terminalAccess,
       state.commands,
       state.skills,
       state.workspace,
       state.workspaceRoot,
-      state.scope,
       state.mode,
       notify,
       requestMoreSteps,
@@ -1932,23 +1857,8 @@ export function App() {
     if (state.mode === "code") return state.workspaceName || "Code";
     if (state.view === "skills") return "Skills";
     if (state.view === "integrations") return "Integrations";
-    if (state.scope === "workspace") {
-      return activeSession?.title ?? activeWorkspace?.name ?? "Workspace";
-    }
     return activeSession?.title ?? "Home";
-  }, [state.mode, state.view, state.scope, activeSession, activeWorkspace?.name, state.workspaceName]);
-
-  const closeTab = (id: string) => {
-    setOpenTabs((prev) => prev.filter((tab) => tab !== id));
-    if (state.activeId !== id) return;
-    const next = tabSessions.find((session) => session.id !== id);
-    selectSession(next?.id ?? null);
-  };
-
-  const newChat = () => {
-    setView("chats");
-    createSession(undefined, undefined, undefined, "chat");
-  };
+  }, [state.mode, state.view, activeSession, state.workspaceName]);
 
   const openFile = useCallback(
     async (path: string, line?: number) => {
@@ -2021,17 +1931,11 @@ export function App() {
     Boolean(approval);
 
   return (
-    <div className={cx("app", "ow-app", `scope-${state.scope}`)}>
+    <div className="app">
       <TitleBar
         title={title}
         mode={state.mode}
-        scope={state.scope}
-        workspaces={state.workspaces}
-        activeWorkspaceId={state.activeWorkspaceId}
         onModeChange={changeMode}
-        onScopeChange={setScope}
-        onSelectWorkspace={selectWorkspace}
-        onAddWorkspace={() => void addWorkspace()}
         onOpenPalette={() => setPaletteOpen(true)}
         onOpenSettings={() => openSettings("general")}
         onOpenCli={openCli}
@@ -2063,20 +1967,12 @@ export function App() {
         <div className="workspace">
           <Sidebar
             onOpenSettings={() => openSettings("general")}
-            onAddWorkspace={() => void addWorkspace()}
+            onOpenFolder={() => void openFolder()}
+            onAddFolder={() => void addFolder()}
             historyCollapsed={!state.sidebarOpen}
           />
 
-          <main className="main ow-main">
-            {state.mode === "chat" && state.view === "chats" && (
-              <ChatTabs
-                sessions={tabSessions}
-                activeId={state.activeId}
-                onSelect={selectSession}
-                onClose={closeTab}
-                onNew={newChat}
-              />
-            )}
+          <main className="main">
             <div
               className={`browser-holder${state.mode === "browser" ? "" : " is-hidden"}`}
               aria-hidden={state.mode !== "browser"}
@@ -2120,14 +2016,6 @@ export function App() {
                         onApprovePlan={() => approvePlan(activeSession.id)}
                       />
                     </ErrorBoundary>
-                  ) : state.scope === "workspace" ? (
-                    <WorkspaceHome
-                      onSend={handleSend}
-                      onOpenSettings={() => openSettings("providers")}
-                      onScreenToggle={handleScreenToggle}
-                      onAddWorkspace={() => void addWorkspace()}
-                      onOpenFile={openFile}
-                    />
                   ) : (
                     <Home
                       onSend={handleSend}
@@ -2286,28 +2174,6 @@ export function App() {
           </div>
         </div>
       )}
-
-      <footer className="ow-statusbar">
-        <span className="ow-status-left">
-          <span className={cx("status-dot", streaming ? "is-busy" : "is-ok")} aria-hidden="true" />
-          {streaming ? "Working" : "Ready for a task"}
-        </span>
-        <span className="ow-status-sep" />
-        <span className="ow-status-item">
-          <Icon name={state.scope === "workspace" ? "folder" : "message"} size={12} />
-          {state.scope === "workspace" ? (activeWorkspace?.name ?? "Workspace") : "Chat"}
-        </span>
-        {state.workspaceRoot && (
-          <span className="ow-status-item ow-status-path" title={state.workspaceRoot}>
-            {state.workspaceRoot.split("/").filter(Boolean).pop()}
-          </span>
-        )}
-        <span className="ow-status-spacer" />
-        <button type="button" className="ow-status-action" onClick={() => openSettings("general")}>
-          <Icon name="settings" size={12} />
-          Settings
-        </button>
-      </footer>
 
       {toast && (
         <div className={cx("toast", toast.tone === "error" && "is-error")} role="status">

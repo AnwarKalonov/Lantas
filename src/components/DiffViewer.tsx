@@ -76,38 +76,116 @@ function SplitBody({ lines }: { lines: DiffLine[] }) {
   );
 }
 
-/** The side-by-side diff used by assistant edits in the transcript. */
+/**
+ * A changed file in the transcript. It reads as one quiet row, opens a unified
+ * diff in place, and carries Keep/Discard while the edit is still reviewable.
+ */
 export function DiffViewer({
   path,
   lines,
   added,
   removed,
   onOpenFile,
+  staged,
+  onKeep,
+  onDiscard,
+  busy,
 }: {
   path: string;
   lines: DiffLine[];
   added: number;
   removed: number;
   onOpenFile?: (path: string) => void;
+  staged?: StagedChange;
+  onKeep?: (path: string) => void;
+  onDiscard?: (path: string) => void;
+  busy?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const name = path.split("/").pop() ?? path;
+  const dir = path.slice(0, Math.max(0, path.length - name.length)).replace(/\/$/, "");
+
   return (
-    <div className="diff-block">
-      <div className="diff-head">
-        <Icon name="diff" size={13} />
+    <div className={cx("edit-card", open && "is-open", staged && "is-staged")}>
+      <div className="edit-card-head">
         <button
           type="button"
-          className="diff-path"
-          onClick={() => onOpenFile?.(path)}
-          disabled={!onOpenFile}
+          className="edit-card-main"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          title={open ? "Hide diff" : "Show diff"}
         >
-          {path}
+          <span className="edit-card-icon" aria-hidden="true">
+            <Icon name="file" size={14} />
+          </span>
+          <span className="edit-card-copy">
+            <span className="edit-card-name">{name}</span>
+            <span className="edit-card-path">{dir || path}</span>
+          </span>
+          <span className="edit-card-stats">
+            <span className="diff-add">+{added}</span>
+            <span className="diff-del">−{removed}</span>
+          </span>
+          <Icon
+            name="chevronRight"
+            size={11}
+            className={cx("edit-card-caret", open && "is-open")}
+          />
         </button>
-        <span className="diff-stats">
-          <span className="diff-add">+{added}</span>
-          <span className="diff-del">−{removed}</span>
-        </span>
+
+        {staged && onKeep && onDiscard ? (
+          <div className="edit-card-actions">
+            <button
+              type="button"
+              className="edit-card-discard"
+              onClick={() => onDiscard(path)}
+              disabled={busy}
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              className="edit-card-keep"
+              onClick={() => onKeep(path)}
+              disabled={busy}
+            >
+              <Icon name="check" size={11} />
+              {busy ? "Keeping…" : "Keep changes"}
+            </button>
+          </div>
+        ) : onOpenFile ? (
+          <button
+            type="button"
+            className="edit-card-open"
+            onClick={() => onOpenFile(path)}
+            title="Open in the IDE"
+          >
+            <Icon name="external" size={12} />
+            Open
+          </button>
+        ) : null}
       </div>
-      <SplitBody lines={lines} />
+
+      {open && (
+        <div className="edit-diff">
+          {lines.map((line, index) => (
+            <div
+              key={`${line.type}-${line.no}-${index}`}
+              className={cx(
+                "edit-diff-line",
+                line.type === "add" && "is-add",
+                line.type === "del" && "is-del",
+              )}
+            >
+              <span className="edit-diff-no">{line.type === "del" ? "" : line.no}</span>
+              <span className="edit-diff-sign">
+                {line.type === "add" ? "+" : line.type === "del" ? "−" : " "}
+              </span>
+              <span className="edit-diff-code">{line.text.replace(/\n$/, "") || " "}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -188,7 +266,7 @@ export function StagedDiffReview({
             disabled={busyPath === active.path}
             onClick={() => onDiscard(active.path)}
           >
-            Discard
+            Discard changes
           </button>
           <button
             type="button"
@@ -196,7 +274,8 @@ export function StagedDiffReview({
             disabled={busyPath === active.path}
             onClick={() => onKeep(active.path)}
           >
-            {busyPath === active.path ? "Keeping…" : "Keep file"}
+            <Icon name="check" size={12} />
+            {busyPath === active.path ? "Keeping…" : "Keep changes"}
           </button>
         </div>
       </div>

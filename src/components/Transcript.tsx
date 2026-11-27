@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { EASE, timing, useStill } from "../lib/motion";
-import type { Message, Part, Session } from "../lib/types";
-import { AGENTS } from "../lib/data";
-import { prettyModel } from "../lib/providers";
-import { clock, cx, formatDuration, formatTokens } from "../lib/util";
+import type { Message, Part, Session, StagedChange } from "../lib/types";
+import { cx } from "../lib/util";
 import { PATH_RE, looksLikePath, maskUrls, pathFrom } from "../lib/paths";
 import { formatBytes, saveArtifact } from "../lib/artifacts";
 import { DiffViewer } from "./DiffViewer";
 import { Icon, type IconName } from "./Icons";
+import { BrandMark } from "./BrandMark";
+import { brandFromText, type BrandId } from "../lib/brands";
 
 const TOOL_ICONS: Record<string, IconName> = {
   read: "file",
@@ -18,6 +18,28 @@ const TOOL_ICONS: Record<string, IconName> = {
   plan: "compass",
   web: "compass",
   deliver: "download",
+  git: "branch",
+  preview: "compass",
+};
+
+/** The past-tense voice the step list reads in. */
+const STEP_VERBS: Record<string, string> = {
+  "Read file": "Read",
+  "Write file": "Wrote",
+  "Edit file": "Edited",
+  "Find files": "Searched files",
+  "Search code": "Searched code",
+  "Find by meaning": "Searched by meaning",
+  Terminal: "Ran",
+  "Run git": "Ran git",
+  Preview: "Opened",
+  Browser: "Browsed",
+  "Connected apps": "Used",
+  "Deliver file": "Created",
+  "Load skill": "Used skill",
+  Screen: "Looked at",
+  "Ask you": "Asked you",
+  Settings: "Changed",
 };
 
 // Paths come from lib/paths so URLs are never mistaken for files. A row saying
@@ -59,28 +81,25 @@ function isStep(part: Part): boolean {
   return stepName(part) !== null;
 }
 
-/** Thinking belongs with the work it explains, not in its own row above it. */
+/** Thinking is a step too: it happened, and the timeline says how long. */
 function isActivity(part: Part): boolean {
+  if (part.kind === "artifact") return false;
   return isStep(part) || part.kind === "reasoning";
 }
 
-function thoughtSeconds(parts: Part[]): number {
-  const ms = parts.reduce(
-    (total, part) => total + (part.kind === "reasoning" ? (part.durationMs ?? 0) : 0),
+function runLabel(parts: Part[], running: boolean, durationMs?: number): string {
+  const steps = parts.filter(isStep).length;
+  // The run's own steps measure it best; the turn duration is only a fallback
+  // for older parts that were stored before steps carried their time.
+  const measured = parts.reduce(
+    (total, part) => total + ("durationMs" in part ? (part.durationMs ?? 0) : 0),
     0,
   );
-  return ms ? Math.max(1, Math.round(ms / 1000)) : 0;
-}
-
-/** One quiet line: how long it thought and how many steps it took. */
-function runLabel(parts: Part[], running: boolean): string {
-  const seconds = thoughtSeconds(parts);
-  const steps = parts.filter(isStep).length;
-  const bits: string[] = [];
-  if (seconds) bits.push(`thought for ${seconds}s`);
-  if (steps) bits.push(`${steps} step${steps === 1 ? "" : "s"}`);
-  if (!bits.length) return running ? "Working" : "Worked";
-  return bits.join(" · ");
+  const ms = measured || durationMs || 0;
+  const seconds = ms ? Math.max(1, Math.round(ms / 1000)) : 0;
+  const stepText = steps ? `${steps} step${steps === 1 ? "" : "s"}` : "";
+  if (running) return ["Working", stepText].filter(Boolean).join(" · ");
+  return [seconds ? `Worked for ${seconds}s` : "Worked", stepText].filter(Boolean).join(" · ");
 }
 
 type Block = { kind: "text"; part: Part } | { kind: "run"; parts: Part[] };
@@ -144,18 +163,137 @@ function sourcesOf(parts: Part[]): Source[] {
   return Array.from(seen.values()).slice(0, 8);
 }
 
-function RunBlock({
-  parts,
+/** “2.4s” while it is quick, whole seconds once it is not. */
+function stepTime(ms?: number): string {
+  if (!ms || ms < 120) return "";
+  const seconds = ms / 1000;
+  return seconds < 10 ? `${seconds.toFixed(1)}s` : `${Math.round(seconds)}s`;
+}
+
+function ThinkingRow({ part }: { part: Extract<Part, { kind: "reasoning" }> }) {
+  const [open, setOpen] = useState(false);
+  const running = part.state === "run";
+  const seconds = part.durationMs ? Math.max(1, Math.round(part.durationMs / 1000)) : 0;
+  return (
+    <div className={cx("step-thinking", running && "is-running")}>
+      <button
+        type="button"
+        className="step-row is-thinking"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        title={open ? "Hide the thought" : "Show the thought"}
+      >
+        <span className="step-icon is-thinking">
+          <Icon name="sparkle" size={13} />
+        </span>
+        <span className="step-text">
+          <span className="step-action">{running ? "Thinking" : "Thought"}</span>
+          {running ? (
+            <span className="thinking-dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+          ) : null}
+        </span>
+        <span className="step-time">{running ? "" : seconds ? `${seconds}s` : ""}</span>
+        <Icon name="chevronDown" size={10} className={cx("step-caret", open && "is-open")} />
+      </button>
+      {open && <div className="thinking-body">{part.text}</div>}
+    </div>
+  );
+}
+
+/** One visible step: a mark, what it did, where, and how long it took. */
+function StepRow({
+  part,
   onOpenFile,
 }: {
-  parts: Part[];
+  part: Extract<Part, { kind: "tool" }>;
   onOpenFile?: (path: string, line?: number) => void;
 }) {
+  const [head, ...rest] = part.label.split(" · ");
+  const target = rest.join(" · ").trim();
+  const action = STEP_VERBS[head.trim()] ?? head.trim();
+  const brand =
+    (part.brand as BrandId | undefined) ??
+    (part.name === "integrations"
+      ? brandFromText(part.label, part.detail)
+      : part.name === "browser"
+        ? "browser"
+        : undefined);
+  const file = pathFrom(part.label) ?? pathFrom(part.detail);
+  const detail = String(part.detail ?? "").trim();
+  // The outcome summary is only useful when it adds something the label does
+  // not already say. “Read src/App.tsx · 120 lines” beside a row that already
+  // names src/App.tsx is noise.
+  const meta =
+    detail &&
+    detail.length <= 60 &&
+    !detail.startsWith(action) &&
+    !detail.startsWith("Ran ") &&
+    !detail.includes(target) &&
+    detail !== part.label
+      ? detail
+      : "";
+  const time = stepTime(part.durationMs);
+
+  const body = (
+    <>
+      <span className={cx("step-icon", part.state === "error" && "is-error")}>
+        {brand ? <BrandMark id={brand} size={14} /> : <Icon name={TOOL_ICONS[part.tool] ?? "file"} size={13} />}
+        {part.state === "run" ? <span className="step-live" aria-hidden="true" /> : null}
+      </span>
+      <span className="step-text">
+        <span className="step-action">{action}</span>
+        {target ? <span className="step-target"> · {target}</span> : null}
+        {meta ? <span className="step-meta"> — {meta}</span> : null}
+      </span>
+      {time ? <span className="step-time">{time}</span> : null}
+    </>
+  );
+
+  if (file && onOpenFile) {
+    return (
+      <button
+        type="button"
+        className={cx("step-row", "is-link", part.state === "error" && "is-error")}
+        onClick={() => onOpenFile(file.path, file.line)}
+        title={`Open ${file.path}${file.line ? `:${file.line}` : ""}`}
+      >
+        {body}
+      </button>
+    );
+  }
+  return (
+    <div className={cx("step-row", part.state === "error" && "is-error")}>{body}</div>
+  );
+}
+
+function RunBlock({
+  parts,
+  durationMs,
+  onOpenFile,
+  staged,
+  onKeepChange,
+  onDiscardChange,
+  busyPath,
+}: {
+  parts: Part[];
+  durationMs?: number;
+  onOpenFile?: (path: string, line?: number) => void;
+  staged?: StagedChange[];
+  onKeepChange?: (path: string) => void;
+  onDiscardChange?: (path: string) => void;
+  busyPath?: string | null;
+}) {
   const running = parts.some(partRunning);
-  // A turn shows one line of work however many steps it took. Expanding is
-  // the user's choice; nothing opens itself and pushes the answer down.
-  const [open, setOpen] = useState(false);
-  const label = runLabel(parts, running);
+  const steps = parts.filter(
+    (part): part is Extract<Part, { kind: "tool" | "reasoning" }> =>
+      part.kind === "tool" || part.kind === "reasoning",
+  );
+  const [open, setOpen] = useState(true);
+  const label = runLabel(parts, running, durationMs);
 
   return (
     <div className={cx("run-block", running && "is-running")}>
@@ -164,24 +302,46 @@ function RunBlock({
         className="run-head"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
+        disabled={steps.length === 0}
+        title={runSummary(parts)}
       >
-        {running ? (
-          <Icon name="loader" size={12} className="spin" />
-        ) : (
-          <Icon name="check" size={12} />
-        )}
-        <span className="run-title" title={runSummary(parts)}>
-          {running ? "Working · " : ""}
-          {label}
+        <span className={cx("run-check", running && "is-running")} aria-hidden="true">
+          {running ? <span className="run-pulse" /> : <Icon name="check" size={10} />}
         </span>
-        <Icon name="chevronDown" size={11} className={cx("run-caret", open && "is-open")} />
+        <span className="run-title">{label}</span>
+        {running && <Icon name="loader" size={11} className="spin run-spinner" />}
+        <Icon
+          name="chevronDown"
+          size={10}
+          className={cx("run-caret", open && "is-open")}
+        />
       </button>
-      {open && (
-        <div className="run-body">
-          {parts.map((part) => (
-            <AssistantPart key={part.id} part={part} onOpenFile={onOpenFile} />
-          ))}
+
+      {steps.length > 0 && open && (
+        <div className="run-steps">
+          {steps.map((part) =>
+            part.kind === "reasoning" ? (
+              <ThinkingRow key={part.id} part={part} />
+            ) : (
+              <StepRow key={part.id} part={part} onOpenFile={onOpenFile} />
+            ),
+          )}
         </div>
+      )}
+
+      {/* A diff stays visible for review; command output follows the toggle. */}
+      {parts.map((part) =>
+        part.kind === "diff" || (open && part.kind === "shell") ? (
+          <AssistantPart
+            key={part.id}
+            part={part}
+            onOpenFile={onOpenFile}
+            staged={staged}
+            onKeepChange={onKeepChange}
+            onDiscardChange={onDiscardChange}
+            busyPath={busyPath}
+          />
+        ) : null,
       )}
     </div>
   );
@@ -366,7 +526,7 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
   );
 }
 
-function Markdown({
+export function Markdown({
   text,
   onOpenFile,
 }: {
@@ -452,41 +612,50 @@ function ToolRow({
   onOpenFile?: (path: string, line?: number) => void;
 }) {
   const file = pathFrom(part.label) ?? pathFrom(part.detail);
-  return (
-    <div className={cx("tool-row", `state-${part.state}`)}>
+  const meta = part.detail || (part.state === "error" ? "Failed" : "");
+  const body = (
+    <>
       <span className="tool-icon">
         {part.state === "run" ? (
           <Icon name="loader" size={13} className="spin" />
-        ) : part.state === "error" ? (
-          <Icon name="alert" size={13} />
         ) : (
-          <Icon name="check" size={13} />
+          <Icon name={TOOL_ICONS[part.tool] ?? "file"} size={13} />
         )}
       </span>
-      <span className="tool-kind">
-        <Icon name={TOOL_ICONS[part.tool] ?? "file"} size={13} />
-      </span>
       <span className="tool-label">{part.label}</span>
-      {file && onOpenFile ? (
-        <FileButton
-          path={file.path}
-          line={file.line}
-          onOpenFile={onOpenFile}
-          className="tool-file"
-        />
-      ) : part.detail ? (
-        <span className="tool-detail">{part.detail}</span>
-      ) : null}
-    </div>
+      {meta ? <span className="tool-detail">{meta}</span> : null}
+    </>
   );
+
+  if (file && onOpenFile) {
+    return (
+      <button
+        type="button"
+        className={cx("tool-row", `state-${part.state}`, "is-link")}
+        onClick={() => onOpenFile(file.path, file.line)}
+        title={`Open ${file.path}${file.line ? `:${file.line}` : ""}`}
+      >
+        {body}
+      </button>
+    );
+  }
+  return <div className={cx("tool-row", `state-${part.state}`)}>{body}</div>;
 }
 
 function DiffBlock({
   part,
   onOpenFile,
+  staged,
+  onKeepChange,
+  onDiscardChange,
+  busyPath,
 }: {
   part: Extract<Part, { kind: "diff" }>;
   onOpenFile?: (path: string, line?: number) => void;
+  staged?: StagedChange[];
+  onKeepChange?: (path: string) => void;
+  onDiscardChange?: (path: string) => void;
+  busyPath?: string | null;
 }) {
   return (
     <DiffViewer
@@ -495,6 +664,10 @@ function DiffBlock({
       added={part.added}
       removed={part.removed}
       onOpenFile={onOpenFile}
+      staged={staged?.find((change) => change.path === part.path)}
+      onKeep={onKeepChange}
+      onDiscard={onDiscardChange}
+      busy={busyPath === part.path}
     />
   );
 }
@@ -570,9 +743,17 @@ function ReasoningBlock({ part }: { part: Extract<Part, { kind: "reasoning" }> }
 function AssistantPart({
   part,
   onOpenFile,
+  staged,
+  onKeepChange,
+  onDiscardChange,
+  busyPath,
 }: {
   part: Part;
   onOpenFile?: (path: string, line?: number) => void;
+  staged?: StagedChange[];
+  onKeepChange?: (path: string) => void;
+  onDiscardChange?: (path: string) => void;
+  busyPath?: string | null;
 }) {
   switch (part.kind) {
     case "text":
@@ -582,7 +763,16 @@ function AssistantPart({
     case "tool":
       return <ToolRow part={part} onOpenFile={onOpenFile} />;
     case "diff":
-      return <DiffBlock part={part} onOpenFile={onOpenFile} />;
+      return (
+        <DiffBlock
+          part={part}
+          onOpenFile={onOpenFile}
+          staged={staged}
+          onKeepChange={onKeepChange}
+          onDiscardChange={onDiscardChange}
+          busyPath={busyPath}
+        />
+      );
     case "shell":
       return <ShellBlock part={part} />;
     case "artifact":
@@ -689,21 +879,27 @@ function AssistantMessage({
   message,
   compact,
   onOpenFile,
+  staged,
+  onKeepChange,
+  onDiscardChange,
+  busyPath,
 }: {
   message: Message;
   compact?: boolean;
   onOpenFile?: (path: string, line?: number) => void;
+  staged?: StagedChange[];
+  onKeepChange?: (path: string) => void;
+  onDiscardChange?: (path: string) => void;
+  busyPath?: string | null;
 }) {
-  const agent = AGENTS.find((item) => item.id === message.agent) ?? AGENTS[0];
-  const who = message.model ? prettyModel(message.model) : agent.name;
-  const hasParts = message.parts.length > 0;
-  const duration = message.durationMs ? formatDuration(message.durationMs) : null;
   // "Deliver file" finished and the card it produced sits directly below it,
   // so the row would say the same thing twice.
   const hasArtifact = message.parts.some((part) => part.kind === "artifact");
   const visibleParts = message.parts.filter(
-    (part) => !(hasArtifact && part.kind === "tool" && part.tool === "deliver" && part.state === "done"),
+    (part) =>
+      !(hasArtifact && part.kind === "tool" && part.tool === "deliver" && part.state === "done"),
   );
+  const hasParts = visibleParts.length > 0;
   const [copied, setCopied] = useState(false);
   const copy = () => {
     const text = message.parts
@@ -728,57 +924,37 @@ function AssistantMessage({
 
   const blocks = groupParts(visibleParts);
 
-  if (compact) {
-    return (
-      <div className="msg msg-assistant is-compact">
-        <div className="assistant-block">
-          {blocks.map((block, index) =>
-            block.kind === "run" ? (
-              <RunBlock key={`run-${index}`} parts={block.parts} onOpenFile={onOpenFile} />
-            ) : (
-              <AssistantPart key={block.part.id} part={block.part} onOpenFile={onOpenFile} />
-            ),
-          )}
-          {message.streaming && <span className="stream-caret" aria-hidden="true" />}
-          {message.interrupted && <span className="interrupted">paused</span>}
-        </div>
-      </div>
+  const renderBlock = (block: Block, index: number) =>
+    block.kind === "run" ? (
+      <RunBlock
+        key={`run-${index}`}
+        parts={block.parts}
+        durationMs={message.durationMs}
+        onOpenFile={onOpenFile}
+        staged={staged}
+        onKeepChange={onKeepChange}
+        onDiscardChange={onDiscardChange}
+        busyPath={busyPath}
+      />
+    ) : (
+      <AssistantPart key={block.part.id} part={block.part} onOpenFile={onOpenFile} />
     );
-  }
 
   return (
-    <div className="msg msg-assistant">
-      <div className="assistant-head" title={`${agent.name} · ${who}`}>
-        <span className="assistant-name">{who}</span>
-        <span className="assistant-sep" aria-hidden="true">
-          •
-        </span>
-        <span className="assistant-time">{clock(message.created)}</span>
-      </div>
-
+    <div className={cx("msg msg-assistant", compact && "is-compact")}>
       <div className="assistant-block">
-        {blocks.map((block, index) =>
-          block.kind === "run" ? (
-            <RunBlock key={`run-${index}`} parts={block.parts} onOpenFile={onOpenFile} />
-          ) : (
-            <AssistantPart key={block.part.id} part={block.part} onOpenFile={onOpenFile} />
-          ),
-        )}
+        {blocks.map(renderBlock)}
         {message.streaming && <span className="stream-caret" aria-hidden="true" />}
+        {message.interrupted && <span className="interrupted">paused</span>}
       </div>
 
       {!message.streaming && <SourceStrip parts={visibleParts} />}
 
       {!message.streaming && hasParts && (
-        <div className="assistant-foot">
-          <span>{duration ? `Worked for ${duration}` : "Done"}</span>
-          {message.tokens ? <span className="assistant-tokens">{formatTokens(message.tokens)} tokens</span> : null}
-          {message.interrupted ? <span className="interrupted">paused</span> : null}
-          <button type="button" className="assistant-copy" onClick={copy}>
-            <Icon name={copied ? "check" : "copy"} size={11} />
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
+        <button type="button" className="assistant-copy-quiet" onClick={copy}>
+          <Icon name={copied ? "check" : "copy"} size={11} />
+          {copied ? "Copied" : "Copy"}
+        </button>
       )}
     </div>
   );
@@ -806,6 +982,10 @@ export function Transcript({
   onOpenFile,
   compact = false,
   empty,
+  staged,
+  onKeepChange,
+  onDiscardChange,
+  busyPath,
 }: {
   session?: Session | null;
   messages?: Message[];
@@ -813,6 +993,10 @@ export function Transcript({
   onOpenFile?: (path: string, line?: number) => void;
   compact?: boolean;
   empty?: React.ReactNode;
+  staged?: StagedChange[];
+  onKeepChange?: (path: string) => void;
+  onDiscardChange?: (path: string) => void;
+  busyPath?: string | null;
 }) {
   const localRef = useRef<HTMLDivElement>(null);
   const ref = scrollRef ?? localRef;
@@ -840,6 +1024,10 @@ export function Transcript({
                     message={message}
                     compact={compact}
                     onOpenFile={onOpenFile}
+                    staged={staged}
+                    onKeepChange={onKeepChange}
+                    onDiscardChange={onDiscardChange}
+                    busyPath={busyPath}
                   />
                 )}
               </Row>

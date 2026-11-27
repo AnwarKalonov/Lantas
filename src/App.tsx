@@ -69,6 +69,8 @@ import type {
 import { cx, titleFrom, uid } from "./lib/util";
 import { BrowserView } from "./components/BrowserView";
 import { BrowserActivityDock } from "./components/BrowserActivityDock";
+import { ChatTabs } from "./components/ChatTabs";
+import { WorkspaceHome } from "./components/WorkspaceHome";
 import { ScreenShare } from "./components/ScreenShare";
 import { AgentQuestion } from "./components/AgentQuestion";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -78,6 +80,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { CompareView } from "./components/CompareView";
 import { ContextPanel } from "./components/ContextPanel";
 import { Home } from "./components/Home";
+import { Icon } from "./components/Icons";
 import { IntegrationsView } from "./components/IntegrationsView";
 import { SessionView } from "./components/SessionView";
 import { PermissionsSheet } from "./components/PermissionsSheet";
@@ -128,6 +131,7 @@ export function App() {
     state,
     activeSession,
     createSession,
+    selectSession,
     addMessage,
     patchMessage,
     updateSession,
@@ -135,6 +139,10 @@ export function App() {
     setMode,
     setBrowserUrl,
     setView,
+    setScope,
+    createWorkspace,
+    selectWorkspace,
+    updateWorkspace,
     setWorkspace,
     patchWorkspaceFile,
     stageChange,
@@ -181,12 +189,38 @@ export function App() {
   const autoAllowed = useRef(new Set<string>());
   const [limitAsk, setLimitAsk] = useState(false);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const [openTabs, setOpenTabs] = useState<string[]>([]);
   const limitResolve = useRef<((more: boolean) => void) | null>(null);
   /** The last time the user approved extra rounds, so the prompt is not spam. */
   const lastLimitGrant = useRef(0);
   const runs = useRef<Record<string, AbortController>>({});
 
   const streaming = Boolean(activeSession?.messages.at(-1)?.streaming);
+  const activeWorkspace = state.workspaces.find(
+    (workspace) => workspace.id === state.activeWorkspaceId,
+  );
+
+  useEffect(() => {
+    const id = state.activeId;
+    if (!id || state.view !== "chats") return;
+    setOpenTabs((prev) => (prev.includes(id) ? prev : [...prev, id].slice(-8)));
+  }, [state.activeId, state.view]);
+
+  // Tabs are limited to the scope and surface you are looking at. A chat from
+  // another workspace is still open in the session list, just not in this rail.
+  const tabSessions = useMemo(
+    () =>
+      openTabs
+        .map((id) => state.sessions.find((session) => session.id === id))
+        .filter((session): session is Session => {
+          if (!session) return false;
+          if ((session.surface ?? "chat") !== state.mode) return false;
+          return state.scope === "workspace"
+            ? session.workspaceId === state.activeWorkspaceId
+            : !session.workspaceId;
+        }),
+    [openTabs, state.sessions, state.mode, state.scope, state.activeWorkspaceId],
+  );
 
   const openSettings = useCallback((tab: SettingsTab = "general") => {
     setSettingsTab(tab);
@@ -218,31 +252,38 @@ export function App() {
     document.documentElement.classList.toggle("reduce-motion", state.settings.reduceMotion);
   }, [state.settings.reduceMotion]);
 
-  // Reopen the project from the last session. Only the path is persisted, so
-  // the tree is always read fresh from disk.
+  // Reopen the project the current scope points at. Only the path is persisted,
+  // so the tree is always read fresh from disk — and switching workspace
+  // replaces the tree instead of leaving another project's files behind.
   // The watcher callback is long-lived; read the latest files through a ref so
   // it can tell an external edit from the agent's own write.
   const workspaceRef = useRef(state.workspace);
   workspaceRef.current = state.workspace;
-  const restoredRoot = useRef("");
+  const desiredRoot =
+    state.scope === "workspace" ? (activeWorkspace?.root ?? "") : state.workspaceRoot;
+  const desiredName =
+    state.scope === "workspace" ? (activeWorkspace?.name ?? "Workspace") : state.workspaceName;
   useEffect(() => {
-    if (!inTauri() || !state.workspaceRoot || state.workspace.length > 0) return;
-    if (restoredRoot.current === state.workspaceRoot) return;
-    restoredRoot.current = state.workspaceRoot;
-    void readWorkspaceWithExtras(state.workspaceRoot)
+    if (!inTauri() || !desiredRoot) return;
+    if (state.workspace.length > 0 && state.workspaceRoot === desiredRoot) return;
+    void readWorkspaceWithExtras(desiredRoot)
       .then((next) => {
-        if (next) setWorkspace(next.name, next.files, next.root);
-        else notify(`Could not reopen ${state.workspaceRoot}`, "error");
+        if (!next) {
+          notify(`Could not reopen ${desiredRoot}`, "error");
+          return;
+        }
+        setWorkspace(desiredName, next.files, next.root);
+        setSettings({ fileAccess: true });
       })
-      .catch((error) =>
+      .catch((error) => {
         notify(
-          `Could not reopen ${state.workspaceRoot}: ${
+          `Could not reopen ${desiredRoot}: ${
             error instanceof Error ? error.message : String(error)
           }`,
           "error",
-        ),
-      );
-  }, [notify, setWorkspace, state.workspace.length, state.workspaceRoot]);
+        );
+      });
+  }, [desiredName, desiredRoot, notify, setSettings, setWorkspace, state.workspace.length, state.workspaceRoot]);
 
   // External edits (VS Code, git checkout) would otherwise leave the agent
   // reading a stale copy of the file.
@@ -479,6 +520,9 @@ export function App() {
       if (!next) return;
       clearExtraWorkspaceFolders();
       setWorkspace(next.name, next.files, next.root);
+      if (state.scope === "workspace" && activeWorkspace) {
+        updateWorkspace(activeWorkspace.id, { name: next.name, root: next.root });
+      }
       // Choosing a folder is explicit consent to read it, even if the sheet was
       // skipped earlier.
       setSettings({ fileAccess: true });
@@ -486,7 +530,27 @@ export function App() {
     } catch (error) {
       notify(error instanceof Error ? error.message : "Could not open that folder", "error");
     }
-  }, [notify, setSettings, setWorkspace]);
+  }, [activeWorkspace, notify, setSettings, setWorkspace, state.scope, updateWorkspace]);
+
+  /** Pick a folder and make it a project, the way OpenWork adds a workspace. */
+  const addWorkspace = useCallback(async () => {
+    try {
+      const next = await openWorkspaceFolder();
+      if (!next) return;
+      clearExtraWorkspaceFolders();
+      createWorkspace(next.name, next.root);
+      setWorkspace(next.name, next.files, next.root);
+      setSettings({ fileAccess: true });
+      notify(
+        `${next.name} ready — ${next.files.filter((file) => !file.dir).length} files`,
+      );
+    } catch (error) {
+      notify(
+        error instanceof Error ? error.message : "Could not add that workspace",
+        "error",
+      );
+    }
+  }, [createWorkspace, notify, setSettings, setWorkspace]);
 
   const addFolder = useCallback(async () => {
     if (!state.workspaceRoot) {
@@ -1780,8 +1844,23 @@ export function App() {
     if (state.mode === "code") return state.workspaceName || "Code";
     if (state.view === "skills") return "Skills";
     if (state.view === "integrations") return "Integrations";
+    if (state.scope === "workspace") {
+      return activeSession?.title ?? activeWorkspace?.name ?? "Workspace";
+    }
     return activeSession?.title ?? "Home";
-  }, [state.mode, state.view, activeSession, state.workspaceName]);
+  }, [state.mode, state.view, state.scope, activeSession, activeWorkspace?.name, state.workspaceName]);
+
+  const closeTab = (id: string) => {
+    setOpenTabs((prev) => prev.filter((tab) => tab !== id));
+    if (state.activeId !== id) return;
+    const next = tabSessions.find((session) => session.id !== id);
+    selectSession(next?.id ?? null);
+  };
+
+  const newChat = () => {
+    setView("chats");
+    createSession(undefined, undefined, undefined, "chat");
+  };
 
   const openFile = useCallback(
     async (path: string, line?: number) => {
@@ -1854,11 +1933,17 @@ export function App() {
     Boolean(approval);
 
   return (
-    <div className="app">
+    <div className={cx("app", "ow-app", `scope-${state.scope}`)}>
       <TitleBar
         title={title}
         mode={state.mode}
+        scope={state.scope}
+        workspaces={state.workspaces}
+        activeWorkspaceId={state.activeWorkspaceId}
         onModeChange={changeMode}
+        onScopeChange={setScope}
+        onSelectWorkspace={selectWorkspace}
+        onAddWorkspace={() => void addWorkspace()}
         onOpenPalette={() => setPaletteOpen(true)}
         onOpenSettings={() => openSettings("general")}
         onOpenCli={openCli}
@@ -1890,10 +1975,20 @@ export function App() {
         <div className="workspace">
           <Sidebar
             onOpenSettings={() => openSettings("general")}
+            onAddWorkspace={() => void addWorkspace()}
             historyCollapsed={!state.sidebarOpen}
           />
 
-          <main className="main">
+          <main className="main ow-main">
+            {state.mode === "chat" && state.view === "chats" && (
+              <ChatTabs
+                sessions={tabSessions}
+                activeId={state.activeId}
+                onSelect={selectSession}
+                onClose={closeTab}
+                onNew={newChat}
+              />
+            )}
             <div
               className={`browser-holder${state.mode === "browser" ? "" : " is-hidden"}`}
               aria-hidden={state.mode !== "browser"}
@@ -1937,6 +2032,14 @@ export function App() {
                         onApprovePlan={() => approvePlan(activeSession.id)}
                       />
                     </ErrorBoundary>
+                  ) : state.scope === "workspace" ? (
+                    <WorkspaceHome
+                      onSend={handleSend}
+                      onOpenSettings={() => openSettings("providers")}
+                      onScreenToggle={handleScreenToggle}
+                      onAddWorkspace={() => void addWorkspace()}
+                      onOpenFile={openFile}
+                    />
                   ) : (
                     <Home
                       onSend={handleSend}
@@ -2095,6 +2198,28 @@ export function App() {
           </div>
         </div>
       )}
+
+      <footer className="ow-statusbar">
+        <span className="ow-status-left">
+          <span className={cx("status-dot", streaming ? "is-busy" : "is-ok")} aria-hidden="true" />
+          {streaming ? "Working" : "Ready for a task"}
+        </span>
+        <span className="ow-status-sep" />
+        <span className="ow-status-item">
+          <Icon name={state.scope === "workspace" ? "folder" : "message"} size={12} />
+          {state.scope === "workspace" ? (activeWorkspace?.name ?? "Workspace") : "Chat"}
+        </span>
+        {state.workspaceRoot && (
+          <span className="ow-status-item ow-status-path" title={state.workspaceRoot}>
+            {state.workspaceRoot.split("/").filter(Boolean).pop()}
+          </span>
+        )}
+        <span className="ow-status-spacer" />
+        <button type="button" className="ow-status-action" onClick={() => openSettings("general")}>
+          <Icon name="settings" size={12} />
+          Settings
+        </button>
+      </footer>
 
       {toast && (
         <div className={cx("toast", toast.tone === "error" && "is-error")} role="status">

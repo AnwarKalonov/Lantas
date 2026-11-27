@@ -236,7 +236,7 @@ export function Composer({
           spellCheck={false}
           autoComplete="off"
           aria-label="Message Lantas"
-          placeholder={variant === "home" ? "Ask anything, or describe a task" : "Follow up…"}
+          placeholder={variant === "home" ? "Describe your task…" : "Ask a follow-up…"}
           value={text}
           onChange={(event) => setText(event.target.value)}
           onPaste={(event) => {

@@ -178,7 +178,7 @@ function defaultProviders(): Record<ProviderId, ProviderConfig> {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  theme: "dark",
+  theme: "light",
   sendOnEnter: true,
   reduceMotion: false,
   defaultAgent: "build",
@@ -230,23 +230,24 @@ export const AGENTS: AgentMeta[] = [
 
 export const SUGGESTIONS = [
   {
-    title: "Explain this codebase",
-    body: "Map entry points, data flow and conventions",
+    title: "Think it through",
+    body: "Compare the options and recommend one",
     prompt:
-      "Give me a tour of this codebase: entry points, how data flows, and the conventions I should follow.",
+      "Help me think this through: lay out the realistic options, their tradeoffs, and the one you would choose. Ask me for the missing detail first if it changes the answer.",
     icon: "compass" as const,
   },
   {
-    title: "Fix the failing check",
-    body: "Reproduce it, then patch the cause",
-    prompt: "The typecheck is failing. Reproduce it, find the cause and fix it.",
+    title: "Write something",
+    body: "Draft an email, post or short doc",
+    prompt:
+      "Draft a concise, specific piece of writing for me. Ask for the audience and the one outcome it should produce, then write it.",
     icon: "wrench" as const,
   },
   {
-    title: "Review my changes",
-    body: "Read the working tree and flag real risks",
+    title: "Review my thinking",
+    body: "Find the weak spots before you commit",
     prompt:
-      "Review the uncommitted changes in this repo and flag anything that would break in production.",
+      "Here is my plan. Find the weak spots, the missing evidence and the risk I am underestimating, then give me the stronger version.",
     icon: "diff" as const,
   },
 ];
@@ -570,6 +571,9 @@ export function seedState(): AppState {
     activeId: null,
     view: "chats",
     mode: "chat",
+    scope: "chat",
+    workspaces: [],
+    activeWorkspaceId: null,
     browserUrl: "https://example.com",
     workspace: [],
     workspaceName: "",

@@ -16,6 +16,19 @@ export type AgentId = "build" | "plan" | "chat";
 export type ThemeMode = "dark" | "light" | "system";
 export type ViewId = "chats" | "skills" | "integrations";
 export type Mode = "chat" | "code" | "browser";
+/** The two homes in the top bar: ordinary chat, or a project workspace. */
+export type Scope = "chat" | "workspace";
+
+export interface Workspace {
+  id: string;
+  name: string;
+  /** Absolute folder on disk. Empty until the folder is chosen. */
+  root: string;
+  /** Dot colour in the sidebar, like OpenWork's workspace marks. */
+  color: string;
+  created: number;
+  updated: number;
+}
 
 export interface Attachment {
   id: string;
@@ -146,6 +159,8 @@ export interface Session {
   surface?: Mode;
   /** Kept at the top of the sidebar, above the project groups. */
   pinned?: boolean;
+  /** The project this chat belongs to; absent for ordinary Chat threads. */
+  workspaceId?: string;
   /** Message snapshots for /undo and /redo. */
   past?: Message[][];
   future?: Message[][];
@@ -262,6 +277,10 @@ export interface AppState {
   activeId: string | null;
   view: ViewId;
   mode: Mode;
+  /** Ordinary chat, or project workspaces. */
+  scope: Scope;
+  workspaces: Workspace[];
+  activeWorkspaceId: string | null;
   browserUrl: string;
   workspace: WorkspaceFile[];
   workspaceName: string;

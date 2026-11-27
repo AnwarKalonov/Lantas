@@ -33,9 +33,9 @@ export function Home({ onSend, onOpenSettings, onScreenToggle }: HomeProps) {
           {state.workspaceName ? (
             <p className="home-kicker">Working in {state.workspaceName}</p>
           ) : null}
-          <h1 className="home-title">Ask, build or browse</h1>
+          <h1 className="home-title">What can I help with?</h1>
           <p className="home-line">
-            One thread for the folder, the screen and the page in front of you.
+            A quick chat, or open a workspace to build in a project folder.
           </p>
         </div>
 

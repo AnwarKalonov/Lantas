@@ -4,6 +4,7 @@ import {
   hideScreenAssistant,
   inTauri,
   openPrivacySettings,
+  overlayHide,
   overlayShow,
   requestScreenPermission,
   revealApp,
@@ -201,6 +202,26 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
   const visionModel = canSeeImages(provider, model);
 
   useEffect(() => subscribeUserAsk(setPendingAsk), []);
+
+  // Load the click-through pointer layer while the card opens, then take it
+  // down. The first action then shows its pointer immediately instead of
+  // waiting for a transparent window to finish loading.
+  useEffect(() => {
+    if (!native || !open) return;
+    let alive = true;
+    void (async () => {
+      try {
+        await overlayShow();
+        await new Promise((resolve) => setTimeout(resolve, 450));
+        if (alive) await overlayHide();
+      } catch {
+        /* the overlay is a visual aid */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [native, open]);
 
   // Screen Recording is only needed for the private picture. Ask macOS for the
   // switch while the card is open, so the banner can appear before a step

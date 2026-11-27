@@ -506,7 +506,7 @@ mod imp {
                     for index in 0..total {
                         let child = CFArrayGetValueAtIndex(children, index) as AXRef;
                         if !child.is_null() {
-                            self.path.push(index);
+                            self.path.push(index as usize);
                             self.walk(child, depth + 1);
                             self.path.pop();
                         }
@@ -1252,6 +1252,9 @@ mod imp {
             let capture = match number {
                 Some(id) => std::process::Command::new("/usr/sbin/screencapture")
                     .arg("-x")
+                    // `-o` leaves the window shadow out; with it the picture is
+                    // larger than the window and every grid line would be off.
+                    .arg("-o")
                     .arg(format!("-l{id}"))
                     .args(["-t", "jpg"])
                     .arg(&path)

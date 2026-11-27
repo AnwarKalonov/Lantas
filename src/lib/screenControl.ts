@@ -96,6 +96,7 @@ const COLS = COLUMNS.length;
 const ROWS = 10;
 
 let latestElements: ScreenElement[] = [];
+let latestFrame: ScreenRect | null = null;
 let latestPoint: { x: number; y: number } | null = null;
 let latestShot: ScreenShot | null = null;
 let hideTimer: number | undefined;
@@ -133,6 +134,10 @@ export async function readScreenTree(): Promise<ScreenTree> {
   const raw = await invoke<string>("screen_ax_tree");
   const parsed = JSON.parse(raw) as ScreenTree;
   latestElements = Array.isArray(parsed.elements) ? parsed.elements : [];
+  latestFrame =
+    parsed.frame && parsed.frame.width > 1 && parsed.frame.height > 1
+      ? { ...parsed.frame }
+      : null;
   return parsed;
 }
 
@@ -369,13 +374,16 @@ async function annotate(
 
     const outW = Math.round(Math.min(1600, Math.max(options.zoom ? 900 : 1080, clipW)));
     const outH = Math.round((clipH / clipW) * outW);
+    // The caption sits above the picture instead of covering the window's own
+    // title bar, tab strip or menu: those are often what the model needs.
+    const bar = Math.max(24, Math.round(outH / 38));
     const canvas = document.createElement("canvas");
     canvas.width = outW;
-    canvas.height = outH;
+    canvas.height = outH + bar;
     const context = canvas.getContext("2d");
     if (!context) return undefined;
 
-    context.drawImage(image, clipX, clipY, clipW, clipH, 0, 0, outW, outH);
+    context.drawImage(image, clipX, clipY, clipW, clipH, 0, bar, outW, outH);
 
     const cols = options.cols ?? COLS;
     const rows = options.rows ?? ROWS;
@@ -389,11 +397,11 @@ async function annotate(
     context.beginPath();
     for (let column = 0; column <= cols * 4; column += 1) {
       const x = column * (stepX / 4);
-      context.moveTo(x, 0);
-      context.lineTo(x, outH);
+      context.moveTo(x, bar);
+      context.lineTo(x, bar + outH);
     }
     for (let row = 0; row <= rows * 4; row += 1) {
-      const y = row * (stepY / 4);
+      const y = bar + row * (stepY / 4);
       context.moveTo(0, y);
       context.lineTo(outW, y);
     }
@@ -405,11 +413,11 @@ async function annotate(
     context.beginPath();
     for (let column = 0; column <= cols; column += 1) {
       const x = column * stepX;
-      context.moveTo(x, 0);
-      context.lineTo(x, outH);
+      context.moveTo(x, bar);
+      context.lineTo(x, bar + outH);
     }
     for (let row = 0; row <= rows; row += 1) {
-      const y = row * stepY;
+      const y = bar + row * stepY;
       context.moveTo(0, y);
       context.lineTo(outW, y);
     }
@@ -420,7 +428,7 @@ async function annotate(
     for (let row = 0; row < rows; row += 1) {
       for (let column = 0; column < cols; column += 1) {
         const name = `${COLUMNS[column] ?? "?"}${row + 1}`;
-        chip(context, name, column * stepX + 2, row * stepY + 2, {
+        chip(context, name, column * stepX + 2, bar + row * stepY + 2, {
           size: labelSize,
           colour: "rgba(255, 232, 242, 0.6)",
           background: "rgba(8, 10, 16, 0.32)",
@@ -442,7 +450,7 @@ async function annotate(
         if (rect.width < 2 || rect.height < 2) continue;
         if (!intersects(rect, source)) continue;
         const x = ((rect.x - source.x) / source.width) * outW;
-        const y = ((rect.y - source.y) / source.height) * outH;
+        const y = bar + ((rect.y - source.y) / source.height) * outH;
         const w = (rect.width / source.width) * outW;
         const h = (rect.height / source.height) * outH;
         const focused = Boolean(element.focused);
@@ -468,10 +476,11 @@ async function annotate(
     }
 
     // Header: what this picture is, and how to address it.
-    const bar = Math.max(24, Math.round(outH / 38));
+    context.fillStyle = "#07090f";
+    context.fillRect(0, 0, outW, bar);
     const gradient = context.createLinearGradient(0, 0, 0, bar);
-    gradient.addColorStop(0, "rgba(6, 8, 14, 0.9)");
-    gradient.addColorStop(1, "rgba(6, 8, 14, 0.55)");
+    gradient.addColorStop(0, "rgba(18, 26, 44, 0.9)");
+    gradient.addColorStop(1, "rgba(7, 9, 15, 0.2)");
     context.fillStyle = gradient;
     context.fillRect(0, 0, outW, bar);
     context.fillStyle = "rgba(226, 238, 255, 0.94)";
@@ -507,7 +516,12 @@ function elementName(element: ScreenElement): string {
   return element.title || element.value || element.subrole || element.role;
 }
 
-function describeTree(tree: ScreenTree | null, shot: ScreenShot | null, note?: string): string {
+function describeTree(
+  tree: ScreenTree | null,
+  shot: ScreenShot | null,
+  note?: string,
+  vision = true,
+): string {
   const head = tree
     ? `App: ${tree.app || "unknown"}${tree.window ? ` — window: ${tree.window}` : ""}`
     : "The accessibility tree is not available.";
@@ -515,8 +529,9 @@ function describeTree(tree: ScreenTree | null, shot: ScreenShot | null, note?: s
   const geometry = frame
     ? `Window: ${Math.round(frame.width)}×${Math.round(frame.height)} points at ${Math.round(frame.x)},${Math.round(frame.y)}.`
     : "";
-  const grid =
-    "Grid: 16 columns A–P × 10 rows. A private copy of this window with the grid and every control boxed is attached to this result; the user never sees it. Click an element by ref (Lantas presses the control itself), a cell like \"G4\", or x/y as fractions of this window (0–1). screenX/screenY are absolute screen points.";
+  const grid = vision
+    ? "Grid: 16 columns A–P × 10 rows. A private copy of this window with the grid and every control boxed is attached to this result; the user never sees it. Click an element by ref (Lantas presses the control itself), a cell like \"G4\", or x/y as fractions of this window (0–1). screenX/screenY are absolute screen points."
+    : "Click an element by ref (Lantas presses the control itself) or click a fraction of this window with x/y (0–1); screenX/screenY are absolute screen points. This model cannot see the picture, so use the exact rectangles below.";
   if (!tree) {
     return [note, head, geometry, grid].filter(Boolean).join("\n");
   }
@@ -562,7 +577,8 @@ async function observe(vision: boolean, note?: string): Promise<ScreenSight> {
   } catch (error) {
     treeProblem = error instanceof Error ? error.message : String(error);
   }
-  const shot = await captureShot();
+  // A text-only model never needs a picture, so no screenshot is taken at all.
+  const shot = vision ? await captureShot() : latestShot;
   const image = vision && shot ? await annotate(shot, tree) : undefined;
   const content = describeTree(
     tree,
@@ -570,6 +586,7 @@ async function observe(vision: boolean, note?: string): Promise<ScreenSight> {
     [note, treeProblem ? `Could not read the accessibility tree: ${treeProblem}` : ""]
       .filter(Boolean)
       .join("\n\n") || undefined,
+    vision,
   );
   return { tree, shot, content, ...(image ? { images: [image] } : {}) };
 }
@@ -609,7 +626,7 @@ async function resolvePoint(args: Record<string, unknown>): Promise<{
 }> {
   const shot = latestShot ?? (await captureShot());
   const info = shot ? null : await screenInfo().catch(() => null);
-  const frame = frameFor(shot, info);
+  const frame = latestFrame ?? frameFor(shot, info);
   const label = typeof args.label === "string" ? args.label : undefined;
 
   const screenX = num(args.screenX ?? args.screen_x);
@@ -916,6 +933,9 @@ export async function runScreenAction(
       const button = action === "right_click" ? "right" : String(args.button ?? "left");
       const count = action === "double_click" ? 2 : Math.min(3, Math.max(1, num(args.count) ?? 1));
       await showScreenCursor(point, { label: point.label, down: true });
+      // Let the pointer paint before the click lands, so the step is visible
+      // even when the action itself is instant.
+      await new Promise((resolve) => setTimeout(resolve, 70));
       let how = "clicked";
       if (button === "left" && count === 1 && point.element) {
         // Press the control itself when macOS exposes it. This lands even if a

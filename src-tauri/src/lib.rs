@@ -274,12 +274,12 @@ fn el_bounds(
 /// without pulling the app out of the full-screen Space.
 #[cfg(target_os = "macos")]
 fn float_above_everything(window: &tauri::WebviewWindow) {
-    let Ok(native) = window.ns_window() else {
-        return;
-    };
-    let address = native as usize;
     let task = window.clone();
     let _ = task.run_on_main_thread(move || unsafe {
+        let Ok(native) = task.ns_window() else {
+            return;
+        };
+        let address = native as usize;
         use std::ffi::{c_char, c_void, CString};
 
         #[link(name = "objc")]

@@ -78,6 +78,39 @@ pub fn screen_drag(from_x: f64, from_y: f64, to_x: f64, to_y: f64) -> Result<(),
     imp::drag(from_x, from_y, to_x, to_y)
 }
 
+/// One picture of the window the agent is working on, with its frame.
+///
+/// The picture is captured straight from the window (`screencapture -l`), so
+/// the floating card, the blue pointer and anything else in front of it stay
+/// out of the image. The frontend draws the private grid on top of this copy;
+/// the user never sees that grid.
+#[tauri::command]
+pub fn screen_snapshot() -> Result<String, String> {
+    imp::snapshot()
+}
+
+/// Presses an accessibility element itself, the way VoiceOver would.
+///
+/// `path` is the child-index path the latest tree returned for that element.
+/// A direct press is steadier than a synthetic click: it works on a control
+/// that is partly covered, and it does not depend on the pointer's location.
+#[tauri::command]
+pub fn screen_press(path: String) -> Result<String, String> {
+    imp::press(&path)
+}
+
+/// Gives an element keyboard focus without clicking it.
+#[tauri::command]
+pub fn screen_focus_element(path: String) -> Result<(), String> {
+    imp::focus_element(&path)
+}
+
+/// Sets a text field's value through the accessibility API.
+#[tauri::command]
+pub fn screen_set_text(path: String, text: String) -> Result<(), String> {
+    imp::set_text(&path, &text)
+}
+
 #[cfg(not(target_os = "macos"))]
 mod imp {
     use serde_json::Value;
@@ -118,6 +151,18 @@ mod imp {
         Err(ONLY_MAC.to_string())
     }
     pub fn drag(_from_x: f64, _from_y: f64, _to_x: f64, _to_y: f64) -> Result<(), String> {
+        Err(ONLY_MAC.to_string())
+    }
+    pub fn snapshot() -> Result<String, String> {
+        Err(ONLY_MAC.to_string())
+    }
+    pub fn press(_path: &str) -> Result<String, String> {
+        Err(ONLY_MAC.to_string())
+    }
+    pub fn focus_element(_path: &str) -> Result<(), String> {
+        Err(ONLY_MAC.to_string())
+    }
+    pub fn set_text(_path: &str, _text: &str) -> Result<(), String> {
         Err(ONLY_MAC.to_string())
     }
 }
@@ -190,6 +235,7 @@ mod imp {
         fn CGEventPost(tap: u32, event: *mut c_void);
         fn CGWarpMouseCursorPosition(point: CGPoint) -> i32;
         fn CGWindowListCopyWindowInfo(option: u32, relative: u32) -> CFRef;
+        fn CGRectMakeWithDictionaryRepresentation(dict: CFRef, rect: *mut CGRect) -> u8;
     }
 
     #[link(name = "ApplicationServices", kind = "framework")]
@@ -403,6 +449,10 @@ mod imp {
         nodes: Vec<Value>,
         count: usize,
         stopped: bool,
+        /// Child indices from the window root to the current element. The
+        /// screen card keeps this so a later action can press the element
+        /// itself instead of guessing at a pixel.
+        path: Vec<usize>,
     }
 
     impl Walker {
@@ -436,6 +486,7 @@ mod imp {
                 let focused = attr_bool(element, "AXFocused").unwrap_or(false);
                 self.nodes.push(json!({
                     "ref": format!("s{}", self.count),
+                    "path": self.path.iter().map(|step| step.to_string()).collect::<Vec<_>>().join("."),
                     "role": role,
                     "subrole": subrole,
                     "title": shorten(&label, 120),
@@ -455,13 +506,58 @@ mod imp {
                     for index in 0..total {
                         let child = CFArrayGetValueAtIndex(children, index) as AXRef;
                         if !child.is_null() {
+                            self.path.push(index);
                             self.walk(child, depth + 1);
+                            self.path.pop();
                         }
                     }
                 }
                 CFRelease(children);
             }
         }
+    }
+
+    /// Follows a child-index path from a retained root and returns a retained
+    /// element. The caller releases it.
+    unsafe fn resolve_path(root: AXRef, path: &str) -> Option<AXRef> {
+        let mut current = CFRetain(root as CFRef) as AXRef;
+        for step in path.split('.').filter(|part| !part.is_empty()) {
+            let index = step.parse::<isize>().ok()?;
+            if index < 0 {
+                CFRelease(current as CFRef);
+                return None;
+            }
+            let children = copy_attr(current, "AXChildren");
+            CFRelease(current as CFRef);
+            let children = children?;
+            if CFGetTypeID(children) != CFArrayGetTypeID()
+                || index >= CFArrayGetCount(children)
+            {
+                CFRelease(children);
+                return None;
+            }
+            let child = CFArrayGetValueAtIndex(children, index) as AXRef;
+            current = if child.is_null() {
+                None
+            } else {
+                Some(CFRetain(child as CFRef) as AXRef)
+            }?;
+            CFRelease(children);
+        }
+        Some(current)
+    }
+
+    /// The retained root of the current target window, its owner and title.
+    unsafe fn target_root() -> Result<(AXRef, i32, String, String), String> {
+        let (app, name, hint) = target_context().ok_or_else(|| {
+            "No app window was found. Open the window you want Lantas to work on.".to_string()
+        })?;
+        let pid = app_pid(app);
+        let window = window_for(app, hint.as_deref());
+        let title = window.map(|value| window_title(value)).unwrap_or_default();
+        let root = window.unwrap_or_else(|| CFRetain(app as CFRef) as AXRef);
+        CFRelease(app as CFRef);
+        Ok((root, pid, title, name))
     }
 
     unsafe fn focused_app() -> Option<AXRef> {
@@ -700,8 +796,11 @@ mod imp {
                 nodes: Vec::new(),
                 count: 0,
                 stopped: false,
+                path: Vec::new(),
             };
             walker.walk(root, 0);
+            let point = point_attr(root, "AXPosition").unwrap_or_default();
+            let size = size_attr(root, "AXSize").unwrap_or_default();
             if root != app {
                 CFRelease(root as CFRef);
             }
@@ -709,6 +808,12 @@ mod imp {
             Ok(json!({
                 "app": name,
                 "window": title,
+                "frame": {
+                    "x": point.x,
+                    "y": point.y,
+                    "width": size.width,
+                    "height": size.height,
+                },
                 "elements": walker.nodes,
                 "truncated": walker.stopped,
             })
@@ -1058,6 +1163,231 @@ mod imp {
             }
         }
         Ok(())
+    }
+
+    /// The CGWindowID of the front window, matched by owner, title and frame.
+    unsafe fn window_number(pid: i32, title: &str, frame: CGRect) -> Option<u32> {
+        let list = CGWindowListCopyWindowInfo(1 | 16, 0);
+        if list.is_null() {
+            return None;
+        }
+        let mut by_title: Option<u32> = None;
+        let mut found = None;
+        if CFGetTypeID(list) == CFArrayGetTypeID() {
+            for index in 0..CFArrayGetCount(list).min(160) {
+                let info = CFArrayGetValueAtIndex(list, index) as CFRef;
+                if info.is_null() {
+                    continue;
+                }
+                let owner = dict_value(info, "kCGWindowOwnerPID")
+                    .and_then(|value| number_of(value))
+                    .unwrap_or(0.0) as i32;
+                if owner != pid {
+                    continue;
+                }
+                let layer = dict_value(info, "kCGWindowLayer")
+                    .and_then(|value| number_of(value))
+                    .unwrap_or(-1.0);
+                if layer != 0.0 {
+                    continue;
+                }
+                let number = dict_value(info, "kCGWindowNumber")
+                    .and_then(|value| number_of(value))
+                    .unwrap_or(0.0) as u32;
+                if number == 0 {
+                    continue;
+                }
+                let name = dict_value(info, "kCGWindowName")
+                    .and_then(|value| string_of(value))
+                    .unwrap_or_default();
+                let mut bounds = CGRect::default();
+                let has_bounds = dict_value(info, "kCGWindowBounds")
+                    .map(|value| CGRectMakeWithDictionaryRepresentation(value, &mut bounds) != 0)
+                    .unwrap_or(false);
+                if has_bounds
+                    && frame.size.width > 1.0
+                    && (bounds.origin.x - frame.origin.x).abs() < 3.0
+                    && (bounds.origin.y - frame.origin.y).abs() < 3.0
+                    && (bounds.size.width - frame.size.width).abs() < 3.0
+                    && (bounds.size.height - frame.size.height).abs() < 3.0
+                {
+                    found = Some(number);
+                    break;
+                }
+                if by_title.is_none() && !title.is_empty() && name.eq_ignore_ascii_case(title) {
+                    by_title = Some(number);
+                }
+            }
+        }
+        CFRelease(list);
+        found.or(by_title)
+    }
+
+    /// A fresh picture of the target window, plus the frame it occupies.
+    pub fn snapshot() -> Result<String, String> {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        need_trust()?;
+        unsafe {
+            let (root, pid, title, name) = target_root()?;
+            let point = point_attr(root, "AXPosition").unwrap_or_default();
+            let size = size_attr(root, "AXSize").unwrap_or_default();
+            let frame = CGRect {
+                origin: point,
+                size,
+            };
+            let number = window_number(pid, &title, frame);
+            CFRelease(root as CFRef);
+
+            let display = CGDisplayBounds(CGMainDisplayID());
+            let x = if size.width > 1.0 { point.x } else { display.origin.x };
+            let y = if size.height > 1.0 { point.y } else { display.origin.y };
+            let width = if size.width > 1.0 { size.width } else { display.size.width };
+            let height = if size.height > 1.0 { size.height } else { display.size.height };
+
+            let path = std::env::temp_dir().join(format!(
+                "lantas-target-{}-{}.jpg",
+                std::process::id(),
+                number.unwrap_or(0)
+            ));
+            let capture = match number {
+                Some(id) => std::process::Command::new("/usr/sbin/screencapture")
+                    .arg("-x")
+                    .arg(format!("-l{id}"))
+                    .args(["-t", "jpg"])
+                    .arg(&path)
+                    .status(),
+                None => std::process::Command::new("/usr/sbin/screencapture")
+                    .arg("-x")
+                    .args(["-t", "jpg"])
+                    .arg(format!("-R{},{},{},{}", x, y, width, height))
+                    .arg(&path)
+                    .status(),
+            };
+            let status = capture
+                .map_err(|error| format!("Could not capture the front window: {error}"))?;
+            if !status.success() {
+                return Err("Could not capture the front window. Allow Lantas in System Settings › Privacy & Security › Screen Recording, then try again.".to_string());
+            }
+            let bytes = std::fs::read(&path)
+                .map_err(|error| format!("Could not read the window capture: {error}"))?;
+            let _ = std::fs::remove_file(&path);
+            if bytes.is_empty() {
+                return Err(
+                    "The window capture was empty. Check Screen Recording permission.".to_string(),
+                );
+            }
+            Ok(json!({
+                "app": name,
+                "window": title,
+                "x": x,
+                "y": y,
+                "width": width,
+                "height": height,
+                "image": STANDARD.encode(bytes),
+            })
+            .to_string())
+        }
+    }
+
+    pub fn press(path: &str) -> Result<String, String> {
+        need_trust()?;
+        unsafe {
+            let (root, _, _, _) = target_root()?;
+            let element = resolve_path(root, path);
+            CFRelease(root as CFRef);
+            let element = element.ok_or_else(|| {
+                "That control is no longer on screen. Take a fresh snapshot and use the new ref."
+                    .to_string()
+            })?;
+            let title = attr_string(element, "AXTitle")
+                .or_else(|| attr_string(element, "AXValue"))
+                .unwrap_or_default();
+            let action = cfstr("AXPress");
+            let status = if action.is_null() {
+                -1
+            } else {
+                let value = AXUIElementPerformAction(element, action);
+                CFRelease(action);
+                value
+            };
+            CFRelease(element as CFRef);
+            if status == 0 {
+                Ok(if title.is_empty() {
+                    "Pressed the control.".to_string()
+                } else {
+                    format!("Pressed “{}”.", shorten(&title, 80))
+                })
+            } else {
+                Err("This control does not support a direct press; click it by ref instead."
+                    .to_string())
+            }
+        }
+    }
+
+    pub fn focus_element(path: &str) -> Result<(), String> {
+        need_trust()?;
+        unsafe {
+            let (root, _, _, _) = target_root()?;
+            let element = resolve_path(root, path);
+            CFRelease(root as CFRef);
+            let element = element.ok_or_else(|| {
+                "That control is no longer on screen. Take a fresh snapshot and use the new ref."
+                    .to_string()
+            })?;
+            let attribute = cfstr("AXFocused");
+            let status = if attribute.is_null() {
+                -1
+            } else {
+                let value = AXUIElementSetAttributeValue(element, attribute, kCFBooleanTrue);
+                CFRelease(attribute);
+                value
+            };
+            CFRelease(element as CFRef);
+            if status == 0 {
+                Ok(())
+            } else {
+                Err("This control cannot take keyboard focus directly.".to_string())
+            }
+        }
+    }
+
+    pub fn set_text(path: &str, text: &str) -> Result<(), String> {
+        need_trust()?;
+        unsafe {
+            let (root, _, _, _) = target_root()?;
+            let element = resolve_path(root, path);
+            CFRelease(root as CFRef);
+            let element = element.ok_or_else(|| {
+                "That control is no longer on screen. Take a fresh snapshot and use the new ref."
+                    .to_string()
+            })?;
+            let attribute = cfstr("AXValue");
+            let value = cfstr(text);
+            let status = if attribute.is_null() || value.is_null() {
+                -1
+            } else {
+                let result = AXUIElementSetAttributeValue(element, attribute, value);
+                let focus = cfstr("AXFocused");
+                if !focus.is_null() {
+                    AXUIElementSetAttributeValue(element, focus, kCFBooleanTrue);
+                    CFRelease(focus);
+                }
+                result
+            };
+            if !attribute.is_null() {
+                CFRelease(attribute);
+            }
+            if !value.is_null() {
+                CFRelease(value);
+            }
+            CFRelease(element as CFRef);
+            if status == 0 {
+                Ok(())
+            } else {
+                Err("This field does not accept a value directly; click it and type instead."
+                    .to_string())
+            }
+        }
     }
 
     pub fn drag(from_x: f64, from_y: f64, to_x: f64, to_y: f64) -> Result<(), String> {

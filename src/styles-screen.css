@@ -1,21 +1,25 @@
 /* ── screen assistant ─────────────────────────────────────────────────── */
 
+/* A heads-up card: a quiet glass panel that sits over the app the user is
+   working in, not a second window with a screen preview inside it. */
 .screen-share {
   position: fixed;
   right: 22px;
   bottom: 24px;
   z-index: 70;
   display: flex;
-  width: 340px;
+  width: 352px;
   max-width: calc(100vw - 28px);
   max-height: min(560px, calc(100vh - 48px));
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--line-strong);
+  border: 1px solid color-mix(in srgb, var(--line-strong) 82%, transparent);
   border-radius: 18px;
-  background: color-mix(in srgb, var(--raised) 92%, transparent);
-  box-shadow: var(--shadow-float);
-  backdrop-filter: blur(18px);
+  background: color-mix(in srgb, var(--raised) 90%, transparent);
+  box-shadow:
+    var(--shadow-float),
+    inset 0 1px 0 color-mix(in srgb, #ffffff 7%, transparent);
+  backdrop-filter: blur(22px) saturate(135%);
   animation: ss-in 260ms var(--ease-out) both;
 }
 
@@ -90,92 +94,115 @@
   color: var(--text);
 }
 
-.ss-preview {
-  position: relative;
-  margin: 10px 12px 0;
-  overflow: hidden;
+.ss-context {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 12px 1px;
+}
+
+.ss-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  aspect-ratio: 16 / 9;
-  background: #000;
-}
-
-.ss-preview img,
-.ss-preview video {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.ss-wait {
-  display: grid;
-  height: 100%;
-  place-items: center;
+  border-radius: 999px;
   color: var(--text-4);
-  font-size: 11.5px;
+  font-size: 9px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
-.ss-live {
-  position: absolute;
-  top: 8px;
-  left: 8px;
+.ss-chip.is-on {
+  border-color: rgba(92, 153, 255, 0.38);
+  background: rgba(76, 140, 255, 0.11);
+  color: #a9c6ff;
+}
+
+.ss-chip.is-quiet {
+  border-color: var(--line);
+  color: var(--text-4);
+}
+
+.ss-working {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 7px;
-  border-radius: 999px;
-  background: rgba(10, 10, 9, 0.62);
-  color: #d9f3d4;
+  color: var(--text-4);
   font-family: var(--font-mono);
   font-size: 8.5px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  backdrop-filter: blur(6px);
+  white-space: nowrap;
 }
 
-.ss-live i {
+.ss-working i {
   width: 5px;
   height: 5px;
   border-radius: 50%;
   background: var(--ok);
+  animation: pulse-dot 1.4s ease-in-out infinite;
 }
 
-/* The ring over the preview mirrors what the overlay draws on the screen. */
-.ss-ring {
-  position: absolute;
-  width: 54px;
-  height: 54px;
-  margin: -27px 0 0 -27px;
-  border: 2.5px solid #ffd666;
-  border-radius: 50%;
-  box-shadow: 0 0 0 6px rgba(255, 214, 102, 0.16);
-  animation: ss-ring 640ms var(--ease-out) both;
-  pointer-events: none;
+.ss-working.is-idle {
+  opacity: 0.62;
 }
 
-@keyframes ss-ring {
-  from {
-    opacity: 0;
-    transform: scale(0.6);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+.ss-working.is-idle i {
+  animation: none;
 }
 
-.ss-ring-label {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 3px 8px;
+.ss-takeover {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
   border-radius: 6px;
-  background: rgba(12, 12, 11, 0.9);
-  color: #ffe8a8;
-  font-size: 10.5px;
-  white-space: nowrap;
+  background: var(--sel);
+  color: var(--text-2);
+  font-size: 10px;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.ss-takeover:hover {
+  border-color: var(--text-4);
+  color: var(--text);
+}
+
+.ss-gate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 12px 0;
+  padding: 7px 8px;
+  border: 1px solid rgba(92, 153, 255, 0.3);
+  border-radius: 9px;
+  background: rgba(76, 140, 255, 0.1);
+  color: #b9cdf3;
+  font-size: 9.5px;
+  line-height: 1.4;
+}
+
+.ss-gate span {
+  flex: 1;
+}
+
+.ss-gate button {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #e6efff;
+  font-size: 9.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ss-gate button:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .ss-log {
@@ -370,56 +397,40 @@
 
 .ss-steps {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 7px;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
 }
 
-.ss-steps span {
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: var(--sel);
-  color: var(--text-3);
-  font-family: var(--font-mono);
-  font-size: 9px;
-}
-
-.ss-live-control {
-  left: auto;
-  right: 8px;
-  color: #b9d0ff;
-}
-
-.ss-live-control i {
-  display: none;
-}
-
-.ss-control-note {
+.ss-steps li {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin: 0 12px;
-  padding: 7px 8px;
-  border: 1px solid rgba(92, 153, 255, 0.3);
-  border-radius: 8px;
-  background: rgba(76, 140, 255, 0.1);
-  color: #b9cdf3;
-  font-size: 9.5px;
-  line-height: 1.4;
+  padding: 3px 5px;
+  border-radius: 6px;
+  color: var(--text-3);
+  font-size: 10.5px;
+  line-height: 1.35;
 }
 
-.ss-control-note span {
-  flex: 1;
-}
-
-.ss-control-note button {
+.ss-steps li i {
   flex: 0 0 auto;
-  padding: 3px 7px;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #e6efff;
-  font-size: 9.5px;
-  font-weight: 600;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-4);
+}
+
+.ss-steps li.is-now {
+  background: var(--sel);
+  color: var(--text);
+}
+
+.ss-steps li.is-now i {
+  background: var(--accent, #4c8cff);
+  animation: pulse-dot 1.2s ease-in-out infinite;
 }
 
 .ss-foot {
@@ -726,9 +737,11 @@ html.is-screen-popup .screen-share.is-standalone {
   height: 100vh;
   max-width: none;
   max-height: none;
-  border-radius: 16px;
+  border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--line-strong) 80%, transparent);
-  box-shadow: 0 22px 60px -18px rgba(0, 0, 0, 0.7);
+  box-shadow:
+    0 30px 90px -30px rgba(0, 0, 0, 0.82),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 html.is-screen-popup .ss-head {

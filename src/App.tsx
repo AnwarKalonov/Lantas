@@ -419,7 +419,7 @@ export function App() {
       const shown = await showScreenAssistant();
       notify(
         shown
-          ? "Screen assistant open — it stays above your other windows"
+          ? "Screen assistant open — it floats above every app, even full screen"
           : "Screen access on — the screen card is ready",
       );
       return;

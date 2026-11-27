@@ -4,23 +4,21 @@ import {
   hideScreenAssistant,
   inTauri,
   openPrivacySettings,
-  overlayHide,
   overlayShow,
   requestScreenPermission,
   revealApp,
   screenPermission,
 } from "../lib/native";
-import { acquireScreen, captureFrame, captureNativeScreen, currentScreen } from "../lib/screen";
+import { captureFrame, currentScreen } from "../lib/screen";
 import { canSeeImages, isConfigured, type ChatTurn } from "../lib/providers";
 import { runToolLoop } from "../lib/agentRuntime";
 import {
   hideScreenCursor,
-  readScreenTree,
   requestScreenControl,
   screenControlAllowed,
-  type ScreenTree,
+  screenSight,
 } from "../lib/screenControl";
-import type { ToolContext } from "../lib/tools";
+import type { ToolCall, ToolContext } from "../lib/tools";
 import {
   askUser as askScreenUser,
   getActiveUserAsk,
@@ -31,14 +29,14 @@ import { Icon } from "./Icons";
 import { cx } from "../lib/util";
 
 /**
- * Screen share, in a card that sits over the conversation.
+ * The screen assistant, as a heads-up card that floats above every app —
+ * including another app's full-screen Space.
  *
- * A vision model gets a frame; a text-only model gets the front window as an
- * accessibility tree, so it can still read and operate the screen. With
- * Control on, the card drives the real pointer, keyboard, scroll, drag and
- * window focus, and draws a blue Lantas cursor over the display while it does.
- * Nothing is recorded or uploaded; the card asks about the screen, it does not
- * keep it.
+ * There is deliberately no live preview. The user does not need to watch their
+ * own screen inside a card, and a preview costs a capture every second. What
+ * the model gets is a private copy of the front window with a 16×10 grid and
+ * every control boxed with a ref; that copy never appears in the UI. The only
+ * thing drawn on the user's display is the blue pointer while a step runs.
  */
 
 interface ScreenPoint {
@@ -81,70 +79,108 @@ function visibleText(raw: string): string {
     .trim();
 }
 
-export function describeScreenTree(tree: ScreenTree): string {
-  const head = `App: ${tree.app || "unknown"}${tree.window ? ` — window: ${tree.window}` : ""}`;
-  if (!tree.elements?.length) return `${head}\nNo labelled controls were exposed by this window.`;
-  const lines = tree.elements.slice(0, 120).map((element) => {
-    const name = element.title || element.value || element.role;
-    const value =
-      element.value && element.value !== name ? `, value “${element.value.slice(0, 80)}”` : "";
-    return `${element.ref} ${element.role.replace(/^AX/, "")} “${name.slice(0, 100)}”${value} — centre ${Math.round(
-      element.x + element.w / 2,
-    )},${Math.round(element.y + element.h / 2)} (${Math.round(element.w)}×${Math.round(element.h)})`;
-  });
-  return [head, `${tree.elements.length} controls:`, ...lines].join("\n");
+function stepLabel(call: ToolCall): string {
+  const args = call.args ?? {};
+  const action = String(args.action ?? "snapshot").toLowerCase();
+  const target =
+    typeof args.ref === "string"
+      ? args.ref
+      : typeof args.cell === "string"
+        ? `cell ${args.cell}`
+        : typeof args.label === "string"
+          ? args.label
+          : "";
+  switch (action) {
+    case "snapshot":
+      return "Read the window";
+    case "zoom":
+      return `Zoom${target ? ` on ${target}` : ""}`;
+    case "click":
+    case "double_click":
+    case "right_click":
+      return target ? `Press ${target}` : "Click the window";
+    case "type":
+    case "write":
+      return `Type “${String(args.text ?? "").slice(0, 24)}”`;
+    case "fill":
+    case "set_value":
+      return target ? `Fill ${target}` : "Fill the field";
+    case "key":
+    case "press":
+      return `Press ${String(args.key ?? "a key")}`;
+    case "scroll":
+      return Number(args.dy ?? 3) < 0 ? "Scroll up" : "Scroll down";
+    case "drag":
+      return "Drag";
+    case "focus":
+    case "activate":
+      return `Focus ${String(args.app ?? "an app")}`;
+    case "move":
+      return "Move the pointer";
+    case "wait":
+      return "Wait";
+    default:
+      return action;
+  }
 }
 
 function systemPrompt(vision: boolean, control: boolean): string {
   return [
-    "You are Lantas Screen, working on the user's Mac.",
+    "You are Lantas Screen, working on the user's Mac. Your card floats above every app, including full-screen apps.",
     vision
-      ? "You can see one screenshot of the screen and the front window as an accessibility tree."
-      : "You cannot see images. You read the screen as an accessibility tree: every control has a ref, a role, a label and a centre point.",
+      ? "You get two views of the front window: an accessibility tree of its controls, and a private picture with a labelled grid and every control boxed with its ref. That picture is for you only; the user never sees it."
+      : "You cannot see images. You read the screen as an accessibility tree: every control has a ref, a role, a label, a rectangle and a centre point.",
     control
-      ? "You may control the real pointer and keyboard. Use one screen tool call per step, then read the snapshot it returns before the next step."
+      ? "You may control the real pointer and keyboard. Use one screen tool call per step, then read the fresh snapshot the result contains before the next step."
       : "Control is off. Read the screen and answer, but do not click, type, scroll, drag or switch windows.",
     "",
-    "The target is the frontmost normal window behind this card; the card and its blue pointer are skipped, and Lantas Browser is a normal target too. To work in another app, focus it first. Click a text field before typing so the keystrokes go to that field instead of this card.",
+    "The target is the frontmost normal window behind this card; the card and its blue pointer are skipped, and Lantas Browser is a normal target too. The picture is captured from that window alone, so the card is never in it. To work in another app, focus it first.",
     "",
     "The screen tool:",
     '<tool_call>{"name":"screen","arguments":{"action":"snapshot"}}</tool_call>',
     '<tool_call>{"name":"screen","arguments":{"action":"click","ref":"s4"}}</tool_call>',
-    '<tool_call>{"name":"screen","arguments":{"action":"type","text":"hello","submit":true}}</tool_call>',
+    '<tool_call>{"name":"screen","arguments":{"action":"click","cell":"G4"}}</tool_call>',
+    '<tool_call>{"name":"screen","arguments":{"action":"type","ref":"s7","text":"hello","submit":true}}</tool_call>',
+    '<tool_call>{"name":"screen","arguments":{"action":"fill","ref":"s7","text":"hello"}}</tool_call>',
     '<tool_call>{"name":"screen","arguments":{"action":"key","key":"Tab","modifiers":["cmd"]}}</tool_call>',
     '<tool_call>{"name":"screen","arguments":{"action":"scroll","dy":4}}</tool_call>',
-    '<tool_call>{"name":"screen","arguments":{"action":"focus","app":"Safari"}}</tool_call>',
+    '<tool_call>{"name":"screen","arguments":{"action":"zoom","ref":"s4"}}</tool_call>',
     "",
     "Actions:",
-    "  snapshot {} — read the front window; every control gets a ref and centre point",
+    "  snapshot {} — read the front window and get the private grid picture",
+    "  zoom {\"ref\":\"s4\"} or {\"cell\":\"G4\"} — a closer 8×6 grid on one region, for small text",
     "  windows {} — list the front app's windows",
     "  focus {\"app\":\"Safari\",\"window\":\"GitHub\"} — bring an app or window to the front",
-    "  click {\"ref\":\"s4\"} or {\"x\":0.5,\"y\":0.4} — left click; button right/middle and count 2 also work",
+    "  click {\"ref\":\"s4\"}, {\"cell\":\"G4\"} or {\"x\":0.5,\"y\":0.4} — Lantas presses an element itself when it can, otherwise clicks; button right/middle and count 2 also work",
     "  move {\"ref\":\"s4\"} — move the pointer without clicking",
-    "  type {\"text\":\"...\",\"submit\":true} — type into the focused field; submit presses Return",
+    "  type {\"text\":\"...\",\"submit\":true} — type into the focused field; add ref to focus that field first",
+    "  fill {\"ref\":\"s7\",\"text\":\"...\"} — set a field's value in one step, falling back to typing",
     "  key {\"key\":\"Tab\",\"modifiers\":[\"cmd\"]} — press a key; modifiers are cmd, shift, alt, ctrl",
     "  scroll {\"dy\":4} — positive scrolls down, negative scrolls up",
-    "  drag {\"fromRef\":\"s2\",\"toRef\":\"s6\"} — drag one control onto another",
+    "  drag {\"fromRef\":\"s2\",\"toRef\":\"s6\"} or cells — drag one control onto another",
     "  wait {\"ms\":800} — let the app settle",
+    "",
+    "Coordinates:",
+    "- ref: a control from the latest snapshot. This is the first choice; it is exact.",
+    "- cell: a grid cell from A1 to P10. Read the picture to choose one, then use its centre. Good for a canvas, a map or a blank part of a page.",
+    "- x, y: fractions of the target window, 0 to 1. 0,0 is the window's top-left. A 0–1000 convention is also accepted.",
+    "- screenX, screenY: absolute screen points, only when a global position is truly needed.",
+    "- The attached picture's header shows the window size, and its boxes carry the same refs as the tree. Never mention the grid, the picture or the refs to the user.",
     "",
     "When a step needs a detail only the user has, call ask_user instead of guessing. One detail: {\"question\":\"Which email?\",\"kind\":\"email\"}. Several: {\"question\":\"Fill the applicant details\",\"fields\":[{\"label\":\"Full name\",\"type\":\"text\"},{\"label\":\"Age\",\"type\":\"number\"}]}. Known choices: {\"question\":\"Which plan?\",\"options\":[\"Basic\",\"Pro\"]}. The card renders titled boxes and clickable choices.",
     "",
-    "Coordinates for x and y are fractions of the main display (0,0 is top-left). Prefer a ref from the latest snapshot.",
-    "After every action the result already contains a fresh snapshot. Do not assume a click worked; read the result.",
-    "If the user asks for a task, do it step by step. If a permission or password is needed, stop and explain what is blocked.",
-    "Answer in one to three short sentences. Never mention the tool protocol or show raw JSON.",
+    "After every action the result already contains a fresh snapshot and picture. Do not assume a click worked; read the result. Prefer one careful step over a burst of guesses. If a permission or password is needed, stop and explain what is blocked.",
+    "Answer in one to three short sentences. Never mention the tool protocol, the grid, refs or raw JSON.",
   ].join("\n");
 }
 
 export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
   const { state, notify, setSettings } = useStore();
   const [open, setOpen] = useState(standalone);
-  const [frame, setFrame] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState("");
   const [problem, setProblem] = useState("");
-  const [hint, setHint] = useState<ScreenPoint | null>(null);
   const [steps, setSteps] = useState<string[]>([]);
   const [control, setControl] = useState(true);
   const [pendingAsk, setPendingAsk] = useState(getActiveUserAsk);
@@ -154,15 +190,21 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
   const [checking, setChecking] = useState(false);
   const history = useRef<ChatTurn[]>([]);
   const controller = useRef<AbortController | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const hideTimer = useRef<number | undefined>(undefined);
   const native = inTauri();
 
+  const model =
+    state.sessions.find((item) => item.id === state.activeId)?.model || state.settings.defaultModel;
+  const provider =
+    state.sessions.find((item) => item.id === state.activeId)?.provider ??
+    state.settings.defaultProvider;
+  const visionModel = canSeeImages(provider, model);
+
   useEffect(() => subscribeUserAsk(setPendingAsk), []);
 
-  // macOS keeps Screen Recording behind a switch the user owns. Ask whether
-  // the switch is on while the card is open, so it can show the one action
-  // that works instead of failing every preview frame.
+  // Screen Recording is only needed for the private picture. Ask macOS for the
+  // switch while the card is open, so the banner can appear before a step
+  // fails. A text-only model does not need this at all.
   useEffect(() => {
     if (!native || !open) return;
     let alive = true;
@@ -171,14 +213,15 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
       if (alive && value !== null) setAllowed(value);
     };
     void check();
-    const timer = window.setInterval(check, 2500);
+    const timer = window.setInterval(check, 4000);
     return () => {
       alive = false;
       window.clearInterval(timer);
     };
   }, [native, open]);
 
-  // Accessibility is what lets Lantas read controls and post real events.
+  // Accessibility is what lets Lantas read controls, capture the target window
+  // and post real events.
   useEffect(() => {
     if (!native || !open) return;
     let alive = true;
@@ -194,55 +237,31 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
     };
   }, [native, open]);
 
-  const grab = useCallback(async (): Promise<string | null> => {
-    if (native) return captureNativeScreen();
-    const stream = currentScreen();
-    return stream ? captureFrame(stream) : null;
-  }, [native]);
-
-  // Live preview: the app has no screen stream inside a WKWebView, so the
-  // native side refreshes one still at a time. Slow enough to stay cheap,
-  // fast enough to see the page you just moved to.
-  useEffect(() => {
-    if (!native || !open || allowed === false) return;
-    let alive = true;
-    let pending = false;
-    const tick = async () => {
-      if (pending) return;
-      pending = true;
+  /** A point the model asked to mark, drawn by the click-through layer. */
+  const draw = useCallback(
+    async (point: ScreenPoint) => {
+      if (!native) return;
       try {
-        const shot = await grab();
-        if (alive && shot) setFrame(shot);
+        await overlayShow();
+        const { emitTo } = await import("@tauri-apps/api/event");
+        await emitTo("screen-overlay", "lantas:pointer", point);
+        // The layer is only needed while the mark lasts; a hidden window is
+        // one fewer thing above every other app.
+        window.clearTimeout(hideTimer.current);
+        hideTimer.current = window.setTimeout(async () => {
+          try {
+            const { overlayHide } = await import("../lib/native");
+            await overlayHide();
+          } catch {
+            /* not in the desktop app */
+          }
+        }, 5400);
       } catch {
-        /* permission is reported when the question is asked */
-      } finally {
-        pending = false;
+        /* the overlay is a visual aid */
       }
-    };
-    void tick();
-    const timer = window.setInterval(tick, 1400);
-    return () => {
-      alive = false;
-      window.clearInterval(timer);
-    };
-  }, [native, open, allowed, grab]);
-
-  useEffect(() => {
-    if (native || !open) return;
-    const attach = () => {
-      const stream = currentScreen();
-      const node = videoRef.current;
-      if (!stream || !node) return false;
-      node.srcObject = stream;
-      void node.play().catch(() => {});
-      return true;
-    };
-    if (attach()) return;
-    // Shared from the composer a moment ago: the picker may still be open.
-    void acquireScreen()
-      .then(() => window.setTimeout(attach, 120))
-      .catch(() => undefined);
-  }, [native, open]);
+    },
+    [native],
+  );
 
   useEffect(() => {
     if (standalone) return;
@@ -259,26 +278,6 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
       window.removeEventListener("lantas:screen-close", onClose);
     };
   }, [standalone]);
-
-  const draw = useCallback(
-    async (point: ScreenPoint) => {
-      setHint(point);
-      window.setTimeout(() => setHint(null), 5000);
-      if (!native) return;
-      try {
-        const { emitTo } = await import("@tauri-apps/api/event");
-        await overlayShow();
-        await emitTo("screen-overlay", "lantas:pointer", point);
-        // The layer is only needed while the mark lasts; a hidden window is
-        // one fewer thing above every other app.
-        window.clearTimeout(hideTimer.current);
-        hideTimer.current = window.setTimeout(() => void overlayHide(), 5400);
-      } catch {
-        /* the panel already shows the ring; the layer is a bonus */
-      }
-    },
-    [native],
-  );
 
   /** Registers Lantas with the macOS list and opens the switch for the user. */
   const askAccess = async () => {
@@ -308,10 +307,7 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
   const send = async (text: string) => {
     const question = text.trim();
     if (!question || busy || !open) return;
-    const session = state.sessions.find((item) => item.id === state.activeId);
-    const provider = session?.provider ?? state.settings.defaultProvider;
     const config = state.settings.providers[provider];
-    const model = session?.model || state.settings.defaultModel;
     if (!isConfigured(provider, config)) {
       setProblem("Connect a model in Settings → Providers, then ask again.");
       notify("Connect a model in Settings to ask about your screen", "error");
@@ -319,11 +315,9 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
     }
     // Vision is a bonus, not a requirement. A text-only model reads the
     // accessibility tree, which needs the desktop app.
-    const vision = canSeeImages(provider, model);
-    // Screen Recording is only needed for pixels. A text-only model reads the
-    // accessibility tree, which is a separate permission.
+    const vision = visionModel;
     if (native && allowed === false && vision) {
-      setProblem("Allow Lantas in Screen Recording first.");
+      setProblem("Allow Lantas in Screen Recording so it can see the window.");
       notify("Allow Lantas in Screen Recording first", "error");
       return;
     }
@@ -346,32 +340,32 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
     setSteps([]);
     setDraft("");
 
-    const shot = vision ? await grab().catch(() => null) : null;
-    if (vision && !shot) {
-      setBusy(false);
-      const message = native
-        ? "Screen capture failed. Allow Lantas in System Settings › Privacy & Security › Screen Recording."
-        : "No screen is shared. Press the screen button again and pick a window.";
-      setProblem(message);
-      notify(message, "error");
-      return;
-    }
-
     let context = "";
+    let initialImage: { mime: string; data: string } | undefined;
     if (native) {
-      try {
-        const tree = await readScreenTree();
-        context = `\n\nCurrent screen:\n${describeScreenTree(tree)}`;
-      } catch (error) {
-        if (!vision) {
-          setBusy(false);
-          const message =
-            error instanceof Error
-              ? error.message
-              : "Lantas could not read this window. Allow Accessibility and try again.";
-          setProblem(message);
-          return;
-        }
+      const sight = await screenSight(vision);
+      if (vision && !sight.shot) {
+        setBusy(false);
+        const message =
+          "Screen capture failed. Allow Lantas in System Settings › Privacy & Security › Screen Recording.";
+        setProblem(message);
+        notify(message, "error");
+        return;
+      }
+      context = `\n\nCurrent screen:\n${sight.content}`;
+      initialImage = sight.images?.[0];
+    } else {
+      const stream = currentScreen();
+      const frame = stream && vision ? await captureFrame(stream) : null;
+      if (vision && !frame) {
+        setBusy(false);
+        const message = "No screen is shared. Press the screen button again and pick a window.";
+        setProblem(message);
+        notify(message, "error");
+        return;
+      }
+      if (frame) {
+        initialImage = { mime: "image/jpeg", data: frame.split(",")[1] ?? "" };
       }
     }
 
@@ -381,9 +375,7 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
     const userTurn: ChatTurn = {
       role: "user",
       content: question + context,
-      ...(vision && shot
-        ? { images: [{ mime: "image/jpeg", data: shot.split(",")[1] ?? "" }] }
-        : {}),
+      ...(initialImage ? { images: [initialImage] } : {}),
     };
     const ctx: ToolContext = {
       files: [],
@@ -393,8 +385,8 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
       task: question,
       vision,
       screen: native && control ? "control" : "read",
-      askUser: (question, kind, extra) =>
-        askScreenUser({ question, kind, ...extra }, active.signal),
+      askUser: (askQuestion, kind, extra) =>
+        askScreenUser({ question: askQuestion, kind, ...extra }, active.signal),
       saveFile: async () => false,
     };
 
@@ -409,7 +401,7 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
         rules: [{ tool: "screen", pattern: "*", effect: "allow" }],
         signal: active.signal,
         only: ["screen", "ask_user"],
-        maxSteps: 8,
+        maxSteps: 10,
         approve: async () => true,
         onText: (chunk) => {
           raw += chunk;
@@ -418,8 +410,7 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
           if (point) void draw(point);
         },
         onToolStart: (_id, call) => {
-          const action = String(call.args.action ?? "snapshot");
-          setSteps((current) => [...current.slice(-5), action]);
+          setSteps((current) => [...current.slice(-5), stepLabel(call)]);
         },
         onToolDone: (_id, outcome) => {
           if (!outcome.ok) setProblem(outcome.summary);
@@ -464,10 +455,6 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
 
   if (!open) return null;
 
-  const model = state.sessions.find((item) => item.id === state.activeId)?.model || state.settings.defaultModel;
-  const provider = state.sessions.find((item) => item.id === state.activeId)?.provider ?? state.settings.defaultProvider;
-  const visionModel = canSeeImages(provider, model);
-
   return (
     <aside
       className={cx("screen-share", standalone && "is-standalone")}
@@ -478,10 +465,19 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
         <span className="ss-title">Lantas Screen</span>
         <span className="ss-beta">Beta</span>
         <span className="ss-sp" />
+        {busy && (
+          <button type="button" className="ss-takeover" onClick={stop} title="Pause and take over">
+            Take over
+          </button>
+        )}
         <button
           type="button"
           className="ss-icon"
-          onClick={() => setAnswer("")}
+          onClick={() => {
+            setAnswer("");
+            setProblem("");
+            setSteps([]);
+          }}
           title="Clear this card"
           aria-label="Clear"
         >
@@ -491,84 +487,50 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
           type="button"
           className="ss-icon"
           onClick={close}
-          title="Close and stop sharing"
+          title="Close and stop"
           aria-label="Close"
         >
           <Icon name="close" size={12} />
         </button>
       </header>
 
-      <div className="ss-preview">
-        {native && allowed === false ? (
-          <div className="ss-perm">
-            <Icon name="shield" size={19} />
-            <strong>Allow screen access</strong>
-            <p>
-              macOS keeps this switch with you. Lantas asks macOS now and opens the right
-              settings pane; turn Lantas on there. If it was already on, quit and reopen
-              Lantas so the permission takes effect.
-            </p>
-            <div className="ss-perm-actions">
-              <button
-                type="button"
-                className="ss-perm-primary"
-                onClick={() => void askAccess()}
-                disabled={checking}
-              >
-                {checking ? "Asking macOS…" : "Allow screen access"}
-              </button>
-              <button
-                type="button"
-                className="ss-perm-secondary"
-                onClick={() => void openPrivacySettings("screen")}
-              >
-                Open System Settings
-              </button>
-              <button
-                type="button"
-                className="ss-perm-link"
-                onClick={() => void revealApp()}
-              >
-                Show Lantas in Finder
-              </button>
-            </div>
-          </div>
-        ) : native ? (
-          frame ? (
-            <img src={frame} alt="Your screen" />
-          ) : (
-            <span className="ss-wait">Waiting for your screen…</span>
-          )
-        ) : (
-          <video ref={videoRef} muted playsInline />
-        )}
-        {hint && allowed !== false && (
-          <span
-            className="ss-ring"
-            style={{ left: `${hint.x * 100}%`, top: `${hint.y * 100}%` }}
-          >
-            {hint.label && <span className="ss-ring-label">{hint.label}</span>}
-          </span>
-        )}
-        {allowed !== false && (
-          <span className="ss-live">
+      <div className="ss-context">
+        <span className={cx("ss-chip", control && "is-on")}>
+          <Icon name="cursor" size={11} />
+          {control ? "Control on" : "Read only"}
+        </span>
+        <span className={cx("ss-chip", visionModel ? "is-on" : "is-quiet")}>
+          <Icon name={visionModel ? "eye" : "frame"} size={11} />
+          {visionModel ? "Private grid" : "Element map"}
+        </span>
+        <span className="ss-sp" />
+        {busy ? (
+          <span className="ss-working">
             <i />
-            live
+            working
           </span>
-        )}
-        {native && control && axAllowed === false && allowed !== false && (
-          <span className="ss-live ss-live-control">control needs Accessibility</span>
+        ) : (
+          <span className="ss-working is-idle">above your apps</span>
         )}
       </div>
 
+      {native && visionModel && allowed === false && (
+        <div className="ss-gate">
+          <Icon name="shield" size={13} />
+          <span>Screen Recording is off, so the private picture can’t be taken.</span>
+          <button type="button" onClick={() => void askAccess()} disabled={checking}>
+            {checking ? "Asking…" : "Allow"}
+          </button>
+          <button type="button" onClick={() => void openPrivacySettings("screen")}>
+            Settings
+          </button>
+        </div>
+      )}
+
       {native && axAllowed === false && (
-        <div className="ss-control-note">
-          <Icon name="shield" size={12} />
-          <span>
-            Accessibility is off. Turn Lantas on in System Settings › Privacy & Security ›
-            Accessibility so it can read controls and use the pointer. If it is not listed,
-            add it from Finder.
-          </span>
+        <div className="ss-gate">
+          <Icon name="shield" size={13} />
+          <span>Accessibility is off, so Lantas can’t read controls or use the pointer.</span>
           <button type="button" onClick={() => void askControlAccess()}>
             Enable
           </button>
@@ -581,13 +543,10 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
       <div className="ss-log">
         {!answer && !busy && (
           <div className="ss-empty">
-            <p className="ss-greeting">
-              {native && control ? "I can see and control your screen." : "I can see your screen."}
-            </p>
+            <p className="ss-greeting">Point me at the screen.</p>
             <p className="ss-lead">
-              {visionModel
-                ? "Ask about anything in it, or tell me what to do. With Control on I click, type and scroll the real window."
-                : "This model reads the screen as elements, not pixels — still enough to read it and, with Control on, operate it."}
+              I sit above your apps, even full screen. I read the front window as controls and
+              a private grid; you only see the blue pointer. Nothing is recorded or uploaded.
             </p>
             <div className="ss-chips">
               {PHRASES.map((phrase) => (
@@ -601,11 +560,17 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
         )}
         {busy && !answer && <p className="ss-thinking">Working on your screen…</p>}
         {steps.length > 0 && (
-          <div className="ss-steps">
+          <ol className="ss-steps">
             {steps.map((step, index) => (
-              <span key={`${step}-${index}`}>{step}</span>
+              <li
+                key={`${step}-${index}`}
+                className={cx(index === steps.length - 1 && busy && "is-now")}
+              >
+                <i />
+                {step}
+              </li>
             ))}
-          </div>
+          </ol>
         )}
         {answer && <p className="ss-answer">{answer}</p>}
         {problem && <p className="ss-problem">{problem}</p>}
@@ -679,7 +644,7 @@ export function ScreenShare({ standalone = false }: { standalone?: boolean }) {
       </form>
       <div className="ss-foot">
         {control
-          ? "Lantas moves the real pointer and keyboard for the steps you ask for. Replies can be wrong; check before acting."
+          ? "Lantas sees a private map, never a preview. Only the blue pointer is drawn on your screen."
           : "Control is off. Lantas reads the screen but does not act."}
       </div>
     </aside>

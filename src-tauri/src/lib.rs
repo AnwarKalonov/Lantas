@@ -263,6 +263,66 @@ fn el_bounds(
     Ok(())
 }
 
+/// Pins a window above every app, including another app's full-screen Space.
+///
+/// A normal floating window disappears when the user goes full screen in
+/// Safari or an editor. AppKit only keeps it in front when the window joins
+/// every Space and is marked as a full-screen auxiliary window, at a level
+/// above the normal and main-menu layers. Tauri exposes always-on-top and
+/// `canJoinAllSpaces`, but not the auxiliary flag, so the two missing pieces
+/// are set on the NSWindow directly. `orderFrontRegardless` shows the panel
+/// without pulling the app out of the full-screen Space.
+#[cfg(target_os = "macos")]
+fn float_above_everything(window: &tauri::WebviewWindow) {
+    let Ok(native) = window.ns_window() else {
+        return;
+    };
+    let address = native as usize;
+    let task = window.clone();
+    let _ = task.run_on_main_thread(move || unsafe {
+        use std::ffi::{c_char, c_void, CString};
+
+        #[link(name = "objc")]
+        extern "C" {
+            fn objc_msgSend();
+            fn sel_registerName(name: *const c_char) -> *const c_void;
+        }
+
+        fn selector(name: &str) -> *const c_void {
+            let text = CString::new(name).unwrap_or_default();
+            unsafe { sel_registerName(text.as_ptr()) }
+        }
+
+        let object = address as *mut c_void;
+        if object.is_null() {
+            return;
+        }
+
+        unsafe fn send_level(object: *mut c_void, name: &str, value: i64) {
+            let send: unsafe extern "C" fn(*mut c_void, *const c_void, i64) =
+                std::mem::transmute(objc_msgSend as unsafe extern "C" fn());
+            send(object, selector(name), value);
+        }
+        unsafe fn send_void(object: *mut c_void, name: &str) {
+            let send: unsafe extern "C" fn(*mut c_void, *const c_void) =
+                std::mem::transmute(objc_msgSend as unsafe extern "C" fn());
+            send(object, selector(name));
+        }
+        unsafe fn send_flag(object: *mut c_void, name: &str, value: bool) {
+            let send: unsafe extern "C" fn(*mut c_void, *const c_void, i8) =
+                std::mem::transmute(objc_msgSend as unsafe extern "C" fn());
+            send(object, selector(name), if value { 1 } else { 0 });
+        }
+
+        // NSStatusWindowLevel: above normal windows, the Dock and the main menu.
+        send_level(object, "setLevel:", 25);
+        // CanJoinAllSpaces | Stationary | IgnoresCycle | FullScreenAuxiliary.
+        send_level(object, "setCollectionBehavior:", 1 | 16 | 64 | 256);
+        send_flag(object, "setHidesOnDeactivate:", false);
+        send_void(object, "orderFrontRegardless");
+    });
+}
+
 /// A click-through, always-on-top layer the assistant can point on.
 ///
 /// Drawing over other apps is only possible from a window that covers the
@@ -277,6 +337,8 @@ fn overlay_show(app: tauri::AppHandle) -> Result<(), String> {
             let _ = window.set_visible_on_all_workspaces(true);
         }
         window.show().map_err(|error| error.to_string())?;
+        #[cfg(target_os = "macos")]
+        float_above_everything(&window);
         return Ok(());
     }
 
@@ -317,6 +379,8 @@ fn overlay_show(app: tauri::AppHandle) -> Result<(), String> {
         let _ = window.set_visible_on_all_workspaces(true);
     }
     window.show().map_err(|error| error.to_string())?;
+    #[cfg(target_os = "macos")]
+    float_above_everything(&window);
     Ok(())
 }
 
@@ -339,6 +403,8 @@ fn screen_assistant_show(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("screen-assistant") {
         window.show().map_err(|error| error.to_string())?;
         let _ = window.set_always_on_top(true);
+        #[cfg(target_os = "macos")]
+        float_above_everything(&window);
         let _ = window.set_focus();
         return Ok(());
     }
@@ -350,10 +416,12 @@ fn screen_assistant_show(app: tauri::AppHandle) -> Result<(), String> {
     let scale = monitor.scale_factor();
     let size = monitor.size().to_logical::<f64>(scale);
     let position = monitor.position().to_logical::<f64>(scale);
-    let width = 380.0_f64;
-    let height = 620.0_f64.min(size.height - 48.0);
-    let x = position.x + (size.width - width - 22.0).max(22.0);
-    let y = position.y + (size.height - height - 42.0).max(22.0);
+    // Top centre, the way a heads-up assistant sits: out of the way of the
+    // window controls, and visible the moment the user looks up.
+    let width = 392.0_f64.min(size.width - 32.0);
+    let height = 520.0_f64.min(size.height - 104.0);
+    let x = position.x + (size.width - width) / 2.0;
+    let y = position.y + 46.0;
 
     let window = tauri::WebviewWindowBuilder::new(
         &app,
@@ -380,6 +448,7 @@ fn screen_assistant_show(app: tauri::AppHandle) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         let _ = window.set_visible_on_all_workspaces(true);
+        float_above_everything(&window);
     }
     window.show().map_err(|error| error.to_string())?;
     let _ = window.set_focus();
@@ -995,6 +1064,10 @@ pub fn run() {
             control::screen_type,
             control::screen_key,
             control::screen_drag,
+            control::screen_snapshot,
+            control::screen_press,
+            control::screen_focus_element,
+            control::screen_set_text,
             screen_assistant_show,
             screen_assistant_hide,
             git::git_status,

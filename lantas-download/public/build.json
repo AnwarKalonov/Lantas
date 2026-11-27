@@ -1,14 +1,14 @@
 {
-  "label": "Lantas 1.7.1 development build",
+  "label": "Lantas 1.8.0 development build",
   "dev": true,
-  "builtAt": "2026-11-26T23:02:00Z",
-  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.7.1-arm64.dmg",
-  "size": 10398259,
-  "sha256": "ed56f24e5827f308cf21d22e1256ae9fcb3ae9e2a4ad5d13f5f0ff015843969b",
+  "builtAt": "2026-11-27T01:39:00Z",
+  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.8.0-arm64.dmg",
+  "size": 10407631,
+  "sha256": "7a5b2a56839ac0b5da3117b764e431675700cc70acf1f783dab9c64ccf64c14d",
   "changes": [
-    "Screen: the floating screen card reads the front window as a tree of controls, so text-only models work without screenshots, and it can drive the real pointer, keyboard, scroll, drag and window focus with a blue Lantas cursor. The card and its pointer are skipped as targets, so Lantas Browser itself can be read and controlled too. Turn on Accessibility for control; Screen Recording is only needed for pixels.",
-    "Reopen: after closing the side AI, the browser keeps an Ask Lantas button in the footer plus Cmd+J, and Code keeps Assistant buttons in the header and status bar, so the panel comes back even when the page fills the window.",
-    "Take over: a Take over button in the page toolbar pauses a running browser turn and hands you control. The takeover watcher now ignores Lantas's own synthetic clicks and keys, so it no longer claims you interrupted when you didn't, and paused is a quiet label instead of a red warning.",
-    "Questions: when Lantas needs a name and age or another detail, the ask card shows a titled box for each field; when the answer is a fixed choice, it shows clickable options instead of a blank line."
+    "Screen: the computer-use card now floats above every app and every full-screen Space, top-centre, so it no longer disappears when you go full screen in Safari or an editor.",
+    "Screen: the live preview is gone. You see only the card, its steps and the blue pointer; the agent sees a private, much denser labelled grid of the front window with every control boxed and numbered, and can zoom into a region when something is too small.",
+    "Screen: clicks and typing go through Accessibility first, so they land on the actual control, and the agent can target a named cell, a fraction of the window or an exact point. Models without vision skip the picture entirely.",
+    "Screen: captures the target window alone, without its shadow, so the grid, the boxes and the pointer line up with the window you are looking at."
   ]
 }

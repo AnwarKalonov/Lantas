@@ -53,7 +53,11 @@ fn make_token() -> String {
     let mut bytes = [0u8; 32];
     if let Ok(mut random) = std::fs::File::open("/dev/urandom") {
         if random.read_exact(&mut bytes).is_ok() {
-            return bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+            let mut token = String::with_capacity(64);
+            for byte in bytes {
+                token.push_str(&format!("{byte:02x}"));
+            }
+            return token;
         }
     }
     let nanos = SystemTime::now()
@@ -127,10 +131,6 @@ pub fn opencode_start(
         .shell()
         .sidecar("opencode")
         .map_err(|error| format!("The bundled OpenCode engine was not found: {error}"))?
-        // The engine spawns shells and language tools; kill the whole group so
-        // a crashed window does not leave them running.
-        .set_process_group(true)
-        .kill_on_drop(true)
         .args(args)
         .current_dir(&root)
         .env("OPENCODE_SERVER_USERNAME", "opencode")

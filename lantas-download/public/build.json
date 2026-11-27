@@ -1,14 +1,14 @@
 {
-  "label": "Lantas 1.8.0 development build",
+  "label": "Lantas 1.9.0 development build",
   "dev": true,
-  "builtAt": "2026-11-27T01:39:00Z",
-  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.8.0-arm64.dmg",
-  "size": 10407631,
-  "sha256": "7a5b2a56839ac0b5da3117b764e431675700cc70acf1f783dab9c64ccf64c14d",
+  "builtAt": "2026-11-27T02:06:30Z",
+  "url": "https://github.com/AnwarKalonov/Lantas/releases/download/dev-latest/Lantas-1.9.0-arm64.dmg",
+  "size": 10413760,
+  "sha256": "d6036916f844793b6fa0277279a73707e4166f278b1d00c0e2c929601eff66cb",
   "changes": [
-    "Screen: the computer-use card now floats above every app and every full-screen Space, top-centre, so it no longer disappears when you go full screen in Safari or an editor.",
-    "Screen: the live preview is gone. You see only the card, its steps and the blue pointer; the agent sees a private, much denser labelled grid of the front window with every control boxed and numbered, and can zoom into a region when something is too small.",
-    "Screen: clicks and typing go through Accessibility first, so they land on the actual control, and the agent can target a named cell, a fraction of the window or an exact point. Models without vision skip the picture entirely.",
-    "Screen: captures the target window alone, without its shadow, so the grid, the boxes and the pointer line up with the window you are looking at."
+    "Workspaces: the top bar's Chat control is now a switch between Chat and Workspace. A workspace is a project folder with its own chats, tabs and coding context; add as many as you like, switch between them, rename them, and remove one without touching its files.",
+    "OpenWork shell: the flat left rail lists workspaces and their chats, the thread has open tabs, the composer is one rounded box, and a quiet status bar sits at the bottom. New installs open in the warm light theme; the dark version keeps the same layout.",
+    "Coding: every chat inside a workspace reads and edits that workspace's folder, the Code tab follows the active workspace, and switching projects swaps the folder instead of leaving another project's files attached.",
+    "Chat: ordinary chats stay out of project folders, so the two homes no longer mix. Chat and Workspace each keep their own history, pinned chats and open tabs."
   ]
 }

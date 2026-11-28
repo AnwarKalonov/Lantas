@@ -137,6 +137,8 @@ function systemPrompt(vision: boolean, control: boolean): string {
     control
       ? "You may control the real pointer and keyboard. Use one screen tool call per step, then read the fresh snapshot the result contains before the next step."
       : "Control is off. Read the screen and answer, but do not click, type, scroll, drag or switch windows.",
+    "Every result carries a new snapshot, so you are always looking at the screen as it is now. Never describe an earlier frame as the current screen.",
+    "You can also find the user's files by name with files, and point at something on the display with highlight. Showing a control is often a better answer than describing where it is.",
     "",
     "The target is the frontmost normal window behind this card; the card and its blue pointer are skipped, and Lantas Browser is a normal target too. The picture is captured from that window alone, so the card is never in it. To work in another app, focus it first.",
     "",
@@ -163,6 +165,8 @@ function systemPrompt(vision: boolean, control: boolean): string {
     "  scroll {\"dy\":4} — positive scrolls down, negative scrolls up",
     "  drag {\"fromRef\":\"s2\",\"toRef\":\"s6\"} or cells — drag one control onto another",
     "  wait {\"ms\":800} — let the app settle",
+    "  files {\"query\":\"resume\",\"limit\":8} — find files by name with Spotlight; give the paths and ask before opening or moving one",
+    "  highlight {\"ref\":\"s4\",\"label\":\"The export button\"} — draw the blue pointer on something so the user can see what you mean, without clicking it",
     "",
     "Coordinates:",
     "- ref: a control from the latest snapshot. This is the first choice; it is exact.",

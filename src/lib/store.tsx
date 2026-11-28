@@ -15,6 +15,7 @@ import type {
   McpServer,
   Message,
   Mode,
+  Project,
   ProviderConfig,
   ProviderId,
   Session,
@@ -52,6 +53,8 @@ interface Store {
   selectSession: (id: string | null) => void;
   deleteSession: (id: string) => void;
   renameSession: (id: string, title: string) => void;
+  addProject: (name: string, root: string) => Project;
+  removeProject: (root: string) => void;
   updateSession: (id: string, updater: (session: Session) => Session) => void;
   addMessage: (sessionId: string, message: Message) => void;
   patchMessage: (
@@ -113,6 +116,46 @@ function normalizeSession(raw: any): Session {
   } as Session;
 }
 
+function projectLabel(root: string) {
+  const parts = root.split("/").filter((part) => part && part !== "~" && part !== ".");
+  const last = parts[parts.length - 1] ?? "Project";
+  return last.replace(/[-_]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+/**
+ * Projects are stored explicitly so an empty one still has a row. Threads that
+ * carry a project from an older build are folded in so no folder disappears.
+ */
+function normalizeProjects(raw: any, sessions: Session[]): Project[] {
+  const projects: Project[] = [];
+  const seen = new Set<string>();
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      const root = typeof item?.root === "string" ? item.root.trim() : "";
+      if (!root || seen.has(root)) continue;
+      seen.add(root);
+      projects.push({
+        id: typeof item.id === "string" ? item.id : uid("prj"),
+        name: typeof item.name === "string" && item.name.trim() ? item.name.trim() : projectLabel(root),
+        root,
+        created: Number(item.created) || Date.now(),
+      });
+    }
+  }
+  for (const session of sessions) {
+    const root = session.project;
+    if (!root || seen.has(root)) continue;
+    seen.add(root);
+    projects.push({
+      id: uid("prj"),
+      name: projectLabel(root),
+      root,
+      created: session.created,
+    });
+  }
+  return projects;
+}
+
 function normalizeSettings(raw: any): Settings {
   const merged = {
     ...DEFAULT_SETTINGS,
@@ -154,6 +197,7 @@ function stateFromStored(parsed: Partial<AppState> | null, fallback: AppState): 
   const workspaceRoot = typeof parsed.workspaceRoot === "string" ? parsed.workspaceRoot : "";
   return {
     sessions,
+    projects: normalizeProjects((parsed as Partial<AppState>).projects, sessions),
     activeId,
     view: (parsed.view as ViewId) ?? "chats",
     mode: (parsed.mode as Mode) ?? "chat",
@@ -327,6 +371,7 @@ function stateForDisk(state: AppState) {
   return {
     savedAt: Date.now(),
     sessions: state.sessions,
+    projects: state.projects,
     activeId: state.activeId,
     view: state.view,
     mode: state.mode,
@@ -538,6 +583,36 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       const surface = session?.surface ?? "chat";
       return { ...prev, activeId: id, mode: id ? surface : prev.mode, view: id ? "chats" : prev.view };
     });
+  }, []);
+
+  const addProject = useCallback<Store["addProject"]>((name, root) => {
+    const cleanRoot = root.trim();
+    const existing = stateRef.current.projects.find((project) => project.root === cleanRoot);
+    if (existing) return existing;
+    const project: Project = {
+      id: uid("prj"),
+      name: name.trim() || projectLabel(cleanRoot),
+      root: cleanRoot,
+      created: Date.now(),
+    };
+    setState((prev) =>
+      prev.projects.some((item) => item.root === cleanRoot)
+        ? prev
+        : { ...prev, projects: [project, ...prev.projects] },
+    );
+    return project;
+  }, []);
+
+  // Removing a project keeps its conversations: they move back to Chats rather
+  // than vanishing with the folder row.
+  const removeProject = useCallback<Store["removeProject"]>((root) => {
+    setState((prev) => ({
+      ...prev,
+      projects: prev.projects.filter((project) => project.root !== root),
+      sessions: prev.sessions.map((session) =>
+        session.project === root ? { ...session, project: undefined } : session,
+      ),
+    }));
   }, []);
 
   const deleteSession = useCallback<Store["deleteSession"]>((id) => {
@@ -911,6 +986,8 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       selectSession,
       deleteSession,
       renameSession,
+      addProject,
+      removeProject,
       updateSession,
       addMessage,
       patchMessage,
@@ -952,6 +1029,8 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       selectSession,
       deleteSession,
       renameSession,
+      addProject,
+      removeProject,
       updateSession,
       addMessage,
       patchMessage,

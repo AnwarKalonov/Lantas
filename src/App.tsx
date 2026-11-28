@@ -6,7 +6,7 @@ import { runToolLoop } from "./lib/agentRuntime";
 import { defaultRules, describeAction } from "./lib/permissions";
 import type { ToolCall, ToolContext } from "./lib/tools";
 import { brandForTool } from "./lib/brands";
-import { getElContext } from "./lib/el";
+import { getElContext, readPage, setElContext } from "./lib/el";
 import { consumeGoogleHash, getGoogleToken } from "./lib/google";
 import { hideScreenAssistant, inTauri, showScreenAssistant } from "./lib/native";
 import { openCliInTerminal } from "./lib/terminal";
@@ -132,6 +132,7 @@ export function App() {
     state,
     activeSession,
     createSession,
+    addProject,
     addMessage,
     patchMessage,
     updateSession,
@@ -190,11 +191,16 @@ export function App() {
   allowedRulesRef.current = state.settings.allowedRules ?? [];
   /** Actions allowed for the rest of this turn, before settings round-trip. */
   const autoAllowed = useRef(new Set<string>());
-  const [limitAsk, setLimitAsk] = useState(false);
+  /** Minutes the agent had been working when the continue prompt opened. */
+  const [limitAsk, setLimitAsk] = useState<number | null>(null);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const limitResolve = useRef<((more: boolean) => void) | null>(null);
-  /** The last time the user approved extra rounds, so the prompt is not spam. */
-  const lastLimitGrant = useRef(0);
+  /**
+   * A long task runs first and asks later: five minutes in, then ten, then
+   * twenty. The prompt was tied to six tool rounds, which interrupted work
+   * that was only a minute old.
+   */
+  const limitClock = useRef<{ start: number; next: number } | null>(null);
   const runs = useRef<Record<string, AbortController>>({});
 
   const streaming = Boolean(activeSession?.messages.at(-1)?.streaming);
@@ -508,6 +514,60 @@ export function App() {
     }
   }, [notify, setSettings, setWorkspace]);
 
+  /**
+   * A project starts with the folder picker. The chosen folder becomes the
+   * build target and a project row, instead of a workspace switch above Chats.
+   */
+  const newProject = useCallback(async () => {
+    try {
+      const next = await openWorkspaceFolder();
+      if (!next) return;
+      clearExtraWorkspaceFolders();
+      setWorkspace(next.name, next.files, next.root);
+      setSettings({ fileAccess: true });
+      const root = next.root || next.name;
+      addProject(next.name, root);
+      createSession(undefined, undefined, undefined, { project: root, surface: "chat" });
+      window.dispatchEvent(new CustomEvent("lantas:compare-exit"));
+      setView("chats");
+      setMode("chat");
+      notify(`New project ${next.name} — ${next.files.filter((file) => !file.dir).length} files`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Could not open that folder", "error");
+    }
+  }, [addProject, createSession, notify, setMode, setSettings, setView, setWorkspace]);
+
+  /** Opening a project makes its folder the active build target again. */
+  const openProjectRoot = useCallback(
+    async (root: string) => {
+      if (!root || !inTauri() || root === state.workspaceRoot) return;
+      try {
+        const next = await readWorkspaceWithExtras(root);
+        if (!next) return;
+        setWorkspace(next.name, next.files, root);
+        setSettings({ fileAccess: true });
+      } catch (error) {
+        notify(
+          `Could not open ${root}: ${error instanceof Error ? error.message : String(error)}`,
+          "error",
+        );
+      }
+    },
+    [notify, setSettings, setWorkspace, state.workspaceRoot],
+  );
+
+  // A project thread is tied to its folder. After a relaunch, or when a
+  // thread is opened from anywhere other than the sidebar, make that folder
+  // the build target so read/write/terminal act inside the project.
+  useEffect(() => {
+    const root = activeSession?.project;
+    if (!root || !inTauri() || root === state.workspaceRoot) return;
+    void openProjectRoot(root);
+    // openProjectRoot is stable for a given root and workspace; re-running on
+    // its own state update would ask the filesystem twice for nothing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSession?.id, activeSession?.project, state.workspaceRoot]);
+
   const addFolder = useCallback(async () => {
     if (!state.workspaceRoot) {
       await openFolder();
@@ -582,21 +642,23 @@ export function App() {
   );
 
   const requestMoreSteps = useCallback(() => {
-    // Once the user says Continue, later six-round boundaries in the same
-    // three-minute window keep going without showing the same dialog again.
-    // A refusal is never remembered: the next run asks normally.
-    if (Date.now() - lastLimitGrant.current < 3 * 60_000) return Promise.resolve(true);
+    const clock = limitClock.current;
+    if (!clock) return Promise.resolve(true);
+    const elapsed = Date.now() - clock.start;
+    // Quietly extend the budget until the task is genuinely long.
+    if (elapsed < clock.next) return Promise.resolve(true);
     return new Promise<boolean>((resolve) => {
       limitResolve.current = resolve;
-      setLimitAsk(true);
+      setLimitAsk(Math.round(clock.next / 60_000));
     });
   }, []);
 
   const settleLimit = useCallback((more: boolean) => {
-    if (more) lastLimitGrant.current = Date.now();
+    const clock = limitClock.current;
+    if (more && clock) clock.next = Math.min(clock.next * 2, 6 * 60 * 60_000);
     limitResolve.current?.(more);
     limitResolve.current = null;
-    setLimitAsk(false);
+    setLimitAsk(null);
   }, []);
 
   const requestApproval = useCallback(
@@ -905,19 +967,21 @@ export function App() {
     return () => window.removeEventListener("lantas:navigate", onAgentNavigate);
   }, [state.mode, setBrowserUrl, setMode]);
 
-  const handleSendRef = useRef<(text: string, attachments?: Attachment[]) => Promise<void>>(
-    async () => {},
-  );
+  const handleSendRef = useRef<
+    (text: string, attachments?: Attachment[], options?: { agent?: AgentId; base?: Session }) => Promise<void>
+  >(async () => {});
   const handleSend = useCallback(
     async (
       raw: string,
       attachments: Attachment[] = [],
-      options: { agent?: AgentId } = {},
+      options: { agent?: AgentId; base?: Session } = {},
     ) => {
       let text = raw.trim();
       if (!text && attachments.length === 0) return;
 
-      const existing = activeSession;
+      // Editing or retrying passes the history up to that point explicitly;
+      // the store still holds the untruncated list until the state updates run.
+      const existing = options.base ?? activeSession;
       if (existing?.messages.some((message) => message.streaming)) return;
 
       if (text.startsWith("/") && runCommand(text)) return;
@@ -1124,6 +1188,7 @@ export function App() {
       const controller = new AbortController();
       runs.current[sessionId] = controller;
       const started = Date.now();
+      limitClock.current = { start: started, next: 5 * 60_000 };
       const patch = (updater: (message: Message) => Message) =>
         patchMessage(sessionId, assistantId, updater);
 
@@ -1208,7 +1273,21 @@ export function App() {
                 `<file name="${file.path}">\n${file.text.slice(0, 24_000)}\n</file>`,
             )
             .join("\n\n");
-          const page = getElContext();
+          // In Browser mode the page is the subject of the request. Re-read it
+          // at send time so "do this here" always means the tab on screen,
+          // even if the cached context was captured before the last click.
+          let page = getElContext();
+          if (state.mode === "browser" && state.browserUrl && page?.url !== state.browserUrl) {
+            try {
+              const fresh = await readPage(state.browserUrl);
+              if (fresh?.url) {
+                page = fresh;
+                setElContext(fresh);
+              }
+            } catch {
+              /* some sites block extraction; keep the last page context */
+            }
+          }
           const wantsPage =
             Boolean(page) &&
             (state.mode === "browser" ||
@@ -1325,6 +1404,15 @@ export function App() {
             skills: state.skills,
             task: text,
             vision: seesImages,
+            // The screen card is not the only place with eyes: with Screen
+            // access on, a Chat turn can look at the live desktop and, when
+            // Computer control is on, act on it through the same screen tool.
+            screen:
+              inTauri() && state.settings.screenAccess
+                ? state.settings.computerControl
+                  ? "control"
+                  : "read"
+                : undefined,
             // Outside the browser panel there is no Act switch to read, so the
             // app-wide Computer control grant is what lets a Chat turn act.
             drive: browserMode ? undefined : state.settings.computerControl,
@@ -1809,6 +1897,72 @@ export function App() {
     handleSendRef.current = handleSend;
   }, [handleSend]);
 
+  /**
+   * Editing a message is a rewind plus a fresh turn: the edited text replaces
+   * the old message and everything after it, so the answer matches the edit.
+   */
+  const editMessage = useCallback(
+    (sessionId: string, messageId: string, text: string) => {
+      const session = state.sessions.find((item) => item.id === sessionId);
+      const index = session ? session.messages.findIndex((item) => item.id === messageId) : -1;
+      const clean = text.trim();
+      if (!session || index < 0 || !clean) return;
+      const target = session.messages[index];
+      const base: Session = { ...session, messages: session.messages.slice(0, index) };
+      updateSession(sessionId, (current) => ({
+        ...current,
+        messages: current.messages.slice(0, index),
+        past: [...(current.past ?? []), current.messages].slice(-20),
+        future: [],
+      }));
+      void handleSendRef.current(clean, target.attachments ?? [], { base });
+    },
+    [state.sessions, updateSession],
+  );
+
+  /** Retry re-runs the user turn that produced this answer. */
+  const retryMessage = useCallback(
+    (sessionId: string, messageId: string) => {
+      const session = state.sessions.find((item) => item.id === sessionId);
+      const index = session ? session.messages.findIndex((item) => item.id === messageId) : -1;
+      if (!session || index < 0) return;
+      let userIndex = -1;
+      for (let cursor = index; cursor >= 0; cursor -= 1) {
+        if (session.messages[cursor].role === "user") {
+          userIndex = cursor;
+          break;
+        }
+      }
+      if (userIndex < 0) return;
+      const userMessage = session.messages[userIndex];
+      const text = userMessage.parts
+        .filter((part) => part.kind === "text")
+        .map((part) => (part.kind === "text" ? part.text : ""))
+        .join("\n")
+        .trim();
+      if (!text) return;
+      const base: Session = { ...session, messages: session.messages.slice(0, userIndex) };
+      updateSession(sessionId, (current) => ({
+        ...current,
+        messages: current.messages.slice(0, userIndex),
+        past: [...(current.past ?? []), current.messages].slice(-20),
+        future: [],
+      }));
+      void handleSendRef.current(text, userMessage.attachments ?? [], { base });
+    },
+    [state.sessions, updateSession],
+  );
+
+  const deleteMessage = useCallback(
+    (sessionId: string, messageId: string) => {
+      updateSession(sessionId, (session) => ({
+        ...session,
+        messages: session.messages.filter((message) => message.id !== messageId),
+      }));
+    },
+    [updateSession],
+  );
+
   const handleStop = useCallback(() => {
     if (!activeSession) return;
     runs.current[activeSession.id]?.abort();
@@ -2029,8 +2183,8 @@ export function App() {
         <div className="workspace">
           <Sidebar
             onOpenSettings={() => openSettings("general")}
-            onOpenFolder={() => void openFolder()}
-            onAddFolder={() => void addFolder()}
+            onNewProject={() => void newProject()}
+            onOpenProject={(root) => void openProjectRoot(root)}
             historyCollapsed={!state.sidebarOpen}
           />
 
@@ -2081,6 +2235,15 @@ export function App() {
                         onOpenProviders={() => openSettings("providers")}
                         onScreenToggle={handleScreenToggle}
                         onApprovePlan={() => approvePlan(activeSession.id)}
+                        onEditMessage={(messageId, text) =>
+                          editMessage(activeSession.id, messageId, text)
+                        }
+                        onRetryMessage={(messageId) =>
+                          retryMessage(activeSession.id, messageId)
+                        }
+                        onDeleteMessage={(messageId) =>
+                          deleteMessage(activeSession.id, messageId)
+                        }
                       />
                     </ErrorBoundary>
                   ) : (
@@ -2238,18 +2401,18 @@ export function App() {
             aria-label="Continue the run"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <p className="confirm-kicker">The agent used its budget</p>
-            <h2>Continue with six more tool rounds?</h2>
+            <p className="confirm-kicker">Still working</p>
+            <h2>Keep it going?</h2>
             <p className="confirm-copy">
-              The work so far is saved. Continuing lets the agent finish the verification or
-              stop where it is. You will not be asked again for three minutes.
+              The agent has been on this task for {limitAsk} minutes. The work so far is saved;
+              it will ask again after {limitAsk} more minutes, then wait longer each time.
             </p>
             <div className="confirm-actions">
               <button type="button" className="button-quiet" onClick={() => settleLimit(false)}>
                 Stop here
               </button>
               <button type="button" className="button-primary" onClick={() => settleLimit(true)}>
-                Continue
+                Keep going
               </button>
             </div>
           </div>

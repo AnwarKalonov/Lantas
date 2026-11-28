@@ -178,6 +178,27 @@ export async function pressScreenKey(key: string, modifiers: string[] = []): Pro
   await invoke("screen_key", { key, modifiers });
 }
 
+export interface FoundFile {
+  path: string;
+  name: string;
+  dir: string;
+}
+
+/** Spotlight by file name, so "find my resume" is a search, not a guess. */
+export async function searchScreenFiles(
+  query: string,
+  root?: string,
+  limit = 12,
+): Promise<FoundFile[]> {
+  const raw = await invoke<string>("file_search", {
+    query,
+    root: root || null,
+    limit,
+  });
+  const parsed = JSON.parse(raw) as FoundFile[];
+  return Array.isArray(parsed) ? parsed : [];
+}
+
 export async function dragScreen(
   fromX: number,
   fromY: number,
@@ -776,7 +797,19 @@ export async function runScreenAction(
 ): Promise<ScreenResult> {
   const action = String(args.action ?? "snapshot").trim().toLowerCase();
   const resource = `screen ${action}`;
-  const readOnly = ["snapshot", "windows", "wait", "info", "zoom"].includes(action);
+  const readOnly = [
+    "snapshot",
+    "windows",
+    "wait",
+    "info",
+    "zoom",
+    "files",
+    "find_files",
+    "search_files",
+    "highlight",
+    "show",
+    "point",
+  ].includes(action);
   if (options.mode === "read" && !readOnly) {
     return {
       ok: false,
@@ -912,6 +945,44 @@ export async function runScreenAction(
         ].join("\n"),
         resource,
         ...(image ? { images: [image] } : {}),
+      };
+    }
+
+    if (action === "files" || action === "find_files" || action === "search_files") {
+      const query = String(args.query ?? args.name ?? args.text ?? "").trim();
+      if (!query) throw new Error("A file name or part of one is required.");
+      const limit = Math.min(30, Math.max(1, num(args.limit) ?? 12));
+      const root = args.root ? String(args.root) : undefined;
+      const found = await searchScreenFiles(query, root, limit);
+      return {
+        ok: true,
+        summary: found.length
+          ? `${found.length} file${found.length === 1 ? "" : "s"} for “${query}”`
+          : `No file matched “${query}”`,
+        content: found.length
+          ? [
+              `Files matching “${query}”:`,
+              ...found.map((file) => `${file.name} — ${file.path}`),
+              "Ask before deleting or moving one. Read it with the read tool if this surface has one, or open it for the user.",
+            ].join("\n")
+          : "Spotlight found nothing. Try a shorter part of the name, or ask the user where it lives.",
+        resource,
+      };
+    }
+
+    if (action === "highlight" || action === "show" || action === "point") {
+      const point = await resolvePoint(args);
+      const label = String(args.label ?? point.label ?? "").slice(0, 80);
+      const ms = Math.min(10_000, Math.max(600, num(args.ms) ?? 2_600));
+      await showScreenCursor(point, { label });
+      window.setTimeout(() => void hideScreenCursor(), ms);
+      return {
+        ok: true,
+        summary: label ? `Pointed at ${label}` : "Pointed at the screen",
+        content: `A blue pointer is on the user's display at ${round(point.x)},${round(
+          point.y,
+        )}${label ? ` labelled “${label}”` : ""} for ${Math.round(ms / 1000)}s. Says what you mean without moving focus.`,
+        resource,
       };
     }
 

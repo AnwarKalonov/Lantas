@@ -108,17 +108,18 @@ export const BROWSER_GUIDE = [
   "Browser playbook (follow this instead of guessing):",
   "- Work in one step at a time: navigate, then snapshot the live page, then click/type using the controls you actually see. When you already know the sequence, send up to 12 of those actions at once with `browser {\"action\":\"steps\",\"steps\":[...]}`; it runs them in order and returns one fresh snapshot.",
   "- When one step needs more than a click — read several values, loop over rows, wait for a selector, combine a site's own API — write JavaScript and send it as `browser {\"action\":\"execute\",\"code\":\"...\"}`. The code runs async in the live page with the session intact, and returns its value plus console output. Use `return` for the data you want back. This is the same primitive browser-use and browsercode build on: prefer one script over ten round trips when the work is mechanical.",
-  "- `browser {\"action\":\"screenshot\"}` returns the page as an image you can actually see. Take one when the question is visual (a layout, a canvas, an overlay, a cookie wall) or when the DOM text says the action landed but the result looks wrong.",
+  "- `browser {\"action\":\"screenshot\"}` returns the page as an image you can actually see. Take one when the question is visual (a layout, a canvas, an overlay, a cookie wall) or when the DOM text says the action landed but the result looks wrong. Add `{\"grid\":true}` when the page exposes no usable controls: the image gets a labelled 16×10 grid (columns A–P, rows 1–10) so you can pick a cell instead of guessing pixels.",
   "- A page script that worked is worth keeping: save it with `write` under `.lantas/browser/<name>.js` and say where it went. A later turn can read and adapt it instead of rediscovering the page.",
   "- \"Open X\", \"go to X\" and \"take me to X\" mean X's real home page. Decide the address and navigate straight there (https://github.com, https://www.youtube.com, https://notion.so). Never route an open request through a search engine, and never replace it with a query, unless the user actually said search.",
   "- A bare domain is a valid address: `github.com` becomes https://github.com. Only ask for a full URL when the value is not a domain at all.",
   "- You choose every destination. The app does not know product names, infer a route, repair an address or search for you. Send a complete `https://` URL. If you only have a name, decide the real site yourself; if you only have a page name inside a site, open the site and click its visible control.",
-  "- After every action, read the returned URL, title and controls. Use a ref or an exact label from that result; never invent coordinates or selectors. A ref stays tied to its element while it is on the page: if it no longer exists the click fails instead of hitting whatever moved into that slot. A click or fill proves only that action; verify the user-visible outcome once.",
+  "- After every action, read the returned URL, title and controls. Use a ref or an exact label from that result; never invent selectors. A ref stays tied to its element while it is on the page: if it no longer exists the click fails instead of hitting whatever moved into that slot. A click or fill proves only that action; verify the user-visible outcome once.",
+  "- When the page cannot describe its controls (a canvas editor, a custom widget inside a closed shadow root, an image map), work the way screen control does: take `screenshot {\"grid\":true}`, name the cell, then act with `click_at` or `type_at {\"cell\":\"G4\",\"text\":\"...\",\"submit\":true}`. The cell is resolved against the live viewport, so one deliberate click plus typing is enough; after that, take a fresh screenshot to check the caret and value.",
   "- Tabs are part of the task: `tabs` lists them, `switch_tab` targets one by id or index, `new_tab` opens one and `close_tab` closes one. Prefer the id; after switching, snapshot the new page before acting.",
   "- Confirm before irreversible actions: submitting a payment, deleting data, changing account settings or closing something the user may need. Respect a denial instead of finding another way to do the same thing.",
   "- If the task names a page inside a site (for example a calculator, a settings page or a specific tool), open the site, snapshot, then click the matching navigation control. Do not stop after the homepage.",
   "- Canvas and math editors often ignore a value assignment. Click into the editor first, then type or press keys. If the page exposes a documented API, `evaluate` may call it, but read the expression back to verify it. A calculator's expression row usually already holds `y=` or the solver prompt, so type only the part that is missing, then submit with the site's own button or Enter.",
-  "- `click_at` and `evaluate` exist for canvas apps and site APIs. Use them only for the user's task, not to read private storage or change unrelated settings.",
+  "- `click_at`, `type_at` and `evaluate` exist for canvas apps and site APIs. Use them only for the user's task, not to read private storage or change unrelated settings.",
   "- If a page does not open, try its canonical address once (github.com, then https://www.github.com). If you need a search, navigate to the search URL yourself. Do not repeat an identical failing call.",
   "- Page snapshots pierce open shadow roots and same-origin iframes. If a control is still missing, evaluate `(() => document.querySelector('my-app')?.shadowRoot?.querySelector('button')?.outerHTML)()` to inspect it; never guess a selector.",
   "- Login walls: use browser {\"action\":\"open_in_chrome\",\"url\":...} so the user signs in in their own Chrome profile, then switch to the Chrome engine and read the authenticated page.",
@@ -906,10 +907,90 @@ ${source}
 export interface AgentScreenshot {
   ok: boolean;
   image?: ChatImage;
+  width?: number;
+  height?: number;
   error?: string;
 }
 
-export async function agentScreenshot(): Promise<AgentScreenshot> {
+const GRID_COLUMNS = "ABCDEFGHIJKLMNOP";
+const GRID_ROWS = 10;
+
+/**
+ * Draws a labelled 16×10 grid over a page frame. A model that cannot map DOM
+ * controls (a canvas, a shadow component, an image map) can still look at one
+ * cell, click its centre with click_at, and type where the caret landed.
+ */
+async function withGrid(image: ChatImage): Promise<AgentScreenshot> {
+  if (typeof document === "undefined") return { ok: true, image };
+  const source = `data:${image.mime};base64,${image.data}`;
+  const loaded = await new Promise<HTMLImageElement | null>((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = source;
+  });
+  if (!loaded || !loaded.naturalWidth) return { ok: true, image };
+
+  const canvas = document.createElement("canvas");
+  canvas.width = loaded.naturalWidth;
+  canvas.height = loaded.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return { ok: true, image };
+  ctx.drawImage(loaded, 0, 0);
+
+  const w = canvas.width;
+  const h = canvas.height;
+  const labelSize = Math.max(10, Math.round(w / 90));
+  ctx.font = `600 ${labelSize}px -apple-system, system-ui, sans-serif`;
+  ctx.textBaseline = "top";
+
+  for (let column = 0; column <= GRID_COLUMNS.length; column += 1) {
+    const x = (column / GRID_COLUMNS.length) * w;
+    ctx.strokeStyle = column % 4 === 0 ? "rgba(255,92,60,0.9)" : "rgba(255,255,255,0.4)";
+    ctx.lineWidth = column % 4 === 0 ? 2 : 1;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+  }
+  for (let row = 0; row <= GRID_ROWS; row += 1) {
+    const y = (row / GRID_ROWS) * h;
+    ctx.strokeStyle = row % 2 === 0 ? "rgba(255,92,60,0.75)" : "rgba(255,255,255,0.4)";
+    ctx.lineWidth = row % 2 === 0 ? 2 : 1;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+
+  // Column letters along the top, row numbers down the left. Small dark chips
+  // keep them legible over both a white page and a dark one.
+  const chip = (text: string, x: number, y: number) => {
+    const padding = Math.max(2, Math.round(labelSize * 0.3));
+    const width = ctx.measureText(text).width + padding * 2;
+    ctx.fillStyle = "rgba(15,16,18,0.72)";
+    ctx.fillRect(x, y, width, labelSize + padding * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(text, x + padding, y + padding);
+  };
+  for (let column = 0; column < GRID_COLUMNS.length; column += 1) {
+    const x = (column / GRID_COLUMNS.length) * w + 3;
+    chip(GRID_COLUMNS[column], x, 3);
+  }
+  for (let row = 0; row < GRID_ROWS; row += 1) {
+    chip(String(row + 1), 3, (row / GRID_ROWS) * h + 3);
+  }
+
+  const data = canvas.toDataURL("image/jpeg", 0.82).split(",")[1];
+  return {
+    ok: true,
+    image: data ? { mime: "image/jpeg", data } : image,
+    width: canvas.width,
+    height: canvas.height,
+  };
+}
+
+export async function agentScreenshot(options: { grid?: boolean } = {}): Promise<AgentScreenshot> {
   if (activeEngine() === "chrome") {
     try {
       const result = await chromeCommand<ChromeEvent & { data?: string; mime?: string }>(
@@ -918,7 +999,8 @@ export async function agentScreenshot(): Promise<AgentScreenshot> {
       if (!result.data) {
         return { ok: false, error: result.error || "Chrome returned no image." };
       }
-      return { ok: true, image: { mime: result.mime || "image/jpeg", data: result.data } };
+      const image = { mime: result.mime || "image/jpeg", data: result.data };
+      return options.grid ? await withGrid(image) : { ok: true, image };
     } catch (error) {
       return {
         ok: false,
@@ -938,7 +1020,8 @@ export async function agentScreenshot(): Promise<AgentScreenshot> {
   if (!encoded) {
     return { ok: false, error: elLastError() || "The page could not be captured." };
   }
-  return { ok: true, image: { mime: "image/jpeg", data: encoded } };
+  const image = { mime: "image/jpeg", data: encoded };
+  return options.grid ? await withGrid(image) : { ok: true, image };
 }
 
 /** Run page JavaScript (a site's own API or a verification read). */

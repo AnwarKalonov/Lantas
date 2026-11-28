@@ -4366,3 +4366,153 @@ html.reduce-motion .thread-time {
 [data-theme="light"] .mode-tab.is-active {
   background: #ffffff;
 }
+
+/* ── projects are folders ──────────────────────────────────────────────── */
+
+.nav-projects-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 2px;
+}
+
+.nav-projects .nav-projects-toggle {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 27px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: transparent;
+  backdrop-filter: none;
+  color: var(--text-4);
+  font-size: 10.5px;
+  font-weight: 550;
+  letter-spacing: 0.02em;
+  text-align: left;
+}
+
+.nav-projects .nav-projects-toggle:hover {
+  background: var(--sel);
+  color: var(--text-2);
+}
+
+.nav-projects-toggle .project-count {
+  margin-left: 1px;
+}
+
+.nav-project-add {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  color: var(--text-4);
+  opacity: 0.55;
+  transition:
+    opacity 140ms var(--ease-out),
+    background-color 140ms var(--ease-out),
+    color 140ms var(--ease-out);
+}
+
+.nav-projects-head:hover .nav-project-add,
+.nav-project-add:focus-visible {
+  opacity: 1;
+}
+
+.nav-project-add:hover {
+  color: var(--text);
+  background: var(--raised);
+}
+
+.project-toggle {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 15px;
+  height: 22px;
+  border-radius: 4px;
+  color: var(--text-4);
+}
+
+.project-toggle:hover {
+  color: var(--text-2);
+}
+
+/* ── per-message actions: copy, edit, retry, delete ────────────────────── */
+
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+  opacity: 0;
+  transition: opacity 140ms var(--ease-out);
+}
+
+.msg-user:hover .msg-actions,
+.msg-assistant:hover .msg-actions,
+.msg-actions:focus-within {
+  opacity: 1;
+}
+
+.msg-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 5px;
+  color: var(--text-4);
+  font-size: 10.5px;
+  transition: background-color var(--quick), color var(--quick);
+}
+
+.msg-action:hover {
+  background: var(--sel);
+  color: var(--text-2);
+}
+
+.msg-action.is-danger:hover {
+  color: var(--danger);
+}
+
+.msg-actions-assistant {
+  margin-top: 4px;
+}
+
+.msg-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(560px, 70vw);
+}
+
+.msg-edit textarea {
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.msg-edit textarea:focus {
+  outline: none;
+  border-color: var(--text-4);
+}
+
+.msg-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}

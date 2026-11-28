@@ -571,6 +571,7 @@ export const KEYBINDS = [
 export function seedState(): AppState {
   return {
     sessions: [],
+    projects: [],
     activeId: null,
     view: "chats",
     mode: "chat",

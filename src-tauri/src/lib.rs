@@ -1053,6 +1053,7 @@ pub fn run() {
             el_screenshot,
             overlay_show,
             overlay_hide,
+            control::file_search,
             control::screen_info,
             control::screen_control_permission,
             control::screen_control_request,

@@ -24,20 +24,17 @@ function projectName(cwd: string) {
   return last.charAt(0).toUpperCase() + last.slice(1);
 }
 
-function folderLabel(root: string) {
-  if (!root) return "Choose a project folder";
-  return root.replace(/^\/Users\/[^/]+/, "~");
-}
-
 export function Sidebar({
   onOpenSettings,
-  onOpenFolder,
-  onAddFolder,
+  onNewProject,
+  onOpenProject,
   historyCollapsed = false,
 }: {
   onOpenSettings: () => void;
-  onOpenFolder: () => void;
-  onAddFolder: () => void;
+  /** Pick a folder and make it a new project. */
+  onNewProject: () => void;
+  /** Make this project's folder the active workspace. */
+  onOpenProject: (root: string) => void;
   historyCollapsed?: boolean;
 }) {
   const {
@@ -53,14 +50,12 @@ export function Sidebar({
     toggleSidebar,
   } = useStore();
   const [menu, setMenu] = useState<RowMenu | null>(null);
-  const [workspaceMenu, setWorkspaceMenu] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [projectsOpen, setProjectsOpen] = useState(true);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const workspaceMenuRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
 
   // Chats holds every conversation that is not tied to a project, including
@@ -100,42 +95,55 @@ export function Sidebar({
     [matched],
   );
 
+  // A project is its folder. Explicit projects appear even before a thread
+  // exists, and a thread's project from an older build still gets a row.
   const projects = useMemo(() => {
-    const map = new Map<string, Session[]>();
+    const map = new Map<
+      string,
+      { root: string; name: string; created: number; items: Session[] }
+    >();
+    state.projects.forEach((project) => {
+      map.set(project.root, {
+        root: project.root,
+        name: project.name || projectName(project.root),
+        created: project.created,
+        items: [],
+      });
+    });
     matched
       .filter((session) => session.project)
       .forEach((session) => {
         const key = session.project as string;
-        map.set(key, [...(map.get(key) ?? []), session]);
+        const entry = map.get(key) ?? {
+          root: key,
+          name: projectName(key),
+          created: session.created,
+          items: [],
+        };
+        entry.items.push(session);
+        map.set(key, entry);
       });
-    return Array.from(map.entries())
-      .map(([cwd, items]) => ({
-        cwd,
-        label: projectName(cwd),
-        items: [...items].sort((a, b) => b.updated - a.updated),
+    return Array.from(map.values())
+      .map((project) => ({
+        ...project,
+        items: [...project.items].sort((a, b) => b.updated - a.updated),
       }))
-      .sort((a, b) => (b.items[0]?.updated ?? 0) - (a.items[0]?.updated ?? 0));
-  }, [matched]);
+      .filter(
+        (project) =>
+          !wanted ||
+          project.name.toLowerCase().includes(wanted) ||
+          project.root.toLowerCase().includes(wanted) ||
+          project.items.length > 0,
+      )
+      .sort(
+        (a, b) =>
+          (b.items[0]?.updated ?? b.created) - (a.items[0]?.updated ?? a.created),
+      );
+  }, [matched, state.projects, wanted]);
 
   const provider = state.settings.defaultProvider;
   const providerMeta = PROVIDERS.find((item) => item.id === provider);
   const connected = isConfigured(provider, state.settings.providers[provider]);
-
-  useEffect(() => {
-    if (!workspaceMenu) return;
-    const close = (event: MouseEvent) => {
-      if (!workspaceMenuRef.current?.contains(event.target as Node)) setWorkspaceMenu(false);
-    };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setWorkspaceMenu(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [workspaceMenu]);
 
   useEffect(() => {
     if (!menu) return;
@@ -190,7 +198,25 @@ export function Sidebar({
     selectSession(id);
   };
 
-  const newProjectThread = (folder: string) => {
+  const newProjectThread = (folder: string, items: Session[] = []) => {
+    // Opening a project row resumes its latest thread; the + always starts a
+    // fresh one. Either way the project's folder becomes the build target.
+    onOpenProject(folder);
+    if (items.length === 0) {
+      const id = createSession(undefined, undefined, undefined, {
+        project: folder,
+        surface: "chat",
+      });
+      window.dispatchEvent(new CustomEvent("lantas:compare-exit"));
+      setView("chats");
+      selectSession(id);
+      return;
+    }
+    openSession(items[0].id);
+  };
+
+  const openNewProjectThread = (folder: string) => {
+    onOpenProject(folder);
     const id = createSession(undefined, undefined, undefined, {
       project: folder,
       surface: "chat",
@@ -219,7 +245,10 @@ export function Sidebar({
           active && "is-active",
           renaming === session.id && "is-editing",
         )}
-        onClick={() => openSession(session.id)}
+        onClick={() => {
+          if (session.project) onOpenProject(session.project);
+          openSession(session.id);
+        }}
         onDoubleClick={() => startRename(session.id)}
         role="button"
         tabIndex={0}
@@ -343,69 +372,6 @@ export function Sidebar({
         inert={historyCollapsed ? true : undefined}
         aria-hidden={historyCollapsed}
       >
-        <div className="nav-workspace" ref={workspaceMenuRef}>
-          <button
-            type="button"
-            className={cx("workspace-switch", !state.workspaceRoot && "is-empty")}
-            onClick={() => setWorkspaceMenu((open) => !open)}
-            aria-expanded={workspaceMenu}
-            aria-haspopup="menu"
-          >
-            <span className="workspace-switch-icon">
-              <Icon name="folder" size={14} />
-            </span>
-            <span className="workspace-switch-copy">
-              <span className="workspace-switch-name">
-                {state.workspaceName || "Open a folder"}
-              </span>
-              <span className="workspace-switch-path">
-                {folderLabel(state.workspaceRoot)}
-              </span>
-            </span>
-            <Icon name="chevronDown" size={12} className="workspace-switch-caret" />
-          </button>
-
-          {workspaceMenu && (
-            <div className="workspace-menu" role="menu">
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setWorkspaceMenu(false);
-                  onOpenFolder();
-                }}
-              >
-                <Icon name="folder" size={14} />
-                <span>Open folder…</span>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={!state.workspaceRoot}
-                onClick={() => {
-                  setWorkspaceMenu(false);
-                  onAddFolder();
-                }}
-              >
-                <Icon name="folderPlus" size={14} />
-                <span>Add folder…</span>
-              </button>
-              <div className="workspace-menu-sep" />
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setWorkspaceMenu(false);
-                  onOpenSettings();
-                }}
-              >
-                <Icon name="settings" size={14} />
-                <span>Permissions and settings</span>
-              </button>
-            </div>
-          )}
-        </div>
-
         <div className="nav-panel-head">
             <label className="nav-search">
             <Icon name="search" size={13} />
@@ -464,59 +430,78 @@ export function Sidebar({
           </section>
 
           <section className={cx("nav-part nav-projects", projectsOpen && "is-open")}>
-            <button
-              type="button"
-              className="nav-part-head nav-projects-toggle"
-              onClick={() => setProjectsOpen((open) => !open)}
-              aria-expanded={projectsOpen}
-              aria-controls="nav-projects-body"
-            >
-              <Icon name="folder" size={13} />
-              <span>Projects</span>
-              <span className="project-count">{projects.length}</span>
-              <Icon
-                name="chevronDown"
-                size={12}
-                className={cx("nav-projects-caret", projectsOpen && "is-open")}
-              />
-            </button>
+            <div className="nav-part-head nav-projects-head">
+              <button
+                type="button"
+                className="nav-projects-toggle"
+                onClick={() => setProjectsOpen((open) => !open)}
+                aria-expanded={projectsOpen}
+                aria-controls="nav-projects-body"
+              >
+                <Icon name="folder" size={13} />
+                <span>Projects</span>
+                <span className="project-count">{projects.length}</span>
+                <Icon
+                  name="chevronDown"
+                  size={12}
+                  className={cx("nav-projects-caret", projectsOpen && "is-open")}
+                />
+              </button>
+              <button
+                type="button"
+                className="nav-project-add"
+                onClick={onNewProject}
+                title="New project — choose its folder"
+                aria-label="New project"
+              >
+                <Icon name="plus" size={13} />
+              </button>
+            </div>
 
             {projectsOpen && (
               <div className="nav-projects-body" id="nav-projects-body">
                 {projects.map((project) => {
-                  const open = !collapsed[project.cwd];
+                  const open = !collapsed[project.root];
                   return (
-                    <div className="nav-project" key={project.cwd}>
+                    <div className="nav-project" key={project.root}>
                       <div className={cx("project-head", "project-head-row")}>
                         <button
                           type="button"
-                          className="project-open"
+                          className="project-toggle"
                           onClick={() =>
-                            setCollapsed((prev) => ({ ...prev, [project.cwd]: open }))
+                            setCollapsed((prev) => ({ ...prev, [project.root]: open }))
                           }
                           aria-expanded={open}
+                          aria-label={`${open ? "Collapse" : "Expand"} ${project.name}`}
                         >
                           <Icon
                             name="chevronDown"
                             size={12}
                             className={cx("project-caret", !open && "is-closed")}
                           />
+                        </button>
+                        <button
+                          type="button"
+                          className="project-open"
+                          onClick={() => newProjectThread(project.root, project.items)}
+                          title={project.root}
+                        >
                           <Icon name="folder" size={12} className="nav-project-folder" />
-                          <span className="project-name">{project.label}</span>
+                          <span className="project-name">{project.name}</span>
                           <span className="project-count">{project.items.length}</span>
                         </button>
                         <button
                           type="button"
                           className="project-new"
-                          title={`New chat in ${project.label}`}
-                          aria-label={`New chat in ${project.label}`}
-                          onClick={() => newProjectThread(project.cwd)}
+                          title={`New chat in ${project.name}`}
+                          aria-label={`New chat in ${project.name}`}
+                          onClick={() => openNewProjectThread(project.root)}
                         >
                           <Icon name="plus" size={12} />
                         </button>
                       </div>
 
-                      {open && (
+                      {open && project.items.length > 0 && (
                         <div className="project-body">
                           <div className="thread-rows">{project.items.map(renderRow)}</div>
                         </div>
@@ -526,9 +511,12 @@ export function Sidebar({
                 })}
 
                 {projects.length === 0 && (
-                  <p className="nav-projects-empty">
-                    Chats started in a folder live here, separate from your other chats.
-                  </p>
+                  <div className="nav-projects-empty">
+                    <p>Each project is a folder you build in.</p>
+                    <button type="button" className="text-button" onClick={onNewProject}>
+                      New project
+                    </button>
+                  </div>
                 )}
               </div>
             )}

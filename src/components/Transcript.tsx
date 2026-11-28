@@ -847,10 +847,44 @@ function ArtifactBlock({ part }: { part: Extract<Part, { kind: "artifact" }> }) 
   );
 }
 
-function UserMessage({ message, compact }: { message: Message; compact?: boolean }) {
+function UserMessage({
+  message,
+  compact,
+  busy,
+  onEdit,
+  onDelete,
+}: {
+  message: Message;
+  compact?: boolean;
+  busy?: boolean;
+  onEdit?: (messageId: string, text: string) => void;
+  onDelete?: (messageId: string) => void;
+}) {
   const text = message.parts
     .map((part) => (part.kind === "text" ? part.text : ""))
     .join("");
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(text);
+  const [copied, setCopied] = useState(false);
+
+  const copy = () => {
+    const body = [
+      text,
+      ...(message.attachments ?? []).map((file) => `[${file.kind}] ${file.name}`),
+    ]
+      .filter(Boolean)
+      .join("\n");
+    navigator.clipboard?.writeText(body).catch(() => {});
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  };
+
+  const save = () => {
+    const clean = draft.trim();
+    if (!clean) return;
+    setEditing(false);
+    onEdit?.(message.id, clean);
+  };
 
   return (
     <div className={cx("msg msg-user", compact && "is-compact")}>
@@ -869,8 +903,69 @@ function UserMessage({ message, compact }: { message: Message; compact?: boolean
             )}
           </div>
         )}
-        {text ? <p>{text}</p> : null}
+        {editing ? (
+          <div className="msg-edit">
+            <textarea
+              value={draft}
+              autoFocus
+              rows={Math.min(10, Math.max(2, draft.split("\n").length))}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setEditing(false);
+                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) save();
+              }}
+            />
+            <div className="msg-edit-actions">
+              <button type="button" className="button-quiet" onClick={() => setEditing(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="button-primary"
+                onClick={save}
+                disabled={!draft.trim()}
+              >
+                Save and resend
+              </button>
+            </div>
+          </div>
+        ) : (
+          text ? <p>{text}</p> : null
+        )}
       </div>
+
+      {!editing && !busy && (text || onDelete) && (
+        <div className="msg-actions">
+          {text && (
+            <button type="button" className="msg-action" onClick={copy}>
+              <Icon name={copied ? "check" : "copy"} size={11} />
+              {copied ? "Copied" : "Copy"}
+            </button>
+          )}
+          {text && onEdit && (
+            <button
+              type="button"
+              className="msg-action"
+              onClick={() => {
+                setDraft(text);
+                setEditing(true);
+              }}
+            >
+              <Icon name="pencil" size={11} /> Edit
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              className="msg-action is-danger"
+              onClick={() => onDelete(message.id)}
+              title="Delete this message"
+            >
+              <Icon name="trash" size={11} /> Delete
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -883,6 +978,9 @@ function AssistantMessage({
   onKeepChange,
   onDiscardChange,
   busyPath,
+  busy,
+  onRetry,
+  onDelete,
 }: {
   message: Message;
   compact?: boolean;
@@ -891,6 +989,9 @@ function AssistantMessage({
   onKeepChange?: (path: string) => void;
   onDiscardChange?: (path: string) => void;
   busyPath?: string | null;
+  busy?: boolean;
+  onRetry?: (messageId: string) => void;
+  onDelete?: (messageId: string) => void;
 }) {
   // "Deliver file" finished and the card it produced sits directly below it,
   // so the row would say the same thing twice.
@@ -950,11 +1051,30 @@ function AssistantMessage({
 
       {!message.streaming && <SourceStrip parts={visibleParts} />}
 
-      {!message.streaming && hasParts && (
-        <button type="button" className="assistant-copy-quiet" onClick={copy}>
-          <Icon name={copied ? "check" : "copy"} size={11} />
-          {copied ? "Copied" : "Copy"}
-        </button>
+      {!message.streaming && !busy && (
+        <div className="msg-actions msg-actions-assistant">
+          {hasParts && (
+            <button type="button" className="msg-action" onClick={copy}>
+              <Icon name={copied ? "check" : "copy"} size={11} />
+              {copied ? "Copied" : "Copy"}
+            </button>
+          )}
+          {onRetry && (
+            <button type="button" className="msg-action" onClick={() => onRetry(message.id)}>
+              <Icon name="refresh" size={11} /> Retry
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              className="msg-action is-danger"
+              onClick={() => onDelete(message.id)}
+              title="Delete this answer"
+            >
+              <Icon name="trash" size={11} /> Delete
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -986,6 +1106,10 @@ export function Transcript({
   onKeepChange,
   onDiscardChange,
   busyPath,
+  onEditMessage,
+  onRetryMessage,
+  onDeleteMessage,
+  busy = false,
 }: {
   session?: Session | null;
   messages?: Message[];
@@ -997,6 +1121,11 @@ export function Transcript({
   onKeepChange?: (path: string) => void;
   onDiscardChange?: (path: string) => void;
   busyPath?: string | null;
+  onEditMessage?: (messageId: string, text: string) => void;
+  onRetryMessage?: (messageId: string) => void;
+  onDeleteMessage?: (messageId: string) => void;
+  /** A turn is running; rewriting the history now would race its reply. */
+  busy?: boolean;
 }) {
   const localRef = useRef<HTMLDivElement>(null);
   const ref = scrollRef ?? localRef;
@@ -1018,7 +1147,13 @@ export function Transcript({
           : list.map((message, index) => (
               <Row key={message.id} index={index}>
                 {message.role === "user" ? (
-                  <UserMessage message={message} compact={compact} />
+                  <UserMessage
+                    message={message}
+                    compact={compact}
+                    busy={busy}
+                    onEdit={onEditMessage}
+                    onDelete={onDeleteMessage}
+                  />
                 ) : (
                   <AssistantMessage
                     message={message}
@@ -1028,6 +1163,9 @@ export function Transcript({
                     onKeepChange={onKeepChange}
                     onDiscardChange={onDiscardChange}
                     busyPath={busyPath}
+                    busy={busy}
+                    onRetry={onRetryMessage}
+                    onDelete={onDeleteMessage}
                   />
                 )}
               </Row>

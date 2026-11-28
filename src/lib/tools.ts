@@ -342,6 +342,7 @@ export function toolResource(call: ToolCall): string {
     return slug ? `${action} ${String(slug)}` : action;
   }
   if (call.name === "git") return `git ${String(call.args.action ?? "status")}`;
+  if (call.name === "screen") return String(call.args.action ?? "snapshot");
   if (call.name === "preview") {
     const action = String(call.args.action ?? "open");
     return `${action} ${String(call.args.url ?? "")}`.trim();
@@ -1032,7 +1033,7 @@ export async function runTool(
             ok: false,
             summary: "Screen control is not available here",
             content:
-              "Screen control only works in the Lantas Screen card. Open it from the Screen button first.",
+              "Screen access is off. Turn on Screen access in Settings › Permissions (and Computer control to act), or open the Lantas Screen card from the Screen button.",
             resource: "screen",
           };
         }
@@ -1589,7 +1590,9 @@ async function runBrowserTool(
     resource,
   });
 
-  const readOnly = ["snapshot", "extract", "find", "screenshot", "wait", "tabs"].includes(action);
+  const readOnly = ["snapshot", "extract", "text", "find", "screenshot", "wait", "tabs"].includes(
+    action,
+  );
   if (!readOnly && !(drive ?? aiDriving())) {
     return fail(
       "The user has control of the browser. Ask them to switch to Act mode before changing the page.",
@@ -1599,6 +1602,7 @@ async function runBrowserTool(
   const compare = [
     "click",
     "click_at",
+    "type_at",
     "hover",
     "type",
     "fill",
@@ -1703,21 +1707,30 @@ async function runBrowserTool(
   switch (action) {
     case "snapshot": {
       const snapshot = await agentSnapshot();
+      const blind = Boolean(snapshot.page) && snapshot.elements.length === 0;
       return {
         ok: Boolean(snapshot.page),
         summary: snapshot.page ? `Read ${snapshot.page.title}` : "No page is open",
-        content: describeSnapshot(snapshot),
+        content:
+          describeSnapshot(snapshot) +
+          (blind
+            ? "\n\nNo DOM controls were exposed. This page is canvas or a closed widget: take screenshot {\"grid\":true}, read the cell with the control, then use click_at or type_at {\"cell\":\"G4\",\"text\":\"...\"}."
+            : ""),
         resource,
       };
     }
 
-    case "extract": {
+    case "extract":
+    case "text": {
       const snapshot = await agentSnapshot();
       if (!snapshot.page) return fail("No page is open in the browser.");
       return {
         ok: true,
         summary: `Extracted ${snapshot.page.words} words`,
-        content: truncate(snapshot.page.text, 20_000),
+        content: truncate(
+          `URL: ${snapshot.page.url}\nTitle: ${snapshot.page.title}\n\n${snapshot.page.text}`,
+          20_000,
+        ),
         resource,
       };
     }
@@ -1868,7 +1881,8 @@ async function runBrowserTool(
           "This model cannot see images. Use browser snapshot, extract, find or execute: they return the page as text with numbered controls.",
         );
       }
-      const shot = await agentScreenshot();
+      const grid = Boolean(args.grid ?? args.annotate);
+      const shot = await agentScreenshot({ grid });
       if (!shot.ok || !shot.image) {
         return fail(
           shot.error ||
@@ -1878,15 +1892,66 @@ async function runBrowserTool(
       const page = await agentPage().catch(() => null);
       return {
         ok: true,
-        summary: page?.title ? `Saw ${page.title}` : "Captured the page",
+        summary: page?.title
+          ? grid
+            ? `Saw ${page.title} with a click grid`
+            : `Saw ${page.title}`
+          : "Captured the page",
         content: [
           "Screenshot of the live page is attached to this result.",
           page?.url ? `URL: ${page.url}` : "",
+          shot.width && shot.height
+            ? `Image size: ${shot.width}×${shot.height}. The grid is 16 columns (A–P) by 10 rows (1–10).`
+            : "",
+          grid
+            ? "Grid overlay: each cell is a rectangle of the viewport. To act without DOM controls, name the cell (for example G4), click its centre with type_at {\"cell\":\"G4\",\"text\":\"...\"} or look up the pixel centre with this arithmetic: x = (columnIndex + 0.5) × width / 16, y = (rowIndex + 0.5) × height / 10."
+            : "Pass {\"grid\":true} when controls cannot be read from the DOM; the labelled grid gives you coordinates for click_at and type_at.",
           "Use it to check what the page actually shows; the DOM text alone cannot show overlays, canvases or layout.",
         ]
           .filter(Boolean)
           .join("\n"),
         images: [shot.image],
+        resource,
+      };
+    }
+
+    case "type_at": {
+      const text = String(args.text ?? args.value ?? "");
+      if (!text) return fail("type_at needs the text to type.");
+      let x = Number(args.x ?? NaN);
+      let y = Number(args.y ?? NaN);
+      // A grid cell is authoritative when given; the model read it off a
+      // labelled screenshot, so it does not have to do the pixel arithmetic.
+      const cell = String(args.cell ?? "").trim().toUpperCase();
+      const match = /^([A-P])\s*(\d|10)$/.exec(cell);
+      if (match) {
+        const size = await agentEvaluate(
+          "({ width: window.innerWidth, height: window.innerHeight })",
+        ).catch(() => null);
+        const viewport = (size?.value ?? null) as { width?: number; height?: number } | null;
+        const width = Number(viewport?.width ?? 0);
+        const height = Number(viewport?.height ?? 0);
+        if (width > 0 && height > 0) {
+          x = (match[1].charCodeAt(0) - 65 + 0.5) * (width / 16);
+          y = (Number(match[2]) - 1 + 0.5) * (height / 10);
+        }
+      }
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return fail("type_at needs the cell from a grid screenshot, or numeric x and y viewport coordinates.");
+      }
+      const clicked = await agentClickAt(x, y);
+      if (!clicked) return fail("Nothing was at those coordinates to focus.");
+      await new Promise((resolve) => setTimeout(resolve, 140));
+      const typed = await agentTypeResult(text, undefined, Boolean(args.submit));
+      if (!typed.ok) return fail(typed.error || "The field did not take the text.");
+      return {
+        ok: true,
+        summary: `Clicked ${Math.round(x)}, ${Math.round(y)} and typed`,
+        content: await afterAction(
+          `Clicked at ${Math.round(x)}, ${Math.round(y)} and typed into the field${
+            typed.value ? ` (now reads: ${typed.value})` : ""
+          }.`,
+        ),
         resource,
       };
     }
@@ -2353,11 +2418,12 @@ export const TOOL_MANUAL = [
   '- terminal {"command","timeoutMs?"} — run a command in the open workspace and return its real stdout and stderr. Use this for tests, builds and shell commands. Never claim a command ran without a terminal result.',
   '- git {"action","message?","path?","branch?","remote?","staged?"} — real git in the open repository. status, diff, log, show, add, commit {"message"}, pull (fast-forward only), push, checkout {"name"}. Every call returns git output. Commit, pull and push change the repository, so they ask first unless the user is on Auto. Never force push, never reset, and never claim a push landed without a successful result.',
   '- preview {"action":"start|open","command?","url?","port?"} — run the project (default `npm run dev`), wait for the port, and open it in Lantas\' own browser panel so the user sees the app inside the app. Use this after building a web app: start it, then check the page with the browser tool at the same URL.',
-  '- browser {"action",...} — actions: snapshot, extract, screenshot, find {"query"}, wait {"text","timeoutMs?","gone?"}, click {"target"|"ref"}, click_at {"x","y"}, hover {"target"}, type/fill {"text","selector?","submit?"}, select {"target","value"}, check {"target","checked?"}, execute {"code","timeoutMs?","screenshot?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, steps {"steps":[...]}, tabs, switch_tab {"id"|"index"}, new_tab {"url"}, close_tab {"id"|"index"}, navigate {"url"}, task {"task","maxSteps?"}, open_in_chrome {"url"}, back, forward, reload.',
+  '- browser {"action",...} — actions: snapshot, extract/text, screenshot {"grid?"}, find {"query"}, wait {"text","timeoutMs?","gone?"}, click {"target"|"ref"}, click_at {"x","y"}, type_at {"cell"|"x","y","text","submit?"}, hover {"target"}, type/fill {"text","selector?","submit?"}, select {"target","value"}, check {"target","checked?"}, execute {"code","timeoutMs?","screenshot?"}, evaluate {"code"}, press {"key"}, scroll {"dy"}, steps {"steps":[...]}, tabs, switch_tab {"id"|"index"}, new_tab {"url"}, close_tab {"id"|"index"}, navigate {"url"}, task {"task","maxSteps?"}, open_in_chrome {"url"}, back, forward, reload.',
   "- browser execute is the unbounded browser step: write async JavaScript for the live page (`await`, loops, `fetch`, `return` a compact value) and get the value plus console logs back. The page session stays alive, so a later execute sees the same tab, cookies and DOM. Use it instead of many single actions when the work is mechanical, and add \"screenshot\":true when you also need to see the result.",
-  "- browser screenshot returns the page as an image you can see. Take one for layout, canvas or overlay questions, or when the DOM says something happened but the page looks wrong.",
+  "- browser screenshot returns the page as an image you can see. Take one for layout, canvas or overlay questions, or when the DOM says something happened but the page looks wrong. Add {\"grid\":true} for a labelled 16×10 grid when a control has no usable ref (canvas, shadow DOM, an image map): read the cell, then use click_at or type_at with that cell. Never invent coordinates without a fresh grid picture.",
   '- browser steps batches up to 12 actions into one call and returns one fresh snapshot at the end: {"action":"steps","steps":[{"action":"click","ref":12},{"action":"type","text":"2x + 4"},{"action":"press","key":"Enter"}]}. Use it when you already know the sequence, so a task does not lose the thread between round trips. Element refs come from a fresh snapshot and stay tied to their element; a ref that is gone fails instead of clicking whatever took its place.',
   "- browser task hands the whole job to the local browser-use engine in its own Chromium (trusted input, real downloads, saved logins). Prefer it for \"open X and do Y\" requests that span pages; use the single actions when you need to stay in the embedded tab. If it reports that no engine is running, tell the user to run bash engine/run.sh once and keep going with single actions.",
+  '- screen {"action",...} — the user\'s actual desktop, when Screen access is on. snapshot/zoom/windows/focus read it; click/type/fill/key/scroll/drag act when Computer control is on; files {"query","root?"} finds a file by name with Spotlight; highlight {"ref"|"cell"|"x","y","label?"} points at something on the display so the user can see it. Call snapshot first, do one step at a time, and read the fresh snapshot in each result. Never guess a coordinate or an element ref.',
   "",
   BROWSER_GUIDE,
   '- integrations {"action",...} — apps, tools {"toolkit"}, inbox {"limit","query"}, search_email {"query","limit"}, run {"slug","arguments"}.',

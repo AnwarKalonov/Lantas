@@ -274,6 +274,18 @@ export interface CompareSide {
 }
 export type ChimeKind = "done" | "error" | "ask";
 
+/**
+ * A project is a folder you build in. Threads can belong to it, and opening
+ * the project makes that folder the active workspace.
+ */
+export interface Project {
+  id: string;
+  name: string;
+  /** Absolute folder on the desktop build; the folder name in a browser tab. */
+  root: string;
+  created: number;
+}
+
 export interface Settings {
   theme: ThemeMode;
   sendOnEnter: boolean;
@@ -307,6 +319,8 @@ export interface Settings {
 
 export interface AppState {
   sessions: Session[];
+  /** Folder-backed projects, including ones with no thread yet. */
+  projects: Project[];
   activeId: string | null;
   view: ViewId;
   mode: Mode;

@@ -18,6 +18,9 @@ interface SessionViewProps {
   onScreenToggle: () => void;
   onApprovePlan: () => void;
   onOpenFile?: (path: string, line?: number) => void;
+  onEditMessage?: (messageId: string, text: string) => void;
+  onRetryMessage?: (messageId: string) => void;
+  onDeleteMessage?: (messageId: string) => void;
 }
 
 export function SessionView({
@@ -31,6 +34,9 @@ export function SessionView({
   onScreenToggle,
   onApprovePlan,
   onOpenFile,
+  onEditMessage,
+  onRetryMessage,
+  onDeleteMessage,
 }: SessionViewProps) {
   const {
     renameSession,
@@ -176,6 +182,10 @@ export function SessionView({
         onKeepChange={(path) => void keepOne(path)}
         onDiscardChange={discardChange}
         busyPath={busyPath}
+        onEditMessage={onEditMessage}
+        onRetryMessage={onRetryMessage}
+        onDeleteMessage={onDeleteMessage}
+        busy={streaming}
       />
 
       {staged.length > 0 && (

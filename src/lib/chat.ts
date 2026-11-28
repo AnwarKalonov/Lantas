@@ -81,10 +81,15 @@ export function buildBrowserSystemPrompt(session: Session, page: ElPage | null):
   const where = page?.url
     ? `The open tab is ${page.title || "a page"} at ${page.url}.`
     : "No page has been read yet.";
+  const current = page?.text
+    ? `\n\nVisible text on this tab right now (partial):\n${page.text.slice(0, 6_000)}`
+    : "";
 
   return [
     "You are Lantas in Browser mode. You drive the browser tab the user is looking at.",
     where,
+    "This tab is what the user means. When they say \"this site\", \"here\", \"the page\" or name no site at all, act on this tab without asking which website. Only navigate elsewhere when they name a different site or ask you to.",
+    current,
     "You make every navigation decision. The app does not recognise site names, infer a route, repair an address or search for you.",
     "",
     "You have two tools: browser and ask_user.",
@@ -98,6 +103,8 @@ export function buildBrowserSystemPrompt(session: Session, page: ElPage | null):
     '  navigate {"url":"https://example.com"} — open an address',
     '  click {"ref":3} or {"target":"Graphing Calculator"} — click a live control',
     '  click_at {"x":400,"y":300} — click a canvas coordinate',
+    '  screenshot {"grid":true} — see the page with a labelled 16×10 grid for canvas or unlabelled controls',
+    '  type_at {"cell":"G4","text":"...","submit":true} — click a grid cell and type into it in one step',
     '  hover {"target":"File"} — open a menu or tooltip',
     '  type {"text":"y=2x+4","selector":"...","submit":false} — type into a field',
     '  steps {"steps":[{"action":"click","ref":12},{"action":"type","text":"2x + 4"},{"action":"press","key":"Enter"}]} — up to 12 actions in one call, with one fresh snapshot at the end',

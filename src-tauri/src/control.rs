@@ -8,6 +8,54 @@
 
 use serde_json::Value;
 
+/// Find files by name with Spotlight. The screen assistant can answer "find
+/// my resume" without walking the home folder or knowing where it lives.
+#[tauri::command]
+pub fn file_search(query: String, root: Option<String>, limit: Option<u32>) -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let query = query.trim();
+        if query.is_empty() {
+            return Ok("[]".into());
+        }
+        let limit = limit.unwrap_or(12).clamp(1, 50) as usize;
+        let mut command = std::process::Command::new("mdfind");
+        if let Some(root) = root.filter(|value| !value.trim().is_empty()) {
+            command.arg("-onlyin").arg(root);
+        }
+        let escaped = query.replace('\\', "\\\\").replace('"', "\\\"");
+        command.arg(format!("kMDItemFSName == \"*{}*\"c", escaped));
+        let output = command
+            .output()
+            .map_err(|error| format!("Spotlight search failed: {error}"))?;
+        if !output.status.success() {
+            return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+        }
+        let mut files = Vec::new();
+        for line in String::from_utf8_lossy(&output.stdout).lines() {
+            let path = line.trim();
+            if path.is_empty() || files.len() >= limit {
+                continue;
+            }
+            let name = std::path::Path::new(path)
+                .file_name()
+                .map(|part| part.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let dir = std::path::Path::new(path)
+                .parent()
+                .map(|part| part.to_string_lossy().to_string())
+                .unwrap_or_default();
+            files.push(serde_json::json!({ "name": name, "path": path, "dir": dir }));
+        }
+        Ok(Value::Array(files).to_string())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (query, root, limit);
+        Err("File search needs the macOS desktop app.".into())
+    }
+}
+
 #[tauri::command]
 pub fn screen_info() -> Result<Value, String> {
     imp::screen_info()

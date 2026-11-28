@@ -602,6 +602,27 @@ export function BrowserView({
     notify(ok ? `Clicked “${target.trim()}”` : "That click did not land", ok ? "default" : "error");
   };
 
+  /** Put every readable word of the open page on the clipboard. */
+  const copyPageText = async () => {
+    if (atHome) return;
+    try {
+      const next = page?.text ? page : await pageFor();
+      setPage(next);
+      setElContext(next);
+      const body = next.text?.trim();
+      if (!body) {
+        notify("This page has no readable text to copy", "error");
+        return;
+      }
+      await navigator.clipboard?.writeText(
+        [next.title || hostOf(next.url), next.url, "", body].filter(Boolean).join("\n"),
+      );
+      notify(`Copied ${body.split(/\s+/).filter(Boolean).length} words from this page`);
+    } catch (caught) {
+      notify(caught instanceof Error ? caught.message : "Could not copy this page", "error");
+    }
+  };
+
   const toggleBookmark = () => {
     if (atHome) return;
     const exists = data.bookmarks.some((item) => item.url === active.url);
@@ -1182,6 +1203,16 @@ export function BrowserView({
           )}
           <button
             type="button"
+            className="el-round"
+            onClick={() => void copyPageText()}
+            disabled={atHome}
+            title="Copy all text on this page"
+            aria-label="Copy page text"
+          >
+            <Icon name="copy" size={13} />
+          </button>
+          <button
+            type="button"
             className={cx("el-round", bookmarked && "is-on")}
             onClick={toggleBookmark}
             disabled={atHome}
@@ -1461,6 +1492,7 @@ export function BrowserView({
               <Transcript
                 messages={aiMessages}
                 compact
+                busy={aiStreaming}
                 onOpenFile={onOpenFile}
                 empty={
                   <div className="trust-empty">

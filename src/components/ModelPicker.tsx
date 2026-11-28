@@ -176,8 +176,8 @@ export function ModelPicker({
           className="mp-menu is-portal"
           style={{
             left: place.left,
-            top: place.top,
-            bottom: place.bottom,
+            top: place.top ?? "auto",
+            bottom: place.bottom ?? "auto",
             maxHeight: place.maxHeight,
           }}
           role="listbox"

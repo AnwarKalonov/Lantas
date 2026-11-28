@@ -32,6 +32,7 @@ import { cx, uid } from "../lib/util";
 import { GitPanel } from "./GitPanel";
 import { ExtensionsPanel } from "./ExtensionsPanel";
 import { ModelPicker } from "./ModelPicker";
+import { RailResizer, useRailWidth } from "./RailResizer";
 import { Icon } from "./Icons";
 import { MonacoEditor } from "./MonacoEditor";
 import { TerminalPanel } from "./TerminalPanel";
@@ -193,6 +194,7 @@ export function IdeView({
   const [activity, setActivity] = useState<Activity>("explorer");
   const [sideOpen, setSideOpen] = useState(true);
   const [assistantOpen, setAssistantOpen] = useState(true);
+  const rail = useRailWidth("lantas.ide.rail", 366);
   const [tabs, setTabs] = useState<string[]>(() => [...bufferCache.tabs]);
   const [active, setActive] = useState<string | null>(() => bufferCache.active);
   const [drafts, setDrafts] = useState<Record<string, string>>(() => ({ ...bufferCache.drafts }));
@@ -1400,7 +1402,11 @@ export function IdeView({
         </main>
 
         {assistantOpen && (
-          <aside className="ide-assistant trust-panel">
+          <aside
+            className="ide-assistant trust-panel"
+            style={{ width: rail.width, flex: `0 0 ${rail.width}px` }}
+          >
+            <RailResizer onPointerDown={rail.onPointerDown} label="Resize the coding assistant" />
             <TrustPanelHead
               title="Assistant"
               onNewChat={() => {

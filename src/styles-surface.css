@@ -1,0 +1,443 @@
+/* ==========================================================================
+   App surface polish
+   Loaded after the component styles. Owns the behaviour the user asked for:
+   a small preview window, rails you can drag, a model list that fits on screen,
+   and a Code tab that belongs to the same window as Chat.
+   ========================================================================== */
+
+/* ── a page the agent opens: small window first ─────────────────────────── */
+
+.mini-browser {
+  position: fixed;
+  z-index: 70;
+  display: flex;
+  min-width: 320px;
+  min-height: 220px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.24),
+    0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: mini-window-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes mini-window-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
+.mini-browser-bar {
+  display: flex;
+  flex: 0 0 34px;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 6px 0 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--raised);
+  cursor: grab;
+  user-select: none;
+}
+
+.mini-browser-dots {
+  display: inline-flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.mini-browser-dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+
+.mini-browser-dots i:first-child {
+  background: #e0a08e;
+}
+
+.mini-browser-dots i:nth-child(2) {
+  background: #d9bf86;
+}
+
+.mini-browser-dots i:last-child {
+  background: #9dbf9e;
+}
+
+.mini-browser-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-browser-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  height: 23px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 10.5px;
+  transition: background 130ms ease, color 130ms ease, border-color 130ms ease;
+}
+
+.mini-browser-action:hover {
+  background: var(--sel);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.mini-browser-close {
+  display: grid;
+  flex: 0 0 auto;
+  width: 23px;
+  height: 23px;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--text-3);
+}
+
+.mini-browser-close:hover {
+  background: var(--sel);
+  color: var(--text);
+}
+
+.mini-browser-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #ffffff;
+}
+
+.mini-browser-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #ffffff;
+}
+
+.mini-browser-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--surface);
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+
+.mini-browser-spinner {
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid var(--line-strong);
+  border-top-color: var(--text-2);
+  border-radius: 50%;
+  animation: mini-spin 700ms linear infinite;
+}
+
+@keyframes mini-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mini-browser-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  background:
+    linear-gradient(135deg, transparent 46%, var(--line-strong) 47%, var(--line-strong) 55%, transparent 56%),
+    linear-gradient(135deg, transparent 66%, var(--line-strong) 67%, var(--line-strong) 75%, transparent 76%);
+}
+
+html.is-dragging-mini,
+html.is-dragging-mini * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+html.is-dragging-mini .mini-browser iframe {
+  pointer-events: none;
+}
+
+/* ── draggable side chat ────────────────────────────────────────────────── */
+
+.el-ai,
+.ide-assistant {
+  position: relative;
+}
+
+.rail-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -5px;
+  z-index: 8;
+  display: flex;
+  width: 10px;
+  justify-content: center;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.rail-resizer span {
+  width: 1px;
+  height: 100%;
+  background: transparent;
+  transition: background 140ms ease;
+}
+
+.rail-resizer:hover span,
+html.is-resizing-rail .rail-resizer span {
+  background: var(--line-strong);
+}
+
+html.is-resizing-rail,
+html.is-resizing-rail * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+html.is-resizing-rail iframe {
+  pointer-events: none;
+}
+
+/* ── model lists: fit the window and actually scroll ────────────────────── */
+
+.mp-trigger {
+  height: 27px;
+  padding: 0 8px;
+  border-radius: 7px;
+  color: var(--text-2);
+  transition: background 130ms ease, color 130ms ease;
+}
+
+.trust-model .mp-trigger,
+.el-ai-model .mp-trigger,
+.ide-assistant-model .mp-trigger {
+  height: 24px;
+  padding: 0 7px;
+}
+
+.mp-menu.is-portal {
+  position: fixed;
+  z-index: 90;
+  animation: none;
+}
+
+.mp-menu {
+  display: flex;
+  width: 306px;
+  max-width: calc(100vw - 24px);
+  max-height: min(424px, calc(100vh - 96px));
+  flex-direction: column;
+  padding: 5px;
+  border-radius: 11px;
+  background: var(--overlay);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.mp-search {
+  flex: 0 0 auto;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0 0 4px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--raised);
+}
+
+.mp-list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 1px;
+}
+
+.mp-group-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 7px 8px 4px;
+  background: var(--overlay);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-4);
+}
+
+.mp-row {
+  min-height: 28px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+}
+
+.mp-row.is-active {
+  background: var(--sel);
+}
+
+.mp-manage {
+  flex: 0 0 auto;
+  padding: 8px 8px 6px;
+}
+
+/* The chat composer's list was clipped by a later `overflow: hidden` rule, so
+   it could not scroll at all. Keep this list a real scroll area. */
+.model-popover {
+  width: min(344px, calc(100vw - 24px));
+  max-height: min(456px, calc(100vh - 170px));
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+
+.model-popover .popover-search {
+  position: sticky;
+  top: -4px;
+  z-index: 2;
+  margin: 0 4px 8px;
+  background: var(--overlay);
+}
+
+.model-popover .popover-foot {
+  position: sticky;
+  bottom: -4px;
+  background: var(--overlay);
+}
+
+.model-popover::-webkit-scrollbar,
+.mp-list::-webkit-scrollbar {
+  width: 9px;
+}
+
+.model-popover::-webkit-scrollbar-thumb,
+.mp-list::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: var(--line-strong);
+}
+
+@media (max-width: 640px) {
+  .model-popover {
+    left: 0;
+    width: calc(100vw - 32px);
+  }
+}
+
+/* ── Code belongs to the same window as Chat ────────────────────────────── */
+
+.titlebar.is-code {
+  border-bottom-color: var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.titlebar.is-code .crumb-current,
+.titlebar.is-code .icon-button {
+  color: var(--text-2);
+}
+
+.titlebar.is-code .titlebar-mark {
+  color: var(--text-3);
+}
+
+.titlebar.is-code .mode-tabs {
+  border-color: var(--line);
+  background: var(--raised);
+}
+
+.titlebar.is-code .mode-tab {
+  color: var(--text-3);
+}
+
+.titlebar.is-code .mode-tab:hover {
+  color: var(--text);
+}
+
+.titlebar.is-code .mode-tab.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.titlebar.is-code .update-pill {
+  border-color: var(--line);
+  background: var(--raised);
+  color: var(--text-2);
+}
+
+/* A plain white window means the editor is white too, not cream. */
+[data-theme="light"] {
+  --ide-bg: #ffffff;
+  --ide-chrome: #ffffff;
+  --ide-panel: #fbfbfa;
+  --ide-editor: #ffffff;
+  --ide-hover: #f3f3f1;
+  --ide-selected: #ececea;
+  --ide-line: rgba(30, 29, 25, 0.08);
+  --ide-line-strong: rgba(30, 29, 25, 0.16);
+}
+
+.code-shell,
+.workspace {
+  animation: surface-swap 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes surface-swap {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.998);
+  }
+}
+
+.ide-header {
+  border-bottom-color: var(--line);
+  background: var(--surface);
+}
+
+.ide-assistant,
+[data-theme="light"] .ide-assistant {
+  border-left-color: var(--line);
+  background: var(--surface);
+}
+
+[data-theme="light"] .ide-rail {
+  border-right-color: var(--line);
+  background: var(--ide-panel);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-browser,
+  .code-shell,
+  .workspace,
+  .mini-browser-spinner {
+    animation: none;
+  }
+}

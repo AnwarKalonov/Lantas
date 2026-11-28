@@ -1460,7 +1460,7 @@ async function runPreviewTool(
     return {
       ok: true,
       summary: `Opened ${target} in Lantas`,
-      content: `Opened ${target} in Lantas' browser panel. It is visible to the user now.`,
+      content: `Opened ${target} in a small preview window over the current tab. It is visible to the user now, and the full Browser tab is one click away.`,
       resource,
     };
   }
@@ -1531,7 +1531,7 @@ async function runPreviewTool(
       content: [
         `$ ${command}`,
         ready
-          ? `The server answered ${lastCode} and ${target} is open in Lantas' browser panel.`
+          ? `The server answered ${lastCode} and ${target} is open in a small preview window over the current tab.`
           : `The server was launched but ${target} has not answered yet${lastCode ? ` (last status ${lastCode})` : ""}. It may still be compiling; check the panel before assuming it failed.`,
         "The process is detached; it keeps running after this turn.",
         tail ? `Log (${log}):\n${tail.output.slice(-30).join("\n")}` : "",

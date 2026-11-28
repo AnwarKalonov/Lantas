@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { PROVIDERS } from "../lib/data";
 import { isConfigured, isFreeModel, listModels, prettyModel } from "../lib/providers";
 import { useStore } from "../lib/store";
@@ -35,6 +36,38 @@ export function ModelPicker({
   const [discovering, setDiscovering] = useState(false);
   const asked = useRef<Set<string>>(new Set());
   const root = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  // A side panel can sit anywhere: at the top of the window, beside a rail or
+  // under the composer. The list is rendered in a portal at a measured spot,
+  // so a rail's overflow can never clip it and it always fits on screen.
+  const [place, setPlace] = useState<{
+    left: number;
+    top?: number;
+    bottom?: number;
+    maxHeight: number;
+  }>({ left: 0, maxHeight: 424 });
+
+  const openMenu = () => {
+    const rect = root.current?.getBoundingClientRect();
+    if (rect) {
+      const width = Math.min(306, window.innerWidth - 24);
+      const left = Math.min(
+        Math.max(align === "right" ? rect.right - width : rect.left, 12),
+        Math.max(12, window.innerWidth - width - 12),
+      );
+      const above = Math.max(0, rect.top - 16);
+      const below = Math.max(0, window.innerHeight - rect.bottom - 16);
+      const down = placement === "down" ? below > 180 : below > above;
+      setPlace({
+        left,
+        ...(down
+          ? { top: rect.bottom + 7, bottom: undefined }
+          : { bottom: window.innerHeight - rect.top + 7, top: undefined }),
+        maxHeight: Math.min(424, down ? below : above),
+      });
+    }
+    setOpen(true);
+  };
 
   // A provider can be connected but still show an empty list until its
   // "Test connection" has run. Asking its /models endpoint when the picker
@@ -89,7 +122,8 @@ export function ModelPicker({
   useEffect(() => {
     if (!open) return;
     const close = (event: MouseEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!root.current?.contains(target) && !menu.current?.contains(target)) setOpen(false);
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
@@ -127,7 +161,7 @@ export function ModelPicker({
       <button
         type="button"
         className={cx("mp-trigger", open && "is-open")}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => (open ? setOpen(false) : openMenu())}
         aria-haspopup="listbox"
         aria-expanded={open}
         title={`${PROVIDERS.find((meta) => meta.id === provider)?.name ?? "Provider"} · ${prettyModel(model)}`}
@@ -136,13 +170,16 @@ export function ModelPicker({
         <Icon name="chevronDown" size={11} />
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
-          className={cx(
-            "mp-menu",
-            align === "right" && "is-right",
-            placement === "down" && "is-down",
-          )}
+          ref={menu}
+          className="mp-menu is-portal"
+          style={{
+            left: place.left,
+            top: place.top,
+            bottom: place.bottom,
+            maxHeight: place.maxHeight,
+          }}
           role="listbox"
         >
           <label className="mp-search">
@@ -200,7 +237,8 @@ export function ModelPicker({
             Manage providers
             <Icon name="chevronRight" size={11} />
           </button>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

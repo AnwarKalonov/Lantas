@@ -33,6 +33,7 @@ import { engineHealth } from "../lib/browserSidecar";
 import { flattenBookmarks, readBrowserBookmarks } from "../lib/bookmarks";
 import { ChromeBridgePanel } from "./ChromeBridgePanel";
 import { ModelPicker } from "./ModelPicker";
+import { RailResizer, useRailWidth } from "./RailResizer";
 import { readAttachments } from "../lib/attachments";
 import type { Attachment, Message, ProviderId } from "../lib/types";
 import { isConfigured, streamChat, type ChatTurn } from "../lib/providers";
@@ -157,6 +158,7 @@ export function BrowserView({
     return window.innerWidth >= 1180;
   });
   const [aiDraft, setAiDraft] = useState("");
+  const rail = useRailWidth("lantas.browser.rail", 340);
   const [aiFiles, setAiFiles] = useState<Attachment[]>([]);
   const [promptOpen, setPromptOpen] = useState(true);
   const [suggestions, setSuggestions] = useState<string[]>(() => defaultPrompts(page));
@@ -1463,7 +1465,12 @@ export function BrowserView({
         </div>
 
         {aiOpen && (
-          <aside className="el-ai trust-panel" aria-label="Lantas">
+          <aside
+            className="el-ai trust-panel"
+            aria-label="Lantas"
+            style={{ width: rail.width, flex: `0 0 ${rail.width}px` }}
+          >
+            <RailResizer onPointerDown={rail.onPointerDown} label="Resize the browser chat" />
             <TrustPanelHead
               title={activeSession?.title || "New chat"}
               onNewChat={() => {

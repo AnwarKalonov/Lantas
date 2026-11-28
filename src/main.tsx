@@ -18,6 +18,7 @@ import "./styles-polish.css";
 import "./styles-reui.css";
 import "./styles-screen.css";
 import "./styles-clean.css";
+import "./styles-surface.css";
 import "./styles-compare.css";
 
 // The transparent pointing layer is its own window; it renders nothing but a

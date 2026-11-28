@@ -90,6 +90,7 @@ import { SettingsModal, type SettingsTab } from "./components/SettingsModal";
 import { Sidebar } from "./components/Sidebar";
 import { SkillsView } from "./components/SkillsView";
 import { TitleBar } from "./components/TitleBar";
+import { MiniBrowser, type MiniPreview } from "./components/MiniBrowser";
 import { PROVIDERS, SLASH_COMMANDS } from "./lib/data";
 
 const THEME_ORDER = ["dark", "light", "system"] as const;
@@ -162,6 +163,8 @@ export function App() {
     nonce: number;
   } | null>(null);
   const [cliRequest, setCliRequest] = useState(0);
+  /** A page the agent opened beside the current surface, not in a new tab. */
+  const [miniPreview, setMiniPreview] = useState<MiniPreview | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
   /** The setup card is showing; the chat itself has not changed. */
   const [compareArmed, setCompareArmed] = useState(false);
@@ -954,18 +957,25 @@ export function App() {
   // A browser call can begin while the user is in Code, where BrowserView is
   // unmounted. Switch to the Browser tab and carry the address with it so the
   // page the agent is about to open is visible instead of orphaned.
+  // A page the agent opens while the user is reading Chat or editing Code
+  // appears in a small window over that surface. Switching tabs there would
+  // lose the message or the file they were in the middle of.
   useEffect(() => {
     const onAgentNavigate = (event: Event) => {
       const url = (event as CustomEvent<{ url?: string }>).detail?.url;
-      // Chat and Browser keep BrowserView mounted; only Code unmounts it.
-      // Switching there is what makes an agent-opened page visible again.
-      if (!url || state.mode !== "code") return;
+      if (!url || state.mode === "browser") return;
       setBrowserUrl(url);
-      setMode("browser");
+      setMiniPreview({ url, nonce: Date.now() });
     };
     window.addEventListener("lantas:navigate", onAgentNavigate);
     return () => window.removeEventListener("lantas:navigate", onAgentNavigate);
-  }, [state.mode, setBrowserUrl, setMode]);
+  }, [state.mode, setBrowserUrl]);
+
+  // Choosing the Browser tab itself is the one gesture that dismisses the
+  // small window; the page is already in the tab when the user comes back.
+  useEffect(() => {
+    if (state.mode === "browser") setMiniPreview(null);
+  }, [state.mode]);
 
   const handleSendRef = useRef<
     (text: string, attachments?: Attachment[], options?: { agent?: AgentId; base?: Session }) => Promise<void>
@@ -1240,8 +1250,11 @@ export function App() {
       try {
         if (live) {
           let textPartId: string | null = null;
+          let streamed = "";
           let inputTokens = 0;
           let outputTokens = 0;
+          let editedFiles = 0;
+          const toolNames = new Map<string, string>();
           let browserStarted = false;
           let browserToolRan = false;
           const browserToolIds = new Set<string>();
@@ -1506,8 +1519,12 @@ export function App() {
               }
             },
             openPreview: (url) => {
+              // Open beside the thread the user is in. The Browser tab is one
+              // click away, but the turn never yanks them out of Chat or Code.
               setBrowserUrl(url);
-              setMode("browser");
+              if (state.mode !== "browser") {
+                setMiniPreview({ url, nonce: Date.now() });
+              }
             },
             onShellLine: (line) => {
               const partId = shellPart.current;
@@ -1575,6 +1592,7 @@ export function App() {
 
           const appendText = (chunk: string) => {
             closeReasoning();
+            streamed += chunk;
             if (!textPartId) {
               const id = uid("part");
               textPartId = id;
@@ -1603,7 +1621,7 @@ export function App() {
           // “Worked for 2s · 4 steps” timeline the user asked for.
           const toolStarted = new Map<string, number>();
 
-          await runToolLoop({
+          const turnOptions: Parameters<typeof runToolLoop>[0] = {
             provider,
             config: providerConfig,
             model,
@@ -1648,6 +1666,7 @@ export function App() {
             onToolStart: (id, call, label) => {
               closeReasoning();
               toolStarted.set(id, Date.now());
+              toolNames.set(id, call.name);
               if (call.name === "browser") {
                 browserToolRan = true;
                 browserToolIds.add(id);
@@ -1705,6 +1724,11 @@ export function App() {
               const startedAt = toolStarted.get(id) ?? 0;
               const durationMs = startedAt ? Date.now() - startedAt : undefined;
               toolStarted.delete(id);
+              const finishedTool = toolNames.get(id);
+              toolNames.delete(id);
+              if (outcome.ok && (finishedTool === "write" || finishedTool === "edit")) {
+                editedFiles += 1;
+              }
               if (shellPart.current === `${id}:shell`) shellPart.current = null;
               if (browserToolIds.has(id)) {
                 const page = getElContext();
@@ -1782,10 +1806,52 @@ export function App() {
               outputTokens = usage.output ?? outputTokens;
             },
             onLimit: requestMoreSteps,
-          }).finally(() => {
+          };
+
+          const runTurn = (turns: ChatTurn[]) =>
+            runToolLoop({ ...turnOptions, messages: turns });
+
+          await runTurn(history).finally(() => {
             closeReasoning();
             if (browserToolRan) finishBrowserActivity("Browser task finished");
           });
+
+          // A model that answers a change request with prose has not done the
+          // work. In Code, nudge it once to apply the edit with a real tool
+          // instead of making the user copy the answer into files by hand.
+          const askedForChange =
+            /\b(add|build|change|convert|create|delete|edit|fix|implement|improve|make|move|refactor|remove|rename|replace|restyle|update|write)\b/i.test(
+              text,
+            );
+          if (
+            state.mode === "code" &&
+            agent === "build" &&
+            editedFiles === 0 &&
+            askedForChange &&
+            !controller.signal.aborted &&
+            streamed.trim()
+          ) {
+            patch((message) => ({
+              ...message,
+              parts: [
+                ...message.parts,
+                {
+                  id: uid("part"),
+                  kind: "note",
+                  text: "No file changed yet — asking the model to apply the edit.",
+                },
+              ],
+            }));
+            await runTurn([
+              ...history,
+              { role: "assistant", content: streamed.slice(-4_000) },
+              {
+                role: "user",
+                content:
+                  "You replied without changing a file. The user asked for a code change in this folder. Use read if you still need context, then call write or edit to make the change on disk. Do not repeat the file or the code in chat; apply it, then verify it.",
+              },
+            ]);
+          }
 
           const tokens =
             inputTokens + outputTokens ||
@@ -2287,6 +2353,18 @@ export function App() {
             if (url) setBrowserUrl(url);
             setMode("browser");
             dismissBrowserActivity();
+          }}
+        />
+      )}
+
+      {state.mode !== "browser" && miniPreview && (
+        <MiniBrowser
+          preview={miniPreview}
+          onClose={() => setMiniPreview(null)}
+          onOpen={() => {
+            setBrowserUrl(miniPreview.url);
+            setMode("browser");
+            setMiniPreview(null);
           }}
         />
       )}

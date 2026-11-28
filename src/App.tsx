@@ -1965,6 +1965,24 @@ export function App() {
     }
   }, [state.mode]);
 
+  // Compare belongs to one thread. Opening another thread, or another view,
+  // leaves it instead of keeping the window on the comparison until Exit.
+  useEffect(() => {
+    setCompareOpen(false);
+    setCompareStart(null);
+    setCompareArmed(false);
+  }, [state.activeId, state.view]);
+
+  useEffect(() => {
+    const exit = () => {
+      setCompareOpen(false);
+      setCompareStart(null);
+      setCompareArmed(false);
+    };
+    window.addEventListener("lantas:compare-exit", exit);
+    return () => window.removeEventListener("lantas:compare-exit", exit);
+  }, []);
+
   const overlayOpen =
     paletteOpen ||
     settingsOpen ||

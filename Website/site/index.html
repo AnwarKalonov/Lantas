@@ -84,8 +84,7 @@
     <figure class="v2-hero-shot" data-reveal style="--d:260ms">
       <div class="v2-window">
         <div class="v2-window-body">
-          <img src="assets/img/app-browser.webp" alt="Lantas Browser: a page in the browser with the assistant reading its controls and a blue agent pointer on the screen" width="1360" height="1225" fetchpriority="high">
-          <span class="v2-shot-live"><i></i>Act mode · working</span>
+          <img src="assets/img/app-browser.png" alt="Lantas Browser: the current app, with the mode bar, the thread list and the assistant reading the page beside the browser" width="1440" height="900" fetchpriority="high">
         </div>
       </div>
       <figcaption>Chat, code and the browser in one window. Screenshot from Lantas, not a mock-up.</figcaption>
@@ -284,53 +283,49 @@
   </div>
 </div>
 
-<!-- three surfaces -->
-<section class="v2-sec v2-surfaces" id="surfaces">
+<!-- three surfaces, stacked by scroll -->
+<section class="v2-sec v2-surfaces v2-stack" id="surfaces" data-stack>
   <div class="wrap">
     <header class="v2-head is-wide">
       <div>
         <p class="v2-kicker" data-reveal><span class="dot"></span>The whole desk</p>
         <h2 data-reveal style="--d:60ms">Three surfaces.<br><em>One thread.</em></h2>
       </div>
-      <p class="v2-dek" data-reveal style="--d:120ms">Move from a question to the file to the page without losing the conversation. Every read, edit and command stays in the same thread.</p>
+      <p class="v2-dek" data-reveal style="--d:120ms">Move from a question to the file to the page without losing the conversation. Keep scrolling and the three settle into one window — every read, edit and command stays in the same thread.</p>
     </header>
+  </div>
 
-    <div class="v2-surface-grid">
-      <article class="v2-surface" data-reveal>
-        <div class="v2-surface-shot">
-          <img src="assets/img/app-home.webp" alt="Lantas Chat with a composer, modes, model picker and a thread list" width="1240" height="1225" loading="lazy">
-        </div>
-        <div class="v2-surface-copy">
-          <p class="v2-num">01 · Chat</p>
-          <h3>Ask anything. Keep the thread.</h3>
+  <div class="v2-stack-track">
+    <div class="v2-stack-sticky">
+      <div class="v2-stack-stage">
+        <figure class="v2-stack-card is-a">
+          <img src="assets/img/app-chat.png" alt="Lantas Chat: a project thread with its tool steps, a passing build, and Chats and Projects kept as separate lists" width="1440" height="900" loading="lazy">
+        </figure>
+        <figure class="v2-stack-card is-b">
+          <img src="assets/img/app-code.png" alt="Lantas Code: the file tree, an editor with a real file open, and the assistant panel" width="1440" height="900" loading="lazy">
+        </figure>
+        <figure class="v2-stack-card is-c">
+          <img src="assets/img/app-browser.png" alt="Lantas Browser: the assistant reading the current page beside the browser" width="1440" height="900" loading="lazy">
+        </figure>
+      </div>
+
+      <div class="wrap v2-stack-legend">
+        <div>
+          <span>01</span><b>Chat</b>
           <p>Attach a file, a screenshot or the page in front of you. Rewind a turn, compact a long thread, or switch models mid-task.</p>
-          <span class="v2-tag">⌘K palette</span><span class="v2-tag">attachments</span><span class="v2-tag">rewind</span>
+          <span class="v2-tag">attachments</span><span class="v2-tag">rewind</span><span class="v2-tag">⌘K</span>
         </div>
-      </article>
-
-      <article class="v2-surface" data-reveal style="--d:70ms">
-        <div class="v2-surface-shot">
-          <img src="assets/img/app-code.webp" alt="Lantas Code with a file tree, an editor and an assistant reporting a passing test run" width="1390" height="1225" loading="lazy">
-        </div>
-        <div class="v2-surface-copy">
-          <p class="v2-num">02 · Code</p>
-          <h3>Work in the folder you picked.</h3>
-          <p>Reads the tree, edits as diffs you can inspect or roll back, runs the check and tells you the result. Build, Plan or Chat decides what it may touch.</p>
+        <div>
+          <span>02</span><b>Code</b>
+          <p>Reads the tree, edits as diffs you can inspect or roll back, runs the check and tells you the result.</p>
           <span class="v2-tag">diffs</span><span class="v2-tag">terminal</span><span class="v2-tag">GitHub</span>
         </div>
-      </article>
-
-      <article class="v2-surface" data-reveal style="--d:140ms">
-        <div class="v2-surface-shot">
-          <img src="assets/img/app-browser.webp" alt="Lantas Browser with a page, tabs and the assistant reading the page's controls" width="1360" height="1225" loading="lazy">
-        </div>
-        <div class="v2-surface-copy">
-          <p class="v2-num">03 · Browser</p>
-          <h3>The tab you are already in.</h3>
-          <p>A browser of its own, or your Chrome through the extension. It reads the live page, clicks by label, and re-reads the result instead of guessing from a screenshot.</p>
+        <div>
+          <span>03</span><b>Browser</b>
+          <p>Its own browser, or your Chrome through the extension. It reads the live page, clicks by label and re-reads the result.</p>
           <span class="v2-tag">DOM read</span><span class="v2-tag">scripts</span><span class="v2-tag">screenshots</span>
         </div>
-      </article>
+      </div>
     </div>
   </div>
 </section>

@@ -146,3 +146,39 @@
     if (event.key === 'Escape' && !overlay.hidden) close();
   });
 })();
+
+/* The three surfaces start apart and settle into one pile as the section
+   scrolls. One scroll listener, one transform variable, no layout thrash. */
+(() => {
+  const stack = document.querySelector("[data-stack]");
+  if (!stack) return;
+
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduced) {
+    stack.style.setProperty("--p", "1");
+    stack.classList.add("is-stacked");
+    return;
+  }
+
+  const track = stack.querySelector(".v2-stack-track");
+  if (!track) return;
+  let frame = 0;
+
+  const update = () => {
+    frame = 0;
+    const rect = track.getBoundingClientRect();
+    const travel = Math.max(1, track.offsetHeight - window.innerHeight);
+    const p = Math.min(1, Math.max(0, -rect.top / travel));
+    stack.style.setProperty("--p", p.toFixed(3));
+    stack.classList.toggle("is-stacked", p > 0.66);
+  };
+
+  const onScroll = () => {
+    if (frame) return;
+    frame = window.requestAnimationFrame(update);
+  };
+
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll);
+  update();
+})();

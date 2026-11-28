@@ -175,6 +175,11 @@ export interface Session {
    * histories, so a browser task never overwrites the chat you were writing.
    */
   surface?: Mode;
+  /**
+   * Absolute folder this thread was started in. Project threads live under
+   * their folder in the sidebar; plain chats stay in Chats.
+   */
+  project?: string;
   /** Kept at the top of the sidebar, above the project groups. */
   pinned?: boolean;
   /** Message snapshots for /undo and /redo. */

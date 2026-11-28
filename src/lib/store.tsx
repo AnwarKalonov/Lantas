@@ -43,7 +43,12 @@ export interface ToastMessage {
 interface Store {
   state: AppState;
   activeSession: Session | null;
-  createSession: (agent?: AgentId, provider?: ProviderId, model?: string) => string;
+  createSession: (
+    agent?: AgentId,
+    provider?: ProviderId,
+    model?: string,
+    options?: { project?: string; surface?: Mode; title?: string },
+  ) => string;
   selectSession: (id: string | null) => void;
   deleteSession: (id: string) => void;
   renameSession: (id: string, title: string) => void;
@@ -104,6 +109,7 @@ function normalizeSession(raw: any): Session {
     provider: (raw.provider as ProviderId) ?? (raw.model === "gpt" ? "openai" : "anthropic"),
     model: legacy[model] ?? model,
     surface: raw.surface === "browser" || raw.surface === "code" ? raw.surface : "chat",
+    project: typeof raw.project === "string" && raw.project ? raw.project : undefined,
   } as Session;
 }
 
@@ -480,14 +486,19 @@ export function LantasProvider({ children }: { children: ReactNode }) {
     }
   }, [notify]);
 
-  const createSession = useCallback<Store["createSession"]>((agent, provider, model) => {
-    const surface = stateRef.current.mode;
+  const createSession = useCallback<Store["createSession"]>((agent, provider, model, options) => {
+    const surface = options?.surface ?? stateRef.current.mode;
     // “New thread” on an untouched thread should focus that thread rather than
-    // stacking empty ones in the sidebar every time the plus is pressed.
-    const active = stateRef.current.sessions.find(
-      (session) =>
-        session.id === stateRef.current.activeId && (session.surface ?? "chat") === surface,
-    );
+    // stacking empty ones in the sidebar every time the plus is pressed. A
+    // project's + is different: it always starts a thread in that project.
+    const active = options?.project
+      ? undefined
+      : stateRef.current.sessions.find(
+          (session) =>
+            session.id === stateRef.current.activeId &&
+            (session.surface ?? "chat") === surface &&
+            !session.project,
+        );
     if (active && active.messages.length === 0) {
       setState((prev) => ({ ...prev, activeId: active.id }));
       return active.id;
@@ -499,8 +510,9 @@ export function LantasProvider({ children }: { children: ReactNode }) {
       const local = PROVIDERS.find((item) => item.id === nextProvider)?.local;
       const session: Session = {
         id,
-        title: "New session",
-        cwd: "~/dev/lantas",
+        title: options?.title ?? "New session",
+        cwd: options?.project ?? "~/dev/lantas",
+        project: options?.project,
         branch: "main",
         created: Date.now(),
         updated: Date.now(),

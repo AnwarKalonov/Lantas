@@ -58,16 +58,17 @@ export function Sidebar({
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [projectsOpen, setProjectsOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(true);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const workspaceMenuRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
 
-  // Chat, browser and code keep separate thread lists; the sidebar shows the
-  // ones that belong to the surface you are in.
+  // Chats holds every conversation that is not tied to a project, including
+  // browser threads — clicking one opens the Browser surface. Code threads
+  // live in the editor, not here.
   const surfaceSessions = useMemo(
-    () => state.sessions.filter((session) => (session.surface ?? "chat") === state.mode),
-    [state.sessions, state.mode],
+    () => state.sessions.filter((session) => (session.surface ?? "chat") !== "code"),
+    [state.sessions],
   );
 
   const wanted = query.trim().toLowerCase();
@@ -84,20 +85,27 @@ export function Sidebar({
   );
 
   const pinned = useMemo(
-    () => matched.filter((session) => session.pinned).sort((a, b) => b.updated - a.updated),
+    () =>
+      matched
+        .filter((session) => session.pinned && !session.project)
+        .sort((a, b) => b.updated - a.updated),
     [matched],
   );
 
   const chats = useMemo(
-    () => matched.filter((session) => !session.pinned).sort((a, b) => b.updated - a.updated),
+    () =>
+      matched
+        .filter((session) => !session.pinned && !session.project)
+        .sort((a, b) => b.updated - a.updated),
     [matched],
   );
 
   const projects = useMemo(() => {
     const map = new Map<string, Session[]>();
     matched
+      .filter((session) => session.project)
       .forEach((session) => {
-        const key = session.cwd || "~/dev/lantas";
+        const key = session.project as string;
         map.set(key, [...(map.get(key) ?? []), session]);
       });
     return Array.from(map.entries())
@@ -176,6 +184,18 @@ export function Sidebar({
   };
 
   const openSession = (id: string) => {
+    // A comparison is a view of one thread; opening any thread leaves it.
+    window.dispatchEvent(new CustomEvent("lantas:compare-exit"));
+    setView("chats");
+    selectSession(id);
+  };
+
+  const newProjectThread = (folder: string) => {
+    const id = createSession(undefined, undefined, undefined, {
+      project: folder,
+      surface: "chat",
+    });
+    window.dispatchEvent(new CustomEvent("lantas:compare-exit"));
     setView("chats");
     selectSession(id);
   };
@@ -222,6 +242,11 @@ export function Sidebar({
           />
         ) : (
           <>
+            {session.surface === "browser" && (
+              <span className="thread-surface" title="Browser chat" aria-label="Browser chat">
+                <Icon name="compass" size={11} />
+              </span>
+            )}
             <span className="thread-title" title={session.title}>
               {session.title}
             </span>
@@ -462,23 +487,34 @@ export function Sidebar({
                   const open = !collapsed[project.cwd];
                   return (
                     <div className="nav-project" key={project.cwd}>
-                      <button
-                        type="button"
-                        className="project-head"
-                        onClick={() =>
-                          setCollapsed((prev) => ({ ...prev, [project.cwd]: open }))
-                        }
-                        aria-expanded={open}
-                      >
-                        <Icon
-                          name="chevronDown"
-                          size={12}
-                          className={cx("project-caret", !open && "is-closed")}
-                        />
-                        <Icon name="folder" size={12} className="nav-project-folder" />
-                        <span className="project-name">{project.label}</span>
-                        <span className="project-count">{project.items.length}</span>
-                      </button>
+                      <div className={cx("project-head", "project-head-row")}>
+                        <button
+                          type="button"
+                          className="project-open"
+                          onClick={() =>
+                            setCollapsed((prev) => ({ ...prev, [project.cwd]: open }))
+                          }
+                          aria-expanded={open}
+                        >
+                          <Icon
+                            name="chevronDown"
+                            size={12}
+                            className={cx("project-caret", !open && "is-closed")}
+                          />
+                          <Icon name="folder" size={12} className="nav-project-folder" />
+                          <span className="project-name">{project.label}</span>
+                          <span className="project-count">{project.items.length}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="project-new"
+                          title={`New chat in ${project.label}`}
+                          aria-label={`New chat in ${project.label}`}
+                          onClick={() => newProjectThread(project.cwd)}
+                        >
+                          <Icon name="plus" size={12} />
+                        </button>
+                      </div>
 
                       {open && (
                         <div className="project-body">
@@ -491,7 +527,7 @@ export function Sidebar({
 
                 {projects.length === 0 && (
                   <p className="nav-projects-empty">
-                    Chats opened in a folder are grouped here.
+                    Chats started in a folder live here, separate from your other chats.
                   </p>
                 )}
               </div>

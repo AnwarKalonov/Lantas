@@ -2008,3 +2008,186 @@ body.v2-download { --v2-dl-max: 760px; }
   .v2-reel-links > span, .v2-reel-links small { width: 100%; margin: 0; text-align: center; }
   .v2-reel-overlay { padding: 12px; }
 }
+
+/* ---------- three surfaces: they settle into one stack ---------- */
+
+.v2-stack {
+  --p: 0;
+  padding-bottom: 0;
+}
+
+.v2-window-body { max-height: 720px; }
+
+.v2-stack-track {
+  position: relative;
+  height: 185vh;
+  margin-top: clamp(18px, 3vw, 34px);
+}
+
+.v2-stack-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(16px, 2.4vh, 28px);
+  overflow: hidden;
+}
+
+.v2-stack-stage {
+  position: relative;
+  width: min(100% - 64px, 1040px);
+  height: clamp(340px, 56vh, 580px);
+  margin: 0 auto;
+  perspective: 1600px;
+}
+
+.v2-stack-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(54%, 660px);
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--v2-line-2);
+  border-radius: 14px;
+  background: #0b0d0c;
+  box-shadow:
+    0 2px 3px rgba(23, 32, 28, 0.06),
+    0 34px 70px -34px rgba(23, 32, 28, 0.44),
+    0 8px 20px -14px rgba(23, 32, 28, 0.24);
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+}
+
+.v2-stack-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+[data-theme="dark"] .v2-stack-card {
+  border-color: rgba(231, 242, 234, 0.14);
+  box-shadow: 0 40px 80px -36px rgba(0, 0, 0, 0.72);
+}
+
+/* Each card travels its own vector, then squares up into a loose pile. */
+.v2-stack-card.is-a {
+  z-index: 1;
+  transform:
+    translate(-50%, -50%)
+    translate(calc(-17% + (1 - var(--p)) * -35%), calc(-5% + (1 - var(--p)) * -33%))
+    rotate(calc(-10deg + (1 - var(--p)) * -7deg))
+    scale(calc(0.9 + var(--p) * 0.03));
+}
+
+.v2-stack-card.is-b {
+  z-index: 2;
+  transform:
+    translate(-50%, -50%)
+    translate(calc(17% + (1 - var(--p)) * 35%), calc(5% + (1 - var(--p)) * 31%))
+    rotate(calc(9deg + (1 - var(--p)) * 6deg))
+    scale(calc(0.9 + var(--p) * 0.03));
+}
+
+.v2-stack-card.is-c {
+  z-index: 3;
+  transform:
+    translate(-50%, -50%)
+    translate(calc(-1% + (1 - var(--p)) * 3%), calc(3% + (1 - var(--p)) * 80%))
+    rotate(calc(-1deg + (1 - var(--p)) * 9deg))
+    scale(calc(0.88 + var(--p) * 0.12));
+}
+
+.v2-stack-legend {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(20px, 3vw, 34px);
+  padding-top: clamp(10px, 2vh, 18px);
+  border-top: 1px solid var(--v2-line);
+  opacity: 0.38;
+  transform: translateY(10px);
+  transition: opacity 500ms var(--ease), transform 500ms var(--ease);
+}
+
+.v2-stack.is-stacked .v2-stack-legend {
+  opacity: 1;
+  transform: none;
+}
+
+.v2-stack-legend div > span:first-child {
+  color: var(--v2-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+}
+
+.v2-stack-legend b {
+  display: block;
+  margin: 7px 0 7px;
+  font-family: var(--serif);
+  font-size: clamp(21px, 2vw, 25px);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.v2-stack-legend p {
+  margin: 0;
+  color: var(--v2-muted);
+  font-size: 12.5px;
+  line-height: 1.58;
+}
+
+.v2-stack-legend .v2-tag {
+  margin-top: 10px;
+  font-size: 9px;
+}
+
+@media (max-width: 860px) {
+  .v2-stack-track {
+    height: auto;
+    margin-top: 26px;
+  }
+
+  .v2-stack-sticky {
+    position: static;
+    height: auto;
+    gap: 26px;
+    overflow: visible;
+  }
+
+  .v2-stack-stage {
+    height: auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 0 20px;
+    perspective: none;
+  }
+
+  .v2-stack-card {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 100%;
+    transform: none !important;
+    opacity: 1 !important;
+    border-radius: 12px;
+  }
+
+  .v2-stack-legend {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    width: calc(100% - 40px);
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-stack-track { height: auto; }
+  .v2-stack-sticky { position: static; height: auto; padding: 30px 0; }
+  .v2-stack-legend { opacity: 1; transform: none; transition: none; }
+}

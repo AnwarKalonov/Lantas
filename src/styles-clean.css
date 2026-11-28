@@ -4237,3 +4237,132 @@ html.reduce-motion .thread-time {
 .ss-foot {
   border-radius: 0 0 18px 18px;
 }
+
+/* ── chats, projects and browser threads ─────────────────────────────────── */
+
+/* A browser thread is still a chat; the compass is the only difference. */
+.thread-surface {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-right: -4px;
+  border-radius: 4px;
+  color: var(--text-3);
+  background: var(--sel);
+}
+
+.thread-surface svg {
+  display: block;
+}
+
+.project-head-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  height: 26px;
+  padding: 0 3px 0 6px;
+  border-radius: 6px;
+}
+
+.project-head-row:hover {
+  background: var(--sel);
+}
+
+.project-open {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  color: var(--text-3);
+  font-size: 11.5px;
+  text-align: left;
+}
+
+.project-open .project-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-open .project-count {
+  margin-left: auto;
+}
+
+.project-new {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  color: var(--text-4);
+  opacity: 0;
+  transition:
+    opacity 140ms var(--ease-out),
+    background-color 140ms var(--ease-out),
+    color 140ms var(--ease-out);
+}
+
+.project-head-row:hover .project-new,
+.project-new:focus-visible {
+  opacity: 1;
+}
+
+.project-new:hover {
+  color: var(--text);
+  background: var(--raised);
+}
+
+/* Light is plain white, not tinted paper. Hairlines and spacing do the
+   separating; nothing should read as a cream panel behind the app. */
+[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --raised: #ffffff;
+  --raised-2: #f6f6f4;
+  --overlay: #ffffff;
+
+  --line: rgba(24, 23, 20, 0.11);
+  --line-strong: rgba(24, 23, 20, 0.2);
+
+  --text-2: #48453e;
+  --text-3: #6b6860;
+  --text-4: #96928a;
+
+  --chat-bg: #ffffff;
+  --chat-ink: #24221d;
+  --card-bg: #ffffff;
+  --card-line: rgba(24, 23, 20, 0.13);
+  --pill-bg: #ffffff;
+  --pill-line: rgba(24, 23, 20, 0.17);
+  --thread-active: #f2f1ed;
+  --sel: rgba(24, 23, 20, 0.05);
+  --rail-bg: #ffffff;
+  --nav-bg: #ffffff;
+
+  --ide-bg: #ffffff;
+  --ide-editor: #ffffff;
+  --term-bg: #ffffff;
+}
+
+[data-theme="light"] .titlebar,
+[data-theme="light"] .workspace,
+[data-theme="light"] .main,
+[data-theme="light"] .home,
+[data-theme="light"] .session.chat,
+[data-theme="light"] .chat-surface,
+[data-theme="light"] .nav-panel {
+  background: #ffffff;
+}
+
+[data-theme="light"] .project-new:hover,
+[data-theme="light"] .thread-menu:hover,
+[data-theme="light"] .mode-tab.is-active {
+  background: #ffffff;
+}

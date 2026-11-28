@@ -568,7 +568,9 @@ export function Composer({
                       }
                       return a.localeCompare(b);
                     });
-                  const shown = query === "" ? models.slice(0, 8) : models.slice(0, 40);
+                  // The list scrolls now, so show the provider's models instead
+                  // of hiding all but eight behind the search box.
+                  const shown = models.slice(0, 200);
                   // While searching, only groups with a hit are worth showing.
                   if (query !== "" && (!ready || shown.length === 0)) return null;
 

@@ -2370,52 +2370,138 @@ body.v2-download { --v2-dl-max: 760px; }
   border-bottom-color: color-mix(in srgb, var(--v2-green) 45%, transparent);
 }
 
-/* ---------- the low shore ---------- */
+/* ---------- spectral field: frosted tiles, drifting light, particles ---------- */
 
-.v2-shore {
-  position: relative;
-  height: clamp(92px, 11vw, 148px);
-  margin-top: clamp(-46px, -3vw, -20px);
+.spectral {
+  position: absolute;
+  inset: 0;
   overflow: hidden;
   pointer-events: none;
 }
 
-.v2-shore img {
+/* The gradients are already soft; a full-screen blur filter re-rasterises the
+   whole layer on every frame, so the drift stays transform-only. */
+.v2-page .sky-blob {
+  filter: none;
+}
+
+.v2-page .spectral-light {
+  filter: saturate(1.05);
+}
+
+.spectral-light {
+  position: absolute;
+  inset: -18%;
+  background:
+    radial-gradient(40% 44% at 16% 76%, rgba(158, 184, 200, 0.34), transparent 70%),
+    radial-gradient(36% 40% at 84% 22%, rgba(196, 212, 224, 0.32), transparent 72%),
+    radial-gradient(32% 36% at 62% 90%, rgba(222, 214, 204, 0.26), transparent 74%),
+    radial-gradient(28% 32% at 40% 8%, rgba(255, 255, 255, 0.5), transparent 72%);
+  filter: blur(26px) saturate(1.05);
+  animation: spectral-drift 28s ease-in-out infinite alternate;
+  opacity: 0.68;
+}
+
+@keyframes spectral-drift {
+  from {
+    transform: translate3d(-2%, 1%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(3%, -2%, 0) scale(1.08);
+  }
+}
+
+.spectral-particles {
   position: absolute;
   inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0.95;
+}
+
+/* The install section used to paint over the fixed sky; keep it transparent
+   so the particle field and the low cloud read all the way down the page. */
+.v2-install {
+  background: transparent;
+}
+
+/* ---------- the low shore, pinned to the bottom of the screen ---------- */
+
+.shore-cloud {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  height: clamp(116px, 13vw, 196px);
+  overflow: hidden;
+  pointer-events: none;
+  mask-image: linear-gradient(to top, #000 0 42%, rgba(0, 0, 0, 0.6) 76%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, #000 0 42%, rgba(0, 0, 0, 0.6) 76%, transparent 100%);
+}
+
+.shore-cloud img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: center bottom;
-  opacity: 0.82;
-  filter: saturate(0.94);
+  opacity: 0.94;
+  filter: saturate(0.94) contrast(1.02);
+  animation: shore-drift 34s ease-in-out infinite alternate;
 }
 
-.v2-shore::after {
+.shore-cloud::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, var(--v2-bg) 0%, transparent 58%);
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.18), transparent 70%);
 }
 
-[data-theme="dark"] .v2-shore img {
-  opacity: 0.2;
-  filter: grayscale(0.35) brightness(0.62);
+/* keep the footer copy clear of the bank */
+.v2-page .footer {
+  padding-bottom: clamp(96px, 12vw, 156px);
 }
 
-@media (max-width: 860px) {
-  .v2-made-grid {
-    grid-template-columns: 1fr;
+@keyframes shore-drift {
+  from {
+    transform: translate3d(-1.4%, 0, 0) scale(1.02);
   }
+  to {
+    transform: translate3d(1.4%, -1%, 0) scale(1.04);
+  }
+}
+
+[data-theme="dark"] .spectral-light {
+  opacity: 0.5;
+}
+
+[data-theme="dark"] .spectral-particles {
+  opacity: 0.8;
+}
+
+[data-theme="dark"] .shore-cloud img {
+  opacity: 0.62;
+  filter: grayscale(0.16) brightness(0.72);
+}
+
+[data-theme="dark"] .shore-cloud::after {
+  background: linear-gradient(to top, rgba(12, 17, 14, 0.42), transparent 70%);
 }
 
 @media (max-width: 640px) {
-  .v2-made-foot {
-    flex-direction: column;
-    align-items: flex-start;
+  .shore-cloud {
+    height: 96px;
   }
 
-  .v2-shore {
-    height: 84px;
+  .v2-page .footer {
+    padding-bottom: 104px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spectral-light,
+  .shore-cloud img {
+    animation: none;
   }
 }

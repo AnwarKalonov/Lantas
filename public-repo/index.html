@@ -19,6 +19,17 @@
   <div class="sky sky-blob" data-depth="0.05" style="--x:-8%;--y:6%;--s:640px;--o:.55"></div>
   <div class="sky sky-blob" data-depth="-0.04" style="--x:66%;--y:40%;--s:560px;--o:.4"></div>
   <div class="sky sky-blob" data-depth="0.08" style="--x:28%;--y:82%;--s:520px;--o:.32"></div>
+
+  <!-- a slow field of cloud particles that answers the pointer -->
+  <div class="spectral" data-spectral>
+    <div class="spectral-light"></div>
+    <canvas class="spectral-particles" data-spectral-canvas></canvas>
+  </div>
+</div>
+
+<!-- the low shore sits on the bottom of the screen, whatever the scroll -->
+<div class="shore-cloud" aria-hidden="true">
+  <img src="assets/img/cloud-horizon-cut.webp" alt="" width="1568" height="300">
 </div>
 
 <header class="nav">
@@ -431,11 +442,6 @@
 
 </main>
 
-<!-- the low shore of cloud the page settles onto -->
-<div class="v2-shore" aria-hidden="true">
-  <img src="assets/img/cloud-horizon-cut.webp" alt="" width="1568" height="300" loading="lazy">
-</div>
-
 <footer class="footer">
   <div class="wrap">
     <div class="foot-top">
@@ -463,5 +469,6 @@
 
 <script src="assets/site.js"></script>
 <script src="assets/v2.js"></script>
+<script src="assets/spectral.js" defer></script>
 </body>
 </html>

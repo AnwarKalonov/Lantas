@@ -77,6 +77,26 @@ body {
   overflow-x: clip;
 }
 
+/* the docs keep a plain white page instead of the warm paper */
+body.doc-page {
+  background: #fff;
+}
+
+html[data-theme="light"] body.doc-page {
+  --paper: #ffffff;
+  --paper-2: #f4f6f6;
+  --paper-3: #eaeeee;
+  --card: #ffffff;
+}
+
+html[data-theme="light"] body.doc-page .nav {
+  background: rgba(255, 255, 255, 0.84);
+}
+
+html[data-theme="light"] body.doc-page .nav.stuck {
+  background: rgba(255, 255, 255, 0.94);
+}
+
 ::selection {
   background: rgba(44, 106, 78, 0.16);
   color: var(--ink);

@@ -9,6 +9,7 @@ Every public version of Lantas, and the changes a person using it will notice. N
 - **The original lockup on Home.** The full Lantas cloud-and-wordmark artwork sits above the greeting again, at a size that belongs on the first screen.
 - **Download totals on the website and GitHub.** The download page, home page, versions page and README all read the public GitHub release assets, so the number is the same everywhere and needs no manual update.
 - **A public changelog.** This file records each version and the changes in it, with a short entry added as work lands.
+- **A living sky on the website.** The home page draws a slow field of cloud particles in one canvas, and the pointer carries a breathing halo: a noisy ring that swells, pushes what it passes and sends an outer wave through the field. The behaviour is ported from [BreathDearMedusae](https://github.com/ewohlken2/BreathDearMedusae) and recoloured to the Lantas palette, with a lifted palette for dark mode.
 
 ### Changed
 
@@ -21,9 +22,13 @@ Every public version of Lantas, and the changes a person using it will notice. N
 - **GitHub lives in the workspace.** Connect a personal access token, pick an existing repository or create one, set the origin, stage files, commit, pull and push without leaving the Code surface. The token is kept in local app storage and sent only to GitHub.
 - **Screen control is part of the assistant.** The floating screen card can read the front window through Accessibility, click or type the control it names, draw the pointer where it acts, and fall back to a labelled grid when a control has no accessible name. Screen Recording and Accessibility remain macOS permissions the user grants.
 - **Browser and extension stay in step.** Native and Chrome tabs share the same tab strip, agent actions return a fresh page read, and the extension keeps the page in the user's own profile.
+- **Documentation is plain white.** The docs page, its nav and its code blocks moved off the warm paper ramp to a neutral white page, in light mode; dark mode is unchanged.
+- **The website is cheaper to draw.** The full-screen blur filters on the sky wash and cloud blobs are gone (the gradients already read as soft), the particle canvas renders at 1× and caps at 30fps, and the field pauses when the tab is hidden.
 
 ### Fixed
 
+- **The bottom cloud stays at the bottom of the screen.** The low cloud bank is now its own fixed layer pinned to the viewport edge at every scroll position, instead of sitting at the foot of the page, and the footer keeps clear of it.
+- **The particle field is visible again.** The frosted-tile grid that covered the whole viewport — and hid the sky behind it — was removed.
 - Version metadata now agrees across the app, CLI, Tauri bundle and website at **1.3.0**.
 - The send button no longer turns green in light mode; the primary action is neutral in both themes.
 - The public README now links the changelog, release notes and download total, and the credits list only the technologies the app uses.

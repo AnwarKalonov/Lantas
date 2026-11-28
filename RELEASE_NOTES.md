@@ -1,5 +1,9 @@
 Lantas 1.3.0
 
+- **The website moves like weather.** The home page sits in a slow field of cloud particles, and the pointer carries a breathing halo that swells, pushes and spins the particles it passes. It is ported from BreathDearMedusae and recoloured to the Lantas palette.
+- **The cloud line stays put.** The low cloud bank is fixed to the bottom of the screen at every scroll position instead of sitting at the page foot, and the footer keeps clear of it.
+- **Docs are plain white.** The documentation page, its nav and its code blocks moved off the warm paper ramp to a neutral white page. Dark mode is unchanged.
+- **A steadier frame.** The full-screen blur filters on the sky were removed, the particle canvas renders at 1× and caps at 30fps, and the field stops when the tab is hidden.
 - **The original lockup is back on Home.** The full cloud-and-wordmark artwork sits above the greeting again, at the size it had before the detour — the first thing you see when Lantas opens.
 - **The app is quiet again.** One neutral surface treatment across the sidebar, title bar, composer, transcript, approval card, question card and permissions sheet. Workspace and provider status live in the footer, thread titles get the room, and the IDE assistant no longer crowds the editor.
 - **Chat reads like a conversation.** Reasoning stays out of the reply, a long run folds into one line that opens when you want it, and file edits arrive as a single review card with Keep and Discard rather than a trail of diffs.

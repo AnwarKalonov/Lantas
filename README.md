@@ -11,7 +11,7 @@
 
 No account, no subscription, no telemetry. Bring a model key, or run a model locally.
 
-**[Download for macOS →](https://lantas-phi.vercel.app/download.html)** · [Website](https://lantas-phi.vercel.app)
+**[Download for macOS →](https://lantasapp.vercel.app/download.html)** · [Website](https://lantasapp.vercel.app)
 
 [![Total downloads](https://img.shields.io/github/downloads/AnwarKalonov/Lantas/total?style=flat-square&label=downloads&color=2c6a4e)](https://github.com/AnwarKalonov/Lantas/releases)
 
@@ -21,6 +21,7 @@ No account, no subscription, no telemetry. Bring a model key, or run a model loc
 
 ## Contents
 
+- [What's new in 1.3.0](#whats-new-in-130)
 - [What Lantas is](#what-lantas-is)
 - [The three surfaces](#the-three-surfaces)
 - [Browser agent design](#browser-agent-design)
@@ -35,6 +36,14 @@ No account, no subscription, no telemetry. Bring a model key, or run a model loc
 - [Troubleshooting](#troubleshooting)
 - [Credits](#credits)
 - [Licence and credit](#licence-and-credit)
+
+## What's new in 1.3.0
+
+**The app.** The original cloud-and-wordmark lockup is back on Home, and the window has one quiet surface from the sidebar to the composer. Chat reads like a conversation: reasoning stays out of the reply, a long run folds into a single line, and edits arrive as one review card with **Keep** and **Discard**. Every control presses in and releases on a spring — **Reduce motion** turns that off. Light theme is finished, with one primary action colour and green only for live status. The IDE follows the folder: edits made in another editor come back, new files appear, deleted ones leave the tree. GitHub lives in the Code surface — token, repository, origin, stage, commit, pull, push. The floating screen card reads the front window and acts with a visible pointer.
+
+**The site.** The home page now sits in a slow field of cloud particles, and the pointer carries a breathing halo that swells, pushes and spins the particles it passes — ported from [BreathDearMedusae](https://github.com/ewohlken2/BreathDearMedusae) and recoloured to the Lantas palette. The low cloud line is fixed to the bottom of the screen instead of the bottom of the page, the documentation runs on plain white paper, and the full-screen blur filters were removed for a cheaper, steadier frame.
+
+Download, release notes and the full changelog: [lantasapp.vercel.app](https://lantasapp.vercel.app) · [CHANGELOG.md](CHANGELOG.md).
 
 ## What Lantas is
 
@@ -160,7 +169,7 @@ The browser tool can list, switch, open and close tabs through the same tab stri
 
 ## Install
 
-Download the current macOS build from the [website](https://lantas-phi.vercel.app/download.html) or the [releases page](https://github.com/AnwarKalonov/Lantas/releases). Unzip it and drag **Lantas.app** to Applications.
+Download the current macOS build from the [website](https://lantasapp.vercel.app/download.html) or the [releases page](https://github.com/AnwarKalonov/Lantas/releases). Unzip it and drag **Lantas.app** to Applications.
 
 Releases and the source live in the same public repository, so those links and the in-app updater work without an account.
 

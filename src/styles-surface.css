@@ -186,6 +186,14 @@ html.is-dragging-mini .mini-browser iframe {
   position: relative;
 }
 
+/* The drag handle sits on the seam, a few pixels outside the panel. Keep the
+   rail itself unclipped so the handle is easy to grab; the transcript inside
+   already scrolls and clips its own content. */
+.el .el-ai.trust-panel,
+.ide .ide-assistant.trust-panel {
+  overflow: visible;
+}
+
 .rail-resizer {
   position: absolute;
   top: 0;

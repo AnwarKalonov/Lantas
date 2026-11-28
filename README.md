@@ -38,11 +38,19 @@ No account, no subscription, no telemetry. Bring a model key, or run a model loc
 
 ## What's new in 1.3.0
 
-**The app.** The original cloud-and-wordmark lockup is back on Home, and the window has one quiet surface from the sidebar to the composer. Chat reads like a conversation: reasoning stays out of the reply, a long run folds into a single line, and edits arrive as one review card with **Keep** and **Discard**. Every control presses in and releases on a spring — **Reduce motion** turns that off. Light theme is finished, with one primary action colour and green only for live status. The IDE follows the folder: edits made in another editor come back, new files appear, deleted ones leave the tree. GitHub lives in the Code surface — token, repository, origin, stage, commit, pull, push. The floating screen card reads the front window and acts with a visible pointer.
+**The app got quieter, and a lot more capable.**
 
-**The site.** The home page now sits in a slow field of cloud particles, and the pointer carries a breathing halo that swells, pushes and spins the particles it passes — ported from [BreathDearMedusae](https://github.com/ewohlken2/BreathDearMedusae) and recoloured to the Lantas palette. The low cloud line is fixed to the bottom of the screen instead of the bottom of the page, the documentation runs on plain white paper, and the full-screen blur filters were removed for a cheaper, steadier frame.
+- **It can use your Mac.** Point the assistant at a window and it reads the controls actually on screen, moves the real pointer, clicks and types, then reads the window again to check the step landed. Touch anything yourself and control comes straight back. Screen Recording and Accessibility are the only permissions it asks for, and they stay under your control in System Settings.
+- **GitHub lives in the Code tab.** Add a token, choose an existing repository or create one, set the origin, stage files, commit, pull and push without leaving the window. The token stays in local storage and is sent only to GitHub.
+- **Edits arrive as one card.** A run no longer scatters ten diffs through the transcript. Every change lands in a single review card with **Keep** and **Discard**, and the model's reasoning stays out of the answer.
+- **The IDE follows the folder.** Change a file in another editor and it comes back, create one and it appears in the tree, delete one and it leaves the tree and any pending review.
+- **One quiet surface.** The sidebar, title bar, composer, transcript and cards now share one treatment, provider and workspace status sit in the footer, and threads show their title first. Home is the lockup, one sentence, the composer and three example actions.
+- **Light theme is finished.** Both themes use the same neutral palette and one primary action colour; green is kept for live status only.
+- **Every click has weight.** Controls press in and release on a spring, menus grow from their anchor, and a new thread settles into the list. **Reduce motion** in Settings turns all of it off.
+- **Browser and extension stay in step.** Native and Chrome tabs share one strip, and every agent action returns a fresh page read.
+- **Fixed.** The send button no longer turns green in light mode, version numbers now agree across the app, the CLI and the bundle, and a long run folds into one line instead of a wall of steps.
 
-Download, release notes and the full changelog: [lantasapp.vercel.app](https://lantasapp.vercel.app) · [CHANGELOG.md](CHANGELOG.md).
+Full changelog: [CHANGELOG.md](CHANGELOG.md).
 
 ## What Lantas is
 
